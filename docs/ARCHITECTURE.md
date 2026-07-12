@@ -45,7 +45,7 @@ src/modules/{name}/
 ├── views/           # Route-level pages
 ├── components/      # Module widgets
 ├── composables/     # Module-local data helpers
-└── routes.js        # Merged into the central router
+└── routes.ts        # Merged into the central router
 ```
 
 Shared infrastructure (planned):
@@ -53,9 +53,9 @@ Shared infrastructure (planned):
 ```
 src/
 ├── stores/                # Pinia (auth, preferences, …)
-├── composables/useApi.js  # HTTP wrapper with auth header
-├── services/api.js        # Base client config
-└── router/index.js
+├── composables/useApi.ts  # HTTP wrapper with auth header
+├── services/api.ts        # Base client config
+└── router/index.ts
 ```
 
 ## Planned dashboard modules
@@ -86,7 +86,7 @@ Exact widgets are defined when each milestone is specified.
 
 ## PrimeVue
 
-PrimeVue 4 + Aura is configured in `src/main.js`. Prefer per-component imports. Use the design system already in the repo; don’t invent a parallel UI kit per module.
+PrimeVue 4 + Aura is configured in `src/main.ts`. Prefer per-component imports. Use the design system already in the repo; don’t invent a parallel UI kit per module.
 
 ## Build & delivery
 

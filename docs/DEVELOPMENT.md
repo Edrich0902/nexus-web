@@ -12,7 +12,8 @@
 ```bash
 cd nexus-web
 npm install
-npm run build
+npm run typecheck   # vue-tsc
+npm run prod        # typecheck + production build → dist/prod
 ```
 
 Open [http://nexus.test](http://nexus.test).
@@ -38,7 +39,7 @@ npm run dev
 Vite dev server runs on `http://localhost:5173` by default. This bypasses nginx. Configure a proxy to the API if needed:
 
 ```js
-// vite.config.js (when added)
+// vite.config.ts
 export default defineConfig({
   plugins: [vue()],
   server: {
@@ -73,7 +74,7 @@ npm install axios             # HTTP client for API calls (or fetch wrapper)
 
 See [VISION.md](VISION.md) and [ROADMAP.md](ROADMAP.md) for product milestones; keep feature docs high-level until a milestone is actively specified.
 
-PrimeVue components are imported individually — no global registration needed beyond the config in `main.js`.
+PrimeVue components are imported individually — no global registration needed beyond the config in `main.ts`.
 
 ## Adding a New Module
 
@@ -87,7 +88,7 @@ Before scaffolding: confirm the matching API milestone is underway (see [VISION.
 
 ## PrimeVue Theming
 
-Aura theme is set in `src/main.js`. To customize:
+Aura theme is set in `src/main.ts`. To customize:
 
 ```js
 app.use(PrimeVue, {

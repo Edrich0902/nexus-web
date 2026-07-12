@@ -12,7 +12,7 @@ Application skeleton and dashboard shell.
 
 **Done**
 
-- [x] Vue 3 + Vite project scaffold
+- [x] Vue 3 + Vite + TypeScript project scaffold
 - [x] PrimeVue 4 + Aura theme configured
 - [x] Production build served via nginx at `nexus.test`
 

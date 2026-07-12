@@ -3,7 +3,7 @@
 @import 'primeicons/primeicons.css';
 
 :root {
-  /* Brand tokens — keep in sync with src/theme/nexus-preset.js */
+  /* Brand tokens — keep in sync with src/theme/nexus-preset.ts */
   --coffee-bean: #1a090d;
   --lavender-blush: #f6e8ea;
   --bubblegum-pink: #ef626c;

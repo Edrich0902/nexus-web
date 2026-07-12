@@ -57,7 +57,7 @@ VITE_API_BASE_URL=http://api.nexus.test
 
 ```
 src/
-├── main.js              # App bootstrap, PrimeVue config
+├── main.ts              # App bootstrap, PrimeVue config
 ├── App.vue              # Root layout shell
 ├── assets/              # Static images, icons
 ├── components/          # Shared UI components
