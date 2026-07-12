@@ -79,7 +79,7 @@ Before scaffolding: confirm the matching API milestone is underway (see [VISION.
 3. Add `src/stores/<feature>/<feature>.store.ts` (+ Colada mutations as needed)
 4. Add screen(s) under `src/routes/<feature>/`
 5. Register the route in `src/router/index.ts` with correct `meta`
-6. Add a sidebar nav item in `AppSidebar`
+6. Add a sidebar nav item in `NexusSidebar`
 7. Build and verify at `nexus.test/{path}`
 
 ## PrimeVue Theming

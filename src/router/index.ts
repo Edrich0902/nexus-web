@@ -36,6 +36,42 @@ const routes: RouteRecordRaw[] = [
     meta: handleMeta(true, true, 'Home'),
   },
   {
+    path: '/spotify',
+    name: 'spotify',
+    component: () => import('@routes/spotify/SpotifyView.vue'),
+    meta: handleMeta(true, true, 'Spotify'),
+  },
+  {
+    path: '/spotify/search',
+    name: 'spotify-search',
+    component: () => import('@routes/spotify/SpotifySearchView.vue'),
+    meta: handleMeta(true, true, 'Search'),
+  },
+  {
+    path: '/spotify/library',
+    name: 'spotify-library',
+    component: () => import('@routes/spotify/SpotifyLibraryView.vue'),
+    meta: handleMeta(true, true, 'Library'),
+  },
+  {
+    path: '/spotify/artists/:artistId',
+    name: 'spotify-artist',
+    component: () => import('@routes/spotify/SpotifyArtistView.vue'),
+    meta: handleMeta(true, true, 'Artist'),
+  },
+  {
+    path: '/spotify/albums/:albumId',
+    name: 'spotify-album',
+    component: () => import('@routes/spotify/SpotifyAlbumView.vue'),
+    meta: handleMeta(true, true, 'Album'),
+  },
+  {
+    path: '/spotify/playlists/:playlistId',
+    name: 'spotify-playlist',
+    component: () => import('@routes/spotify/SpotifyPlaylistView.vue'),
+    meta: handleMeta(true, true, 'Playlist'),
+  },
+  {
     path: '/profile',
     component: () => import('@routes/profile/ProfileLayoutView.vue'),
     meta: handleMeta(true, true, 'Profile'),

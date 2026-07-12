@@ -10,6 +10,15 @@
   --bubblegum-pink: #ef626c;
   --blue-slate: #3d5a6c;
   --light-green: #ace894;
+  --spotify-green: #1db954;
+  /* Spotify module card wash — match connect hero */
+  --spotify-card-surface:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--spotify-green) 22%, transparent),
+      transparent 55%
+    ),
+    var(--coffee-bean-panel);
 
   color-scheme: dark;
   font-family:

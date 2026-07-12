@@ -1,19 +1,27 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, type Component } from 'vue'
 import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@stores/auth/auth.store'
 import NexusAvatar from '@components/nexus-avatar/NexusAvatar.vue'
+import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
+
+type SidebarMenuItem = MenuItem & {
+  iconComponent?: Component
+  to?: string
+  matchPrefix?: boolean
+}
 
 const auth = useAuthStore()
 const confirm = useConfirm()
 const router = useRouter()
+const route = useRoute()
 
 const displayName = computed(() => auth.user?.name ?? 'Operator')
 const displayEmail = computed(() => auth.user?.email ?? '')
 
-const items = ref<MenuItem[]>([
+const items = ref<SidebarMenuItem[]>([
   {
     label: 'Station',
     items: [
@@ -24,7 +32,28 @@ const items = ref<MenuItem[]>([
       },
     ],
   },
+  {
+    label: 'Modules',
+    items: [
+      {
+        label: 'Spotify',
+        to: '/spotify',
+        iconComponent: NexusSpotifyIcon,
+        matchPrefix: true,
+      },
+    ],
+  },
 ])
+
+function isNavActive(
+  item: SidebarMenuItem,
+  isExactActive: boolean,
+): boolean {
+  if (item.matchPrefix && item.to) {
+    return route.path === item.to || route.path.startsWith(`${item.to}/`)
+  }
+  return isExactActive
+}
 
 const handleSignOut = (event: Event) => {
   confirm.require({
@@ -81,10 +110,25 @@ const handleSignOut = (event: Event) => {
             v-ripple
             :href="href"
             v-bind="props.action"
-            :class="{ 'nav-item--active': isExactActive }"
+            :class="{
+              'nav-item--active': isNavActive(
+                item as SidebarMenuItem,
+                isExactActive,
+              ),
+            }"
             @click="navigate"
           >
-            <span :class="item.icon" class="w-5 text-center text-base shrink-0" />
+            <component
+              :is="(item as SidebarMenuItem).iconComponent"
+              v-if="(item as SidebarMenuItem).iconComponent"
+              class="nav-icon"
+              :size="18"
+            />
+            <span
+              v-else-if="item.icon"
+              :class="item.icon"
+              class="w-5 text-center text-base shrink-0"
+            />
             <span class="nav-label">{{ item.label }}</span>
           </a>
         </router-link>
@@ -197,6 +241,17 @@ const handleSignOut = (event: Event) => {
 .app-sidebar a.nav-item--active {
   background: color-mix(in srgb, var(--bubblegum-pink) 18%, transparent);
   color: var(--bubblegum-pink);
+}
+
+.nav-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  color: #1db954;
+}
+
+.nav-item--active .nav-icon {
+  color: #1db954;
 }
 
 .nav-label {

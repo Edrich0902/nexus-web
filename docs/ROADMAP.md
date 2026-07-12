@@ -30,15 +30,25 @@ Application skeleton and dashboard shell.
 
 ## Milestone 1 — Spotify
 
-**Intent:** Connect Spotify via the API OAuth flow and visualize listening data.
+**Intent:** Connect Spotify via the API OAuth flow and use Nexus as a Connect remote plus listening hub.
 
-At kickoff: match whatever the API exposes (status, recent, tops, stats) and design widgets around that — not a fixed widget list written years ahead.
+**Done (M1)**
 
-Rough expectations:
+- [x] Connect / disconnect / sync / reauth UX (`/spotify`, OAuth return query handling)
+- [x] Live Now Playing remote (device label, transport, seek, transfer, like)
+- [x] Recently played + playlists browse/detail + context playback
+- [x] Taste / suggestions band (heuristic aggregates)
+- [x] Home resume widget (last / now playing → one-click play)
 
-- Connect / disconnect / sync status
-- Recent plays and top artists/tracks (or equivalent)
-- Simple listening stats where the API provides them
+### Milestone 1.1 — Full Spotify Web API surfaces
+
+- [x] Queue panel + add-to-queue from track actions / player
+- [x] Search (`/spotify/search`, limit 10) with play / queue / like
+- [x] Add to playlist from any track surface
+- [x] Artist + album detail routes (catalog proxy with graceful degrade)
+- [x] Library browser (liked songs / albums / followed artists + `user-follow-read`)
+- [x] Taste heuristics v2 (on-repeat, time-of-day skew, ranked suggestions)
+- [x] Hearts batching, keyboard shortcuts (Space / ← / →), Home on-repeat strip
 
 ---
 
@@ -119,3 +129,5 @@ Those belong to the future mobile client consuming the same API.
 | 2026-07-12 | Pinia as planned state layer | Auth + shared hub state across modules |
 | 2026-07-12 | Roadmaps stay milestone-level | Spec UI when the milestone starts |
 | 2026-07-12 | Expanded vision pillars | GitHub, media vaults, optional Instagram, mobile photo intake |
+| 2026-07-12 | Spotify M1 UI ships | Remote control + aggregates + Home resume widget against `/api/v1/spotify` |
+| 2026-07-12 | Spotify M1.1 surfaces | Search, queue, library, artist/album, add-to-playlist, heuristics v2 |
