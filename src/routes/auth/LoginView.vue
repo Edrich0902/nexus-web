@@ -11,7 +11,6 @@ const route = useRoute()
 const email = ref('')
 const password = ref('')
 const remember = ref(false)
-const year = new Date().getFullYear()
 
 const submitting = ref(false)
 
@@ -147,20 +146,6 @@ async function onSubmit(): Promise<void> {
         </div>
       </div>
     </div>
-
-    <footer
-      class="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 pb-4 text-xs text-surface-500"
-    >
-      <p class="m-0">
-        <span class="text-primary">Nexus Hub</span>
-        © {{ year }} Nexus Hub Command Station. All rights reserved.
-      </p>
-      <nav class="flex items-center gap-4">
-        <a href="#" class="hover:text-surface-300 transition-colors">Security</a>
-        <a href="#" class="hover:text-surface-300 transition-colors">Terms</a>
-        <a href="#" class="hover:text-surface-300 transition-colors">Privacy</a>
-      </nav>
-    </footer>
   </div>
 </template>
 
