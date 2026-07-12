@@ -33,7 +33,12 @@ const auth = useAuthStore()
       </div>
       <div class="flex flex-row items-center gap-x-2">
         <slot name="toolbar" />
-        <NexusAvatar v-if="auth.user" :user="auth.user" menu />
+        <NexusAvatar
+          v-if="auth.user"
+          :user="auth.user"
+          menu
+          size="normal"
+        />
       </div>
     </div>
     <slot />
