@@ -60,7 +60,7 @@ src/
 ├── main.ts                 # Bootstrap: Pinia → Colada → auth.initialise → router
 ├── App.vue                 # Shell: sidebar + RouterView
 ├── routes/                 # Route screens (*View.vue)
-├── components/             # Shared UI (sidebar, page-wrapper, …)
+├── components/             # Nexus* reusable UI (nexus-avatar, nexus-sidebar, …)
 ├── stores/                 # Pinia stores + Colada mutations
 ├── services/               # <model>.service.ts (axios)
 ├── types/                  # TypeScript types

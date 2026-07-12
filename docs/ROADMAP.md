@@ -24,6 +24,7 @@ Application skeleton and dashboard shell.
 - [x] Auth / login view against Sanctum bearer tokens
 - [x] Dashboard layout shell (sidebar + `RouterView`)
 - [x] Home view with placeholder content
+- [x] Account area — `NexusAvatar` toolbar menu, profile details, active sessions
 
 ---
 

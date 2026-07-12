@@ -34,7 +34,7 @@ Vision and sequencing: [VISION.md](VISION.md), [ROADMAP.md](ROADMAP.md).
 ```
 src/
 ├── routes/                  # Route-level screens (*View.vue)
-├── components/<group>/      # Reusable UI (sidebar, page-wrapper, …)
+├── components/nexus-*/      # Reusable Nexus* UI library
 ├── stores/<domain>/         # Pinia stores (+ Colada mutations)
 ├── services/                # <model>.service.ts — axios API calls
 ├── types/                   # TypeScript types only
@@ -50,15 +50,26 @@ routes/*View.vue → stores → Pinia Colada → services → lib/http.ts → AP
 
 Screens consume stores only. Stores call services (via Colada for interactive mutations). Never import services from routes/components.
 
+Reusable components are prefixed **`Nexus`** (`NexusAvatar`, `NexusPageWrapper`, `NexusSidebar`, …).
+
 ## Layout shell
 
 | Region | Purpose |
 |--------|---------|
-| Sidebar | Module navigation (`meta.showMenu`) |
+| Sidebar | Module navigation (`NexusSidebar`, `meta.showMenu`) |
 | Main content | Active route (`RouterView`) |
-| Page toolbar | Title + sidebar toggle (`PageWrapper`) |
+| Page toolbar | Title + sidebar toggle + account `NexusAvatar` (`NexusPageWrapper`) |
 
 `App.vue` shows the sidebar when `route.meta.showMenu` is true, then renders `RouterView`.
+
+## Account area
+
+| Path | Purpose |
+|------|---------|
+| `/profile` | Edit display name (email read-only for now) |
+| `/profile/sessions` | List / revoke active Sanctum device sessions |
+
+Entry: toolbar avatar menu → Profile. Sessions are a profile subnav item, not a sidebar link.
 
 ## Planned dashboard areas
 

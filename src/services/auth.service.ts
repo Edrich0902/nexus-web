@@ -4,6 +4,7 @@ import {
   type AuthTokenResponse,
   type LoginPayload,
 } from '@/types/auth/auth'
+import type { DeviceSession } from '@/types/auth/device-session'
 import type { User } from '@/types/user/user'
 
 const AUTH_BASE = '/api/v1/auth'
@@ -34,4 +35,13 @@ export async function logout(): Promise<void> {
 
 export async function logoutAll(): Promise<void> {
   await http.post(`${AUTH_BASE}/logout-all`)
+}
+
+export async function listSessions(): Promise<DeviceSession[]> {
+  const { data } = await http.get<DeviceSession[]>(`${AUTH_BASE}/sessions`)
+  return data
+}
+
+export async function revokeSession(tokenId: number): Promise<void> {
+  await http.delete(`${AUTH_BASE}/sessions/${tokenId}`)
 }

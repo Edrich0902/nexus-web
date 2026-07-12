@@ -12,16 +12,21 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppSidebar: typeof import('./components/sidebar/AppSidebar.vue')['default']
+    Avatar: typeof import('primevue/avatar')['default']
     Button: typeof import('primevue/button')['default']
     Checkbox: typeof import('primevue/checkbox')['default']
     ConfirmPopup: typeof import('primevue/confirmpopup')['default']
     InputText: typeof import('primevue/inputtext')['default']
     Menu: typeof import('primevue/menu')['default']
     Message: typeof import('primevue/message')['default']
+    NexusAvatar: typeof import('./components/nexus-avatar/NexusAvatar.vue')['default']
+    NexusPageWrapper: typeof import('./components/nexus-page-wrapper/NexusPageWrapper.vue')['default']
+    NexusSidebar: typeof import('./components/nexus-sidebar/NexusSidebar.vue')['default']
     PageWrapper: typeof import('./components/page-wrapper/PageWrapper.vue')['default']
     Password: typeof import('primevue/password')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    Tag: typeof import('primevue/tag')['default']
     Toast: typeof import('primevue/toast')['default']
   }
   export interface GlobalDirectives {

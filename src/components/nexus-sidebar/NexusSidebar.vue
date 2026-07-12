@@ -4,6 +4,7 @@ import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@stores/auth/auth.store'
+import NexusAvatar from '@components/nexus-avatar/NexusAvatar.vue'
 
 const auth = useAuthStore()
 const confirm = useConfirm()
@@ -11,15 +12,6 @@ const router = useRouter()
 
 const displayName = computed(() => auth.user?.name ?? 'Operator')
 const displayEmail = computed(() => auth.user?.email ?? '')
-const initials = computed(() => {
-  const name = auth.user?.name?.trim()
-  if (!name) return '?'
-  const parts = name.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) {
-    return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase()
-  }
-  return name.slice(0, 2).toUpperCase()
-})
 
 const items = ref<MenuItem[]>([
   {
@@ -111,11 +103,7 @@ const handleSignOut = (event: Event) => {
       <template #end>
         <div class="sidebar-footer">
           <div class="flex items-center gap-3">
-            <div
-              class="flex items-center justify-center w-10 h-10 rounded-full bg-primary/20 text-primary text-sm font-semibold shrink-0"
-            >
-              {{ initials }}
-            </div>
+            <NexusAvatar v-if="auth.user" :user="auth.user" size="normal" />
             <div class="flex flex-col min-w-0 flex-1 leading-tight">
               <span
                 class="text-sm font-medium text-[var(--lavender-blush)] truncate"
@@ -151,7 +139,6 @@ const handleSignOut = (event: Event) => {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 
-/* Force every PrimeVue menu surface onto the elevated coffee-bean panel */
 .sidebar-shell :deep(.p-menu),
 .sidebar-shell :deep(.p-menu-list),
 .sidebar-shell :deep(.p-menu-start),

@@ -36,6 +36,25 @@ const routes: RouteRecordRaw[] = [
     meta: handleMeta(true, true, 'Home'),
   },
   {
+    path: '/profile',
+    component: () => import('@routes/profile/ProfileLayoutView.vue'),
+    meta: handleMeta(true, true, 'Profile'),
+    children: [
+      {
+        path: '',
+        name: 'profile',
+        component: () => import('@routes/profile/ProfileDetailsView.vue'),
+        meta: handleMeta(true, true, 'Profile'),
+      },
+      {
+        path: 'sessions',
+        name: 'profile-sessions',
+        component: () => import('@routes/profile/ProfileSessionsView.vue'),
+        meta: handleMeta(true, true, 'Sessions'),
+      },
+    ],
+  },
+  {
     path: '/',
     redirect: { name: 'home' },
   },

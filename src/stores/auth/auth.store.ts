@@ -8,10 +8,13 @@ import {
 } from '@lib/http'
 import {
   useLoginMutation,
+  useLogoutAllMutation,
   useLogoutMutation,
   useRefreshMutation,
+  useRevokeSessionMutation,
 } from '@stores/auth/auth.mutations'
 import type { LoginPayload } from '@/types/auth/auth'
+import type { DeviceSession } from '@/types/auth/device-session'
 import type { User } from '@/types/user/user'
 import { Status } from '@/types/status'
 import { isAxiosError } from 'axios'
@@ -23,11 +26,15 @@ export const useAuthStore = defineStore('auth', () => {
   const expiresAt = ref<string | null>(null)
   const status = ref<Status>(Status.UNINITIALIZED)
   const message = ref('')
+  const sessions = ref<DeviceSession[]>([])
+  const sessionsStatus = ref<Status>(Status.UNINITIALIZED)
 
   const toast = useToast()
   const loginMutation = useLoginMutation()
   const logoutMutation = useLogoutMutation()
   const refreshMutation = useRefreshMutation()
+  const revokeSessionMutation = useRevokeSessionMutation()
+  const logoutAllMutation = useLogoutAllMutation()
 
   function persistSession(nextToken: string, nextExpiresAt: string): void {
     token.value = nextToken
@@ -40,7 +47,13 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     token.value = null
     expiresAt.value = null
+    sessions.value = []
+    sessionsStatus.value = Status.UNINITIALIZED
     writeStoredSession(null)
+  }
+
+  function setUser(next: User): void {
+    user.value = next
   }
 
   function applyTokenResponse(response: {
@@ -132,6 +145,116 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function fetchSessions(): Promise<boolean> {
+    sessionsStatus.value = Status.LOADING
+    try {
+      sessions.value = await authService.listSessions()
+      sessionsStatus.value = Status.OK
+      return true
+    } catch (error) {
+      sessionsStatus.value = Status.ERROR
+      toast.add({
+        severity: 'error',
+        summary: 'Sessions unavailable',
+        detail: extractErrorMessage(error, 'Unable to load active sessions'),
+        life: 3000,
+      })
+      return false
+    }
+  }
+
+  /**
+   * Revoke a device session.
+   * @returns `'signed-out'` when the current session was revoked; `true` otherwise on success; `false` on failure.
+   */
+  async function revokeSession(
+    tokenId: number,
+  ): Promise<'signed-out' | boolean> {
+    const target = sessions.value.find((s) => s.id === tokenId)
+    const wasCurrent = target?.is_current === true
+
+    try {
+      await revokeSessionMutation.mutateAsync(tokenId)
+
+      if (wasCurrent) {
+        clearSession()
+        status.value = Status.UNAUTHENTICATED
+        toast.add({
+          severity: 'info',
+          summary: 'Session ended',
+          detail: 'You signed out of this device',
+          life: 2000,
+        })
+        return 'signed-out'
+      }
+
+      await fetchSessions()
+      toast.add({
+        severity: 'success',
+        summary: 'Session revoked',
+        detail: 'That device is no longer signed in',
+        life: 2000,
+      })
+      return true
+    } catch (error) {
+      toast.add({
+        severity: 'error',
+        summary: 'Revoke failed',
+        detail: extractErrorMessage(error, 'Unable to revoke session'),
+        life: 3000,
+      })
+      return false
+    }
+  }
+
+  async function revokeOtherSessions(): Promise<boolean> {
+    const others = sessions.value.filter((s) => !s.is_current)
+    if (others.length === 0) {
+      toast.add({
+        severity: 'info',
+        summary: 'No other sessions',
+        detail: 'Only this device is signed in',
+        life: 2000,
+      })
+      return true
+    }
+
+    try {
+      await Promise.all(
+        others.map((session) => revokeSessionMutation.mutateAsync(session.id)),
+      )
+      await fetchSessions()
+      toast.add({
+        severity: 'success',
+        summary: 'Other sessions ended',
+        detail: `Signed out ${others.length} other device${others.length === 1 ? '' : 's'}`,
+        life: 2500,
+      })
+      return true
+    } catch (error) {
+      await fetchSessions()
+      toast.add({
+        severity: 'error',
+        summary: 'Partial failure',
+        detail: extractErrorMessage(error, 'Could not revoke all other sessions'),
+        life: 3000,
+      })
+      return false
+    }
+  }
+
+  async function logoutAllSessions(): Promise<boolean> {
+    try {
+      await logoutAllMutation.mutateAsync()
+    } catch {
+      // Still clear locally
+    } finally {
+      clearSession()
+      status.value = Status.UNAUTHENTICATED
+    }
+    return true
+  }
+
   return {
     authed,
     user,
@@ -139,11 +262,18 @@ export const useAuthStore = defineStore('auth', () => {
     expiresAt,
     status,
     message,
+    sessions,
+    sessionsStatus,
     initialise,
     login,
     logout,
     refresh,
     clearSession,
+    setUser,
+    fetchSessions,
+    revokeSession,
+    revokeOtherSessions,
+    logoutAllSessions,
   }
 })
 

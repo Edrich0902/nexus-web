@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import PageWrapper from '@components/page-wrapper/PageWrapper.vue'
+import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 
 const auth = useAuthStore()
 </script>
 
 <template>
-  <PageWrapper show-toolbar title="Home">
+  <NexusPageWrapper show-toolbar title="Home">
     <div class="flex flex-col gap-3 pt-2 max-w-2xl">
       <p class="text-surface-300 text-base m-0">
         Command station ready
@@ -17,5 +17,5 @@ const auth = useAuthStore()
         to move between station pages.
       </p>
     </div>
-  </PageWrapper>
+  </NexusPageWrapper>
 </template>

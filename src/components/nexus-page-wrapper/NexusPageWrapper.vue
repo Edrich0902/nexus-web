@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useLayoutStore } from '@stores/layout/layout.store'
+import { useAuthStore } from '@stores/auth/auth.store'
+import NexusAvatar from '@components/nexus-avatar/NexusAvatar.vue'
 
 defineProps<{
   showToolbar?: boolean
@@ -7,6 +9,7 @@ defineProps<{
 }>()
 
 const layout = useLayoutStore()
+const auth = useAuthStore()
 </script>
 
 <template>
@@ -30,6 +33,7 @@ const layout = useLayoutStore()
       </div>
       <div class="flex flex-row items-center gap-x-2">
         <slot name="toolbar" />
+        <NexusAvatar v-if="auth.user" :user="auth.user" menu />
       </div>
     </div>
     <slot />

@@ -13,3 +13,11 @@ export const useLogoutMutation = defineMutation({
 export const useRefreshMutation = defineMutation({
   mutation: () => authService.refresh(),
 })
+
+export const useRevokeSessionMutation = defineMutation({
+  mutation: (tokenId: number) => authService.revokeSession(tokenId),
+})
+
+export const useLogoutAllMutation = defineMutation({
+  mutation: () => authService.logoutAll(),
+})

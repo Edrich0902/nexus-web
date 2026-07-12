@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterView, useRoute } from 'vue-router'
-import AppSidebar from '@components/sidebar/AppSidebar.vue'
+import NexusSidebar from '@components/nexus-sidebar/NexusSidebar.vue'
 import { useLayoutStore } from '@stores/layout/layout.store'
 
 const route = useRoute()
@@ -23,7 +23,7 @@ const layout = useLayoutStore()
           : '-ml-64 mr-0 -translate-x-10'
       "
     >
-      <AppSidebar />
+      <NexusSidebar />
     </div>
 
     <RouterView v-slot="{ Component }">
