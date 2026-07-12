@@ -66,25 +66,21 @@ docker compose restart nginx
 
 ## Adding Dependencies
 
-```bash
-npm install vue-router        # module routing
-npm install pinia             # auth + shared hub state
-npm install axios             # HTTP client for API calls (or fetch wrapper)
-```
+Foundation packages are already installed (`vue-router`, `pinia`, `@pinia/colada`, `axios`). See [ARCHITECTURE.md](ARCHITECTURE.md) for the layering rules.
 
-See [VISION.md](VISION.md) and [ROADMAP.md](ROADMAP.md) for product milestones; keep feature docs high-level until a milestone is actively specified.
+PrimeVue components are auto-imported via `unplugin-vue-components` — no global registration needed beyond the config in `main.ts`.
 
-PrimeVue components are imported individually — no global registration needed beyond the config in `main.ts`.
-
-## Adding a New Module
+## Adding a New Feature Area
 
 Before scaffolding: confirm the matching API milestone is underway (see [VISION.md](VISION.md) / [ROADMAP.md](ROADMAP.md)). Then:
 
-1. Create `src/modules/{name}/` with `views/`, `components/`, `composables/`
-2. Add route definitions (once Vue Router is installed)
-3. Register the module in the sidebar navigation
-4. Wire data via Pinia and/or a module composable through the API client
-5. Build and verify at `nexus.test/{module-path}`
+1. Add types under `src/types/<feature>/`
+2. Add `src/services/<feature>.service.ts` for API calls
+3. Add `src/stores/<feature>/<feature>.store.ts` (+ Colada mutations as needed)
+4. Add screen(s) under `src/routes/<feature>/`
+5. Register the route in `src/router/index.ts` with correct `meta`
+6. Add a sidebar nav item in `AppSidebar`
+7. Build and verify at `nexus.test/{path}`
 
 ## PrimeVue Theming
 

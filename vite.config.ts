@@ -11,7 +11,7 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
 const aliases = {
   '@': path.resolve(rootDir, 'src'),
-  '@views': path.resolve(rootDir, 'src/views'),
+  '@routes': path.resolve(rootDir, 'src/routes'),
   '@components': path.resolve(rootDir, 'src/components'),
   '@stores': path.resolve(rootDir, 'src/stores'),
   '@assets': path.resolve(rootDir, 'src/assets'),
@@ -29,17 +29,47 @@ const plugins = [
   }),
 ]
 
+function buildConfig(outDir: string, sourcemap: boolean) {
+  return {
+    outDir,
+    sourcemap,
+    target: 'esnext' as const,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return
+          if (
+            id.includes('/vue/') ||
+            id.includes('/vue-router/') ||
+            id.includes('/pinia/') ||
+            id.includes('/@pinia/')
+          ) {
+            return 'vue-vendor'
+          }
+          if (
+            id.includes('/primevue/') ||
+            id.includes('/@primeuix/') ||
+            id.includes('/@primevue/') ||
+            id.includes('/primeicons/')
+          ) {
+            return 'primevue'
+          }
+          if (id.includes('/axios/')) {
+            return 'axios'
+          }
+        },
+      },
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   if (mode === 'development') {
     return {
       plugins,
       appType: 'spa',
-      build: {
-        outDir: './dist/dev',
-        sourcemap: true,
-        target: 'esnext',
-      },
+      build: buildConfig('./dist/dev', true),
       resolve: {
         alias: aliases,
       },
@@ -50,11 +80,7 @@ export default defineConfig(({ mode }) => {
     return {
       plugins,
       appType: 'spa',
-      build: {
-        outDir: './dist/stage',
-        sourcemap: false,
-        target: 'esnext',
-      },
+      build: buildConfig('./dist/stage', false),
       resolve: {
         alias: aliases,
       },
@@ -65,11 +91,7 @@ export default defineConfig(({ mode }) => {
     return {
       plugins,
       appType: 'spa',
-      build: {
-        outDir: './dist/prod',
-        sourcemap: false,
-        target: 'esnext',
-      },
+      build: buildConfig('./dist/prod', false),
       resolve: {
         alias: aliases,
       },
@@ -80,11 +102,7 @@ export default defineConfig(({ mode }) => {
     mode,
     plugins,
     appType: 'spa',
-    build: {
-      outDir: './dist/dev',
-      sourcemap: true,
-      target: 'esnext',
-    },
+    build: buildConfig('./dist/dev', true),
     resolve: {
       alias: aliases,
     },

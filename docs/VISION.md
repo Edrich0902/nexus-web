@@ -6,7 +6,7 @@ Business logic and persistence live in the API. The web client focuses on layout
 
 ## What the Web App Is
 
-A modular dashboard where each Nexus pillar is a feature module under `src/modules/`, routed and navigable from a shared shell.
+A modular dashboard where each Nexus pillar is a route area under `src/routes/`, backed by `services` + Pinia stores, and navigable from a shared shell sidebar.
 
 ## Pillars (milestones, not specs)
 

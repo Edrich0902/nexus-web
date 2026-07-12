@@ -53,25 +53,23 @@ Configure the API base URL in an environment file when added:
 VITE_API_BASE_URL=http://api.nexus.test
 ```
 
-## Project Structure (planned)
+## Project Structure
 
 ```
 src/
-├── main.ts              # App bootstrap, PrimeVue config
-├── App.vue              # Root layout shell
-├── assets/              # Static images, icons
-├── components/          # Shared UI components
-├── stores/              # Pinia stores
-├── modules/             # Feature modules (spotify, cellar, github, …)
-│   ├── spotify/
-│   │   ├── views/
-│   │   ├── components/
-│   │   └── composables/
-│   └── ...
-├── composables/         # Shared composables (useApi, …)
-├── router/              # Vue Router
-└── services/            # API client layer
+├── main.ts                 # Bootstrap: Pinia → Colada → auth.initialise → router
+├── App.vue                 # Shell: sidebar + RouterView
+├── routes/                 # Route screens (*View.vue)
+├── components/             # Shared UI (sidebar, page-wrapper, …)
+├── stores/                 # Pinia stores + Colada mutations
+├── services/               # <model>.service.ts (axios)
+├── types/                  # TypeScript types
+├── lib/http.ts             # Shared axios client
+├── router/                 # Vue Router + auth guards
+└── theme/                  # PrimeVue NexusPreset
 ```
+
+Layering: `routes → stores → (Pinia Colada) → services → axios → API`.
 
 ## Documentation
 

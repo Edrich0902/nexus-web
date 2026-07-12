@@ -3,11 +3,12 @@ import Aura from '@primeuix/themes/aura'
 
 /**
  * Nexus brand palette
- * Coffee Bean     #1a090d — app background / dark surfaces
- * Lavender Blush  #f6e8ea — light text & contrast on dark
- * Bubblegum Pink  #ef626c — primary accent
- * Blue Slate      #3d5a6c — informational accent
- * Light Green     #ace894 — success / positive accent
+ * Coffee Bean       #1a090d — app background
+ * Coffee Bean Panel #261318 — elevated panels / sidebar (coffee bean family)
+ * Lavender Blush    #f6e8ea — light text & contrast on dark
+ * Bubblegum Pink    #ef626c — primary accent
+ * Blue Slate        #3d5a6c — informational accent
+ * Light Green       #ace894 — success / positive accent
  */
 const coffeeBean = palette('#1a090d')
 const lavenderBlush = palette('#f6e8ea')

@@ -18,12 +18,12 @@ Application skeleton and dashboard shell.
 
 **Still open — do early, before feature modules**
 
-- [ ] Vue Router — module-based routing
-- [ ] Pinia stores (auth session, shared preferences at minimum)
-- [ ] API client layer
-- [ ] Auth / login view against Sanctum
-- [ ] Dashboard layout shell (nav + content outlet)
-- [ ] Home view with placeholder module entry points
+- [x] Vue Router — flat routes + `meta` auth guards (`authed` / `guest` / `showMenu`)
+- [x] Pinia + Pinia Colada (auth session, layout at minimum)
+- [x] Axios API client + `*.service.ts` layer
+- [x] Auth / login view against Sanctum bearer tokens
+- [x] Dashboard layout shell (sidebar + `RouterView`)
+- [x] Home view with placeholder content
 
 ---
 

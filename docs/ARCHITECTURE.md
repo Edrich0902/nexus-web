@@ -10,12 +10,12 @@ Nexus Web is a desktop-first Vue 3 SPA — the visual command station for **Nexu
 │  ┌────────────────────────────────────────────────┐  │
 │  │              App Shell (layout)                 │  │
 │  │  ┌──────────┐  ┌─────────────────────────────┐ │  │
-│  │  │ Sidebar  │  │     Active Module View      │ │  │
-│  │  │ / Nav    │  │  (Spotify, Cellar, F1, …)   │ │  │
+│  │  │ Sidebar  │  │     Active Route View       │ │  │
+│  │  │ / Nav    │  │  (Home, Spotify, Cellar, …) │ │  │
 │  │  └──────────┘  └─────────────────────────────┘ │  │
 │  └────────────────────────────────────────────────┘  │
 └──────────────────────────┬───────────────────────────┘
-                           │ fetch (JSON + Bearer token)
+                           │ axios (JSON + Bearer token)
                            ▼
                   api.nexus.test/api/*
 ```
@@ -24,44 +24,46 @@ Vision and sequencing: [VISION.md](VISION.md), [ROADMAP.md](ROADMAP.md).
 
 ## Design Principles
 
-- **Module-based UI** — each pillar is a feature module under `src/modules/`.
+- **Layered client** — `routes → stores → (Pinia Colada) → services → axios → API`.
 - **API-driven** — no direct third-party calls from the browser.
 - **Pinia for shared state** — auth session, preferences, cross-view data.
 - **Desktop-first** — wide screens first; tablet later; mobile is a separate app.
 
-## Layout shell (planned)
-
-| Region | Purpose |
-|--------|---------|
-| Top bar | Branding, global actions, user menu |
-| Sidebar | Module navigation |
-| Main content | Active module (router outlet) |
-| Status area | Sync / connection indicators where useful |
-
-## Module pattern
-
-```
-src/modules/{name}/
-├── views/           # Route-level pages
-├── components/      # Module widgets
-├── composables/     # Module-local data helpers
-└── routes.ts        # Merged into the central router
-```
-
-Shared infrastructure (planned):
+## Folder structure
 
 ```
 src/
-├── stores/                # Pinia (auth, preferences, …)
-├── composables/useApi.ts  # HTTP wrapper with auth header
-├── services/api.ts        # Base client config
-└── router/index.ts
+├── routes/                  # Route-level screens (*View.vue)
+├── components/<group>/      # Reusable UI (sidebar, page-wrapper, …)
+├── stores/<domain>/         # Pinia stores (+ Colada mutations)
+├── services/                # <model>.service.ts — axios API calls
+├── types/                   # TypeScript types only
+├── lib/http.ts              # Shared axios client
+└── router/index.ts          # Vue Router + auth guards
 ```
 
-## Planned dashboard modules
+Data flow (strict):
 
-| Module | Role |
-|--------|------|
+```
+routes/*View.vue → stores → Pinia Colada → services → lib/http.ts → API
+```
+
+Screens consume stores only. Stores call services (via Colada for interactive mutations). Never import services from routes/components.
+
+## Layout shell
+
+| Region | Purpose |
+|--------|---------|
+| Sidebar | Module navigation (`meta.showMenu`) |
+| Main content | Active route (`RouterView`) |
+| Page toolbar | Title + sidebar toggle (`PageWrapper`) |
+
+`App.vue` shows the sidebar when `route.meta.showMenu` is true, then renders `RouterView`.
+
+## Planned dashboard areas
+
+| Area | Role |
+|------|------|
 | **Home** | Cross-module summary / entry points |
 | **Spotify** | Connection + listening surfaces |
 | **GitHub** | Developer activity / context |
@@ -76,33 +78,36 @@ Exact widgets are defined when each milestone is specified.
 
 ## State management
 
-**Pinia** is the planned store layer for auth and other shared hub state. Module-local UI state can stay in components/composables until sharing is needed.
+**Pinia** holds session and UI state. **Pinia Colada** wraps interactive API mutations/queries whose functions call `*.service.ts`.
 
 | State | Location |
 |-------|----------|
-| Auth token / session | Pinia auth store → `localStorage` (or equivalent) |
-| Module lists/details | Module composables or Pinia module stores |
-| UI preferences | Pinia or `localStorage` |
+| Auth token / session | `auth.store` → `localStorage` (`nexus-auth`) |
+| Feature lists/details | Feature stores + Colada |
+| UI preferences | `layout.store` / `localStorage` |
 
 ## PrimeVue
 
-PrimeVue 4 + Aura is configured in `src/main.ts`. Prefer per-component imports. Use the design system already in the repo; don’t invent a parallel UI kit per module.
+PrimeVue 4 + Aura is configured in `src/main.ts` with `NexusPreset`. Prefer auto-imported PrimeVue components. Use the design system already in the repo; don’t invent a parallel UI kit per feature.
 
 ## Build & delivery
 
 Vite compiles to `dist/`. Nginx serves `nexus-web/dist/`.
 
 ```bash
-npm run build -- --watch
+npm run watch   # development → dist/dev
+npm run stage   # staging → dist/stage
+npm run prod    # production → dist/prod
 ```
 
 Use `npm run dev` when HMR is more useful during heavy UI work.
 
-## Authentication flow (planned)
+## Authentication flow
 
-1. Login → API issues Sanctum token  
-2. Token stored client-side (Pinia + persistence)  
-3. API client sends `Authorization: Bearer {token}`  
-4. 401 → clear session and show login  
+1. Login → API issues Sanctum personal access token  
+2. Token stored client-side (Pinia + `localStorage`)  
+3. Axios client sends `Authorization: Bearer {token}`  
+4. Router guards: `meta.authed` requires session; `meta.guest` redirects authed users away from login  
+5. 401 → clear session and show login  
 
-Until login UI exists, a personal access token from Artisan is fine for local wiring.
+Boot order: Pinia → PiniaColada → `await auth.initialise()` → router → mount.
