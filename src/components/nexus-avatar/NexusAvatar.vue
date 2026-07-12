@@ -117,8 +117,8 @@ async function handleSignOut(event: { originalEvent?: Event }): Promise<void> {
 
 <style scoped>
 .nexus-avatar__face {
-  background: color-mix(in srgb, var(--bubblegum-pink) 22%, transparent);
-  color: var(--bubblegum-pink);
+  background: color-mix(in srgb, var(--meadow-green) 22%, transparent);
+  color: var(--meadow-green);
   font-weight: 600;
   overflow: hidden;
 }
@@ -128,7 +128,7 @@ async function handleSignOut(event: { originalEvent?: Event }): Promise<void> {
 }
 
 .nexus-avatar__face--clickable:hover {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bubblegum-pink) 45%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--meadow-green) 45%, transparent);
 }
 
 .nexus-avatar__img {

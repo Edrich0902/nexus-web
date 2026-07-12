@@ -316,7 +316,7 @@ async function removeTrack(uri: string, position: number): Promise<void> {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--bubblegum-pink);
+  color: var(--meadow-green);
 }
 
 .hero-copy h2 {
@@ -384,8 +384,8 @@ async function removeTrack(uri: string, position: number): Promise<void> {
 }
 
 .remove:hover {
-  color: var(--bubblegum-pink);
-  background: color-mix(in srgb, var(--bubblegum-pink) 12%, transparent);
+  color: var(--meadow-green);
+  background: color-mix(in srgb, var(--meadow-green) 12%, transparent);
 }
 
 .edit-form {

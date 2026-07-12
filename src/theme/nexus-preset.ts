@@ -6,13 +6,13 @@ import Aura from '@primeuix/themes/aura'
  * Coffee Bean       #1a090d — app background
  * Coffee Bean Panel #261318 — elevated panels / sidebar (coffee bean family)
  * Lavender Blush    #f6e8ea — light text & contrast on dark
- * Bubblegum Pink    #ef626c — primary accent
+ * Meadow Green      #5ecf8a — primary accent
  * Blue Slate        #3d5a6c — informational accent
- * Light Green       #ace894 — success / positive accent
+ * Light Green       #ace894 — success / soft positive accent
  */
 const coffeeBean = palette('#1a090d')
 const lavenderBlush = palette('#f6e8ea')
-const bubblegumPink = palette('#ef626c')
+const meadowGreen = palette('#5ecf8a')
 const blueSlate = palette('#3d5a6c')
 const lightGreen = palette('#ace894')
 
@@ -20,7 +20,7 @@ const NexusPreset = definePreset(Aura, {
   primitive: {
     coffeeBean,
     lavenderBlush,
-    bubblegumPink,
+    meadowGreen,
     blueSlate,
     lightGreen,
     // Severity accents used by Message, Tag, Badge, etc.
@@ -29,17 +29,17 @@ const NexusPreset = definePreset(Aura, {
   },
   semantic: {
     primary: {
-      50: '{bubblegumPink.50}',
-      100: '{bubblegumPink.100}',
-      200: '{bubblegumPink.200}',
-      300: '{bubblegumPink.300}',
-      400: '{bubblegumPink.400}',
-      500: '{bubblegumPink.500}',
-      600: '{bubblegumPink.600}',
-      700: '{bubblegumPink.700}',
-      800: '{bubblegumPink.800}',
-      900: '{bubblegumPink.900}',
-      950: '{bubblegumPink.950}',
+      50: '{meadowGreen.50}',
+      100: '{meadowGreen.100}',
+      200: '{meadowGreen.200}',
+      300: '{meadowGreen.300}',
+      400: '{meadowGreen.400}',
+      500: '{meadowGreen.500}',
+      600: '{meadowGreen.600}',
+      700: '{meadowGreen.700}',
+      800: '{meadowGreen.800}',
+      900: '{meadowGreen.900}',
+      950: '{meadowGreen.950}',
     },
     colorScheme: {
       light: {

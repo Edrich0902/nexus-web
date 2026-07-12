@@ -163,13 +163,13 @@ const seekSliderDt = {
     size: '4px',
   },
   range: {
-    background: '{lightGreen.500}',
+    background: '{meadowGreen.500}',
   },
   handle: {
     width: '14px',
     height: '14px',
-    background: '{lightGreen.500}',
-    hoverBackground: '{lightGreen.400}',
+    background: '{meadowGreen.500}',
+    hoverBackground: '{meadowGreen.400}',
     content: {
       width: '10px',
       height: '10px',
@@ -185,13 +185,13 @@ const volumeSliderDt = {
     size: '3px',
   },
   range: {
-    background: '{lightGreen.500}',
+    background: '{meadowGreen.500}',
   },
   handle: {
     width: '12px',
     height: '12px',
-    background: '{lightGreen.500}',
-    hoverBackground: '{lightGreen.400}',
+    background: '{meadowGreen.500}',
+    hoverBackground: '{meadowGreen.400}',
     content: {
       width: '8px',
       height: '8px',
@@ -372,7 +372,7 @@ const volumeSliderDt = {
           v-tooltip.top="'Choose device'"
           type="button"
           icon="pi pi-desktop"
-          label="Device"
+          :label="device?.name ?? 'No device'"
           rounded
           text
           severity="secondary"
@@ -544,7 +544,7 @@ const volumeSliderDt = {
 .track-artist {
   margin: 0;
   font-size: 1rem;
-  color: var(--bubblegum-pink);
+  color: var(--meadow-green);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -622,6 +622,10 @@ const volumeSliderDt = {
 .device-btn :deep(.p-button-label) {
   font-size: 0.75rem;
   font-weight: 600;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .volume-wrap {

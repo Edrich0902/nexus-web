@@ -60,7 +60,7 @@ const pageTitle = computed(() =>
 }
 
 .profile-subnav__link--active {
-  background: color-mix(in srgb, var(--bubblegum-pink) 18%, transparent);
-  color: var(--bubblegum-pink);
+  background: color-mix(in srgb, var(--meadow-green) 18%, transparent);
+  color: var(--meadow-green);
 }
 </style>

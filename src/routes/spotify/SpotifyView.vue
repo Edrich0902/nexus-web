@@ -573,7 +573,7 @@ async function submitCreatePlaylist(): Promise<void> {
   height: 2.25rem;
   border: 0;
   border-radius: 999px;
-  background: var(--bubblegum-pink);
+  background: var(--meadow-green);
   color: var(--coffee-bean);
   display: grid;
   place-items: center;
@@ -616,7 +616,7 @@ async function submitCreatePlaylist(): Promise<void> {
 
 .genre-chip em {
   font-style: normal;
-  color: var(--bubblegum-pink);
+  color: var(--meadow-green);
   font-weight: 700;
 }
 

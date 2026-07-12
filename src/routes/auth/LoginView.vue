@@ -160,7 +160,7 @@ async function onSubmit(): Promise<void> {
   background:
     radial-gradient(
       ellipse 55% 45% at 50% 42%,
-      color-mix(in srgb, var(--bubblegum-pink) 18%, transparent),
+      color-mix(in srgb, var(--meadow-green) 18%, transparent),
       transparent 70%
     ),
     radial-gradient(
@@ -226,7 +226,7 @@ async function onSubmit(): Promise<void> {
 }
 
 .wire--b {
-  border-color: color-mix(in srgb, var(--bubblegum-pink) 75%, white);
+  border-color: color-mix(in srgb, var(--meadow-green) 75%, white);
   transform: rotate(8deg) translate(-2px, 6px);
   opacity: 0.7;
 }
@@ -238,6 +238,6 @@ async function onSubmit(): Promise<void> {
 }
 
 .login-card__submit {
-  box-shadow: 0 0 24px color-mix(in srgb, var(--bubblegum-pink) 35%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--meadow-green) 35%, transparent);
 }
 </style>
