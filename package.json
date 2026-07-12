@@ -4,19 +4,27 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite -m development",
+    "stage": "vite build -m staging",
+    "prod": "vite build -m production",
+    "watch": "vite build --watch -m development",
     "preview": "vite preview"
   },
   "dependencies": {
     "@primeuix/themes": "^2.0.3",
     "@primevue/themes": "^4.5.4",
+    "@tailwindcss/vite": "^4.3.2",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.5",
+    "tailwindcss": "^4.3.2",
+    "tailwindcss-primeui": "^0.6.1",
     "vue": "^3.5.39"
   },
   "devDependencies": {
+    "@primevue/auto-import-resolver": "^4.5.5",
     "@vitejs/plugin-vue": "^6.0.7",
-    "vite": "^8.1.1"
+    "unplugin-vue-components": "^32.1.0",
+    "vite": "^8.1.1",
+    "vite-plugin-vue-devtools": "^8.1.5"
   }
 }
