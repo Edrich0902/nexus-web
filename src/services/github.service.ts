@@ -5,6 +5,7 @@ import type {
   GithubCompareResult,
   GithubConnectResponse,
   GithubConnectionStatus,
+  GithubCreateBranchPayload,
   GithubCreatePullPayload,
   GithubInboxPull,
   GithubMergePullPayload,
@@ -14,7 +15,14 @@ import type {
   GithubPullFile,
   GithubPullRequest,
   GithubPullStateFilter,
+  GithubPulse,
   GithubRepo,
+  GithubReview,
+  GithubSearchCodeHit,
+  GithubSearchIssueHit,
+  GithubSearchRepoHit,
+  GithubSearchType,
+  GithubSubmitReviewPayload,
   GithubSyncResponse,
 } from '@/types/github/github'
 
@@ -44,13 +52,59 @@ export async function getProfile(): Promise<GithubProfile> {
   return data
 }
 
-export async function listRepos(): Promise<GithubRepo[]> {
-  const { data } = await http.get<GithubRepo[]>(`${BASE}/repos`)
+export async function getPulse(): Promise<GithubPulse> {
+  const { data } = await http.get<GithubPulse>(`${BASE}/pulse`)
+  return data
+}
+
+export async function listRepos(starredOnly = false): Promise<GithubRepo[]> {
+  const { data } = await http.get<GithubRepo[]>(`${BASE}/repos`, {
+    params: starredOnly ? { starred: '1' } : undefined,
+  })
   return data
 }
 
 export async function getRepo(owner: string, repo: string): Promise<GithubRepo> {
   const { data } = await http.get<GithubRepo>(`${BASE}/repos/${owner}/${repo}`)
+  return data
+}
+
+export async function starRepo(
+  owner: string,
+  repo: string,
+): Promise<{ starred: boolean; github_synced: boolean }> {
+  const { data } = await http.post<{ starred: boolean; github_synced: boolean }>(
+    `${BASE}/repos/${owner}/${repo}/star`,
+  )
+  return data
+}
+
+export async function unstarRepo(
+  owner: string,
+  repo: string,
+): Promise<{ starred: boolean; github_synced: boolean }> {
+  const { data } = await http.delete<{ starred: boolean; github_synced: boolean }>(
+    `${BASE}/repos/${owner}/${repo}/star`,
+  )
+  return data
+}
+
+export async function search(
+  q: string,
+  type: GithubSearchType,
+  page = 1,
+): Promise<
+  GithubPaginated<
+    GithubSearchRepoHit | GithubSearchIssueHit | GithubSearchCodeHit
+  >
+> {
+  const { data } = await http.get<
+    GithubPaginated<
+      GithubSearchRepoHit | GithubSearchIssueHit | GithubSearchCodeHit
+    >
+  >(`${BASE}/search`, {
+    params: { q, type, page, per_page: 20 },
+  })
   return data
 }
 
@@ -62,6 +116,28 @@ export async function listBranches(
     `${BASE}/repos/${owner}/${repo}/branches`,
   )
   return data
+}
+
+export async function createBranch(
+  owner: string,
+  repo: string,
+  payload: GithubCreateBranchPayload,
+): Promise<GithubBranch> {
+  const { data } = await http.post<GithubBranch>(
+    `${BASE}/repos/${owner}/${repo}/branches`,
+    payload,
+  )
+  return data
+}
+
+export async function deleteBranch(
+  owner: string,
+  repo: string,
+  branch: string,
+): Promise<void> {
+  await http.delete(
+    `${BASE}/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`,
+  )
 }
 
 export async function listCommits(
@@ -161,6 +237,52 @@ export async function mergePull(
 ): Promise<GithubMergeResult> {
   const { data } = await http.put<GithubMergeResult>(
     `${BASE}/repos/${owner}/${repo}/pulls/${number}/merge`,
+    payload,
+  )
+  return data
+}
+
+export async function markPullReady(
+  owner: string,
+  repo: string,
+  number: number,
+): Promise<GithubPullRequest> {
+  const { data } = await http.post<GithubPullRequest>(
+    `${BASE}/repos/${owner}/${repo}/pulls/${number}/ready`,
+  )
+  return data
+}
+
+export async function convertPullToDraft(
+  owner: string,
+  repo: string,
+  number: number,
+): Promise<GithubPullRequest> {
+  const { data } = await http.post<GithubPullRequest>(
+    `${BASE}/repos/${owner}/${repo}/pulls/${number}/draft`,
+  )
+  return data
+}
+
+export async function listPullReviews(
+  owner: string,
+  repo: string,
+  number: number,
+): Promise<GithubPaginated<GithubReview>> {
+  const { data } = await http.get<GithubPaginated<GithubReview>>(
+    `${BASE}/repos/${owner}/${repo}/pulls/${number}/reviews`,
+  )
+  return data
+}
+
+export async function submitPullReview(
+  owner: string,
+  repo: string,
+  number: number,
+  payload: GithubSubmitReviewPayload,
+): Promise<GithubReview> {
+  const { data } = await http.post<GithubReview>(
+    `${BASE}/repos/${owner}/${repo}/pulls/${number}/reviews`,
     payload,
   )
   return data

@@ -71,6 +71,7 @@ function formatDate(value: string | null): string {
               <div class="pull-main">
                 <strong>{{ pull.title }}</strong>
                 <span class="badge">#{{ pull.number }}</span>
+                <span v-if="pull.draft" class="draft-chip">Draft</span>
               </div>
               <div class="pull-meta">
                 <span>{{ pull.repository.full_name }}</span>
@@ -135,6 +136,17 @@ function formatDate(value: string | null): string {
 .badge {
   font-size: 0.75rem;
   color: var(--github-ink);
+}
+
+.draft-chip {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--lavender-blush) 80%, transparent);
+  background: color-mix(in srgb, var(--lavender-blush) 10%, transparent);
 }
 
 .pull-meta {

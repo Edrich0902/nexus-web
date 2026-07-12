@@ -11,14 +11,21 @@ import {
   useGithubStatusQuery,
 } from '@stores/github/github.queries'
 import {
+  useGithubConvertDraftMutation,
+  useGithubCreateBranchMutation,
   useGithubCreatePullMutation,
+  useGithubDeleteBranchMutation,
   useGithubDisconnectMutation,
+  useGithubMarkReadyMutation,
   useGithubMergePullMutation,
+  useGithubStarMutation,
+  useGithubSubmitReviewMutation,
   useGithubSyncMutation,
 } from '@stores/github/github.mutations'
 import type {
   GithubCommit,
   GithubCompareResult,
+  GithubCreateBranchPayload,
   GithubCreatePullPayload,
   GithubInboxPull,
   GithubMergePullPayload,
@@ -26,6 +33,13 @@ import type {
   GithubPullRequest,
   GithubPullStateFilter,
   GithubBranch,
+  GithubPulse,
+  GithubReview,
+  GithubSearchCodeHit,
+  GithubSearchIssueHit,
+  GithubSearchRepoHit,
+  GithubSearchType,
+  GithubSubmitReviewPayload,
 } from '@/types/github/github'
 
 export const useGithubStore = defineStore('github', () => {
@@ -40,6 +54,12 @@ export const useGithubStore = defineStore('github', () => {
   const syncMutation = useGithubSyncMutation()
   const createPullMutation = useGithubCreatePullMutation()
   const mergePullMutation = useGithubMergePullMutation()
+  const starMutation = useGithubStarMutation()
+  const createBranchMutation = useGithubCreateBranchMutation()
+  const deleteBranchMutation = useGithubDeleteBranchMutation()
+  const markReadyMutation = useGithubMarkReadyMutation()
+  const convertDraftMutation = useGithubConvertDraftMutation()
+  const submitReviewMutation = useGithubSubmitReviewMutation()
 
   const inbox = ref<GithubInboxPull[]>([])
   const inboxLoading = ref(false)
@@ -51,9 +71,23 @@ export const useGithubStore = defineStore('github', () => {
   const branchesLoading = ref(false)
   const pullDetail = ref<GithubPullRequest | null>(null)
   const pullFiles = ref<GithubPullFile[]>([])
+  const pullReviews = ref<GithubReview[]>([])
   const pullDetailLoading = ref(false)
   const compareResult = ref<GithubCompareResult | null>(null)
   const compareLoading = ref(false)
+  const searchResults = ref<
+    Array<GithubSearchRepoHit | GithubSearchIssueHit | GithubSearchCodeHit>
+  >([])
+  const searchTotal = ref(0)
+  const searchLoading = ref(false)
+  const currentRepo = ref<{
+    owner: string
+    name: string
+    default_branch: string | null
+    starred: boolean
+  } | null>(null)
+  const pulse = ref<GithubPulse | null>(null)
+  const pulseLoading = ref(false)
 
   const status = computed(() => statusQuery.data.value ?? null)
   const connected = computed(() => status.value?.connected === true)
@@ -66,7 +100,13 @@ export const useGithubStore = defineStore('github', () => {
   const writePending = computed(
     () =>
       createPullMutation.asyncStatus.value === 'loading' ||
-      mergePullMutation.asyncStatus.value === 'loading',
+      mergePullMutation.asyncStatus.value === 'loading' ||
+      starMutation.asyncStatus.value === 'loading' ||
+      createBranchMutation.asyncStatus.value === 'loading' ||
+      deleteBranchMutation.asyncStatus.value === 'loading' ||
+      markReadyMutation.asyncStatus.value === 'loading' ||
+      convertDraftMutation.asyncStatus.value === 'loading' ||
+      submitReviewMutation.asyncStatus.value === 'loading',
   )
 
   function toastError(error: unknown, fallback: string): void {
@@ -185,6 +225,23 @@ export const useGithubStore = defineStore('github', () => {
     }
   }
 
+  async function loadPulse(): Promise<void> {
+    pulseLoading.value = true
+    try {
+      await statusQuery.refetch()
+      if (!connected.value) {
+        pulse.value = null
+        return
+      }
+      pulse.value = await githubService.getPulse()
+    } catch (error) {
+      toastError(error, 'Unable to load GitHub pulse')
+      pulse.value = null
+    } finally {
+      pulseLoading.value = false
+    }
+  }
+
   async function loadRepoPulls(
     owner: string,
     repo: string,
@@ -223,13 +280,39 @@ export const useGithubStore = defineStore('github', () => {
   async function loadBranches(owner: string, repo: string): Promise<void> {
     branchesLoading.value = true
     try {
-      const result = await githubService.listBranches(owner, repo)
-      branches.value = result.items
+      const [branchResult, repoRow] = await Promise.all([
+        githubService.listBranches(owner, repo),
+        githubService.getRepo(owner, repo).catch(() => null),
+      ])
+      branches.value = branchResult.items
+      if (repoRow) {
+        currentRepo.value = {
+          owner: repoRow.owner,
+          name: repoRow.name,
+          default_branch: repoRow.default_branch,
+          starred: repoRow.starred,
+        }
+      }
     } catch (error) {
       toastError(error, 'Unable to load branches')
       branches.value = []
     } finally {
       branchesLoading.value = false
+    }
+  }
+
+  async function loadCurrentRepo(owner: string, repo: string): Promise<void> {
+    try {
+      const repoRow = await githubService.getRepo(owner, repo)
+      currentRepo.value = {
+        owner: repoRow.owner,
+        name: repoRow.name,
+        default_branch: repoRow.default_branch,
+        starred: repoRow.starred,
+      }
+    } catch (error) {
+      toastError(error, 'Unable to load repository')
+      currentRepo.value = null
     }
   }
 
@@ -240,16 +323,19 @@ export const useGithubStore = defineStore('github', () => {
   ): Promise<void> {
     pullDetailLoading.value = true
     try {
-      const [pull, files] = await Promise.all([
+      const [pull, files, reviews] = await Promise.all([
         githubService.getPull(owner, repo, number),
         githubService.listPullFiles(owner, repo, number),
+        githubService.listPullReviews(owner, repo, number),
       ])
       pullDetail.value = pull
       pullFiles.value = files.items
+      pullReviews.value = reviews.items
     } catch (error) {
       toastError(error, 'Unable to load pull request')
       pullDetail.value = null
       pullFiles.value = []
+      pullReviews.value = []
     } finally {
       pullDetailLoading.value = false
     }
@@ -279,6 +365,109 @@ export const useGithubStore = defineStore('github', () => {
       compareResult.value = null
     } finally {
       compareLoading.value = false
+    }
+  }
+
+  async function search(
+    q: string,
+    type: GithubSearchType,
+  ): Promise<void> {
+    searchLoading.value = true
+    try {
+      const result = await githubService.search(q, type)
+      searchResults.value = result.items
+      searchTotal.value = result.total_count ?? result.items.length
+    } catch (error) {
+      toastError(error, 'Unable to search GitHub')
+      searchResults.value = []
+      searchTotal.value = 0
+    } finally {
+      searchLoading.value = false
+    }
+  }
+
+  async function toggleStar(owner: string, repo: string): Promise<boolean> {
+    const current = repos.value.find(
+      (item) => item.owner === owner && item.name === repo,
+    )
+    const starred =
+      current?.starred ??
+      (currentRepo.value?.owner === owner &&
+      currentRepo.value?.name === repo
+        ? currentRepo.value.starred
+        : false)
+
+    try {
+      const result = await starMutation.mutateAsync({
+        owner,
+        repo,
+        starred,
+      })
+      await reposQuery.refetch()
+      if (
+        currentRepo.value?.owner === owner &&
+        currentRepo.value?.name === repo
+      ) {
+        currentRepo.value = {
+          ...currentRepo.value,
+          starred: result.starred,
+        }
+      }
+      if (result.github_synced === false) {
+        toast.add({
+          severity: 'warn',
+          summary: 'Saved in Nexus only',
+          detail:
+            'GitHub App blocked starring write. Check Account → Starring (read & write), revoke the app under GitHub → Settings → Applications → Authorized GitHub Apps, then reconnect.',
+          life: 7000,
+        })
+      }
+      return true
+    } catch (error) {
+      toastError(error, 'Unable to update star')
+      return false
+    }
+  }
+
+  async function createBranch(
+    owner: string,
+    repo: string,
+    payload: GithubCreateBranchPayload,
+  ): Promise<boolean> {
+    try {
+      await createBranchMutation.mutateAsync({ owner, repo, payload })
+      toast.add({
+        severity: 'success',
+        summary: 'Branch created',
+        detail: payload.name,
+        life: 2500,
+      })
+      await loadBranches(owner, repo)
+      return true
+    } catch (error) {
+      toastError(error, 'Unable to create branch')
+      return false
+    }
+  }
+
+  async function deleteBranch(
+    owner: string,
+    repo: string,
+    branch: string,
+  ): Promise<boolean> {
+    try {
+      await deleteBranchMutation.mutateAsync({ owner, repo, branch })
+      toast.add({
+        severity: 'success',
+        summary: 'Branch deleted',
+        detail: branch,
+        life: 2500,
+      })
+      await loadBranches(owner, repo)
+      return true
+    } catch (error) {
+      toastError(error, 'Unable to delete branch')
+      return false
     }
   }
 
@@ -333,6 +522,81 @@ export const useGithubStore = defineStore('github', () => {
     }
   }
 
+  async function markReady(
+    owner: string,
+    repo: string,
+    number: number,
+  ): Promise<boolean> {
+    try {
+      pullDetail.value = await markReadyMutation.mutateAsync({
+        owner,
+        repo,
+        number,
+      })
+      toast.add({
+        severity: 'success',
+        summary: 'Ready for review',
+        detail: `#${number} is no longer a draft`,
+        life: 2500,
+      })
+      return true
+    } catch (error) {
+      toastError(error, 'Unable to mark ready for review')
+      return false
+    }
+  }
+
+  async function convertToDraft(
+    owner: string,
+    repo: string,
+    number: number,
+  ): Promise<boolean> {
+    try {
+      pullDetail.value = await convertDraftMutation.mutateAsync({
+        owner,
+        repo,
+        number,
+      })
+      toast.add({
+        severity: 'success',
+        summary: 'Converted to draft',
+        detail: `#${number} is now a draft`,
+        life: 2500,
+      })
+      return true
+    } catch (error) {
+      toastError(error, 'Unable to convert to draft')
+      return false
+    }
+  }
+
+  async function submitReview(
+    owner: string,
+    repo: string,
+    number: number,
+    payload: GithubSubmitReviewPayload,
+  ): Promise<boolean> {
+    try {
+      await submitReviewMutation.mutateAsync({
+        owner,
+        repo,
+        number,
+        payload,
+      })
+      toast.add({
+        severity: 'success',
+        summary: 'Review submitted',
+        detail: payload.event.replace('_', ' ').toLowerCase(),
+        life: 2500,
+      })
+      await loadPullDetail(owner, repo, number)
+      return true
+    } catch (error) {
+      toastError(error, 'Unable to submit review')
+      return false
+    }
+  }
+
   return {
     status,
     connected,
@@ -353,21 +617,37 @@ export const useGithubStore = defineStore('github', () => {
     branchesLoading,
     pullDetail,
     pullFiles,
+    pullReviews,
     pullDetailLoading,
     compareResult,
     compareLoading,
+    searchResults,
+    searchTotal,
+    searchLoading,
+    currentRepo,
+    pulse,
+    pulseLoading,
     loadHub,
     connect,
     disconnect,
     syncNow,
     handleOAuthReturn,
     loadInbox,
+    loadPulse,
     loadRepoPulls,
     loadCommits,
     loadBranches,
+    loadCurrentRepo,
     loadPullDetail,
     loadCompare,
+    search,
+    toggleStar,
+    createBranch,
+    deleteBranch,
     createPull,
     mergePull,
+    markReady,
+    convertToDraft,
+    submitReview,
   }
 })

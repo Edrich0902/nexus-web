@@ -42,6 +42,7 @@ export type GithubRepo = {
   description: string | null
   pushed_at: string | null
   language: string | null
+  starred: boolean
 }
 
 export type GithubBranch = {
@@ -137,6 +138,7 @@ export type GithubCreatePullPayload = {
   head: string
   base: string
   body?: string | null
+  draft?: boolean
 }
 
 export type GithubMergePullPayload = {
@@ -156,6 +158,80 @@ export type GithubPaginated<T> = {
   page: number
   per_page: number
   total_count?: number
+  type?: string
 }
 
 export type GithubPullStateFilter = 'open' | 'closed' | 'merged' | 'all'
+
+export type GithubSearchType = 'repositories' | 'issues' | 'code'
+
+export type GithubSearchRepoHit = {
+  id: number | null
+  full_name: string | null
+  name: string | null
+  owner: string | null
+  private: boolean
+  description: string | null
+  html_url: string | null
+  language: string | null
+  stargazers_count: number | null
+}
+
+export type GithubSearchIssueHit = {
+  id: number | null
+  number: number | null
+  title: string | null
+  state: string | null
+  html_url: string | null
+  is_pull_request: boolean
+  repository: {
+    owner: string | null
+    name: string | null
+    full_name: string | null
+  }
+}
+
+export type GithubSearchCodeHit = {
+  name: string | null
+  path: string | null
+  sha: string | null
+  html_url: string | null
+  repository: {
+    owner: string | null
+    name: string | null
+    full_name: string | null
+  }
+}
+
+export type GithubReview = {
+  id: number | null
+  state: string | null
+  body: string | null
+  submitted_at: string | null
+  html_url: string | null
+  user: GithubPullUser
+}
+
+export type GithubSubmitReviewPayload = {
+  event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT'
+  body?: string | null
+}
+
+export type GithubCreateBranchPayload = {
+  name: string
+  from?: string | null
+}
+
+export type GithubPulseCommit = GithubCommit & {
+  repository: {
+    owner: string
+    name: string
+    full_name: string | null
+  }
+}
+
+export type GithubPulse = {
+  open_pulls: GithubInboxPull[]
+  merged_pulls: GithubInboxPull[]
+  commits: GithubPulseCommit[]
+}

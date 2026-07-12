@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
@@ -11,6 +11,14 @@ const github = useGithubStore()
 const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()
+const filter = ref<'all' | 'starred'>('all')
+
+const filteredRepos = computed(() => {
+  if (filter.value === 'starred') {
+    return github.repos.filter((repo) => repo.starred)
+  }
+  return github.repos
+})
 
 onMounted(async () => {
   const connected =
@@ -152,15 +160,38 @@ function formatDate(value: string | null): string {
           <section class="repos-section">
             <div class="section-head">
               <h3>Repositories</h3>
-              <span class="count">{{ github.repos.length }}</span>
+              <span class="count">{{ filteredRepos.length }}</span>
+              <div class="filter-chips">
+                <button
+                  type="button"
+                  class="chip"
+                  :class="{ active: filter === 'all' }"
+                  @click="filter = 'all'"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  class="chip"
+                  :class="{ active: filter === 'starred' }"
+                  @click="filter = 'starred'"
+                >
+                  Starred
+                </button>
+              </div>
             </div>
 
             <div v-if="github.reposLoading" class="empty">Loading repositories…</div>
-            <div v-else-if="github.repos.length === 0" class="empty">
-              No repositories synced yet. Hit Sync to pull from GitHub.
+            <div v-else-if="filteredRepos.length === 0" class="empty">
+              <template v-if="filter === 'starred'">
+                No starred repositories yet.
+              </template>
+              <template v-else>
+                No repositories synced yet. Hit Sync to pull from GitHub.
+              </template>
             </div>
             <ul v-else class="repo-list">
-              <li v-for="repo in github.repos" :key="repo.id">
+              <li v-for="repo in filteredRepos" :key="repo.id">
                 <router-link
                   :to="{
                     name: 'github-repo',
@@ -172,6 +203,9 @@ function formatDate(value: string | null): string {
                     <strong>{{ repo.full_name }}</strong>
                     <span v-if="repo.private" class="badge">Private</span>
                     <span v-else class="badge badge-public">Public</span>
+                    <span v-if="repo.starred" class="star-badge" title="Starred on GitHub">
+                      <i class="pi pi-star-fill" />
+                    </span>
                   </div>
                   <p v-if="repo.description" class="desc">{{ repo.description }}</p>
                   <div class="repo-meta">
@@ -297,7 +331,8 @@ function formatDate(value: string | null): string {
 
 .section-head {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.6rem;
   margin-bottom: 0.75rem;
 }
@@ -310,6 +345,28 @@ function formatDate(value: string | null): string {
 .count {
   color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
   font-size: 0.85rem;
+}
+
+.filter-chips {
+  margin-left: auto;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.chip {
+  border: 0;
+  background: color-mix(in srgb, var(--lavender-blush) 6%, transparent);
+  color: color-mix(in srgb, var(--lavender-blush) 70%, transparent);
+  padding: 0.3rem 0.7rem;
+  border-radius: 0.55rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.chip.active {
+  background: color-mix(in srgb, var(--github-ink) 14%, transparent);
+  color: var(--github-ink);
 }
 
 .repo-list {
@@ -360,6 +417,12 @@ function formatDate(value: string | null): string {
 .badge-public {
   color: var(--meadow-green);
   background: color-mix(in srgb, var(--meadow-green) 16%, transparent);
+}
+
+.star-badge {
+  margin-left: auto;
+  color: var(--github-ink);
+  line-height: 1;
 }
 
 .desc {

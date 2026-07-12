@@ -8,6 +8,11 @@ const route = useRoute()
 const links = [
   { name: 'github', label: 'Home', match: (n: string) => n === 'github' },
   {
+    name: 'github-search',
+    label: 'Search',
+    match: (n: string) => n === 'github-search',
+  },
+  {
     name: 'github-pulls',
     label: 'Pull requests',
     match: (n: string) => n === 'github-pulls' || n.startsWith('github-pull'),

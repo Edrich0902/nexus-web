@@ -23,7 +23,18 @@ export function extractApiErrorMessage(error: unknown, fallback: string): string
 }
 
 export function isReauthError(error: unknown): boolean {
-  return isAxiosError(error) && error.response?.status === 401
+  if (!isAxiosError(error)) return false
+  const status = error.response?.status
+  if (status === 409) return true
+  if (status !== 401) return false
+  const message = String(
+    (error.response?.data as { message?: string } | undefined)?.message ?? '',
+  ).toLowerCase()
+  return (
+    message.includes('re-authorization') ||
+    message.includes('[github]') ||
+    message.includes('[spotify]')
+  )
 }
 
 export function isRateLimitError(error: unknown): boolean {

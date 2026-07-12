@@ -2,6 +2,7 @@
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusSpotifyResumeCard from '@components/nexus-spotify-resume-card/NexusSpotifyResumeCard.vue'
 import NexusSpotifyOnRepeat from '@components/nexus-spotify-on-repeat/NexusSpotifyOnRepeat.vue'
+import NexusGithubPulseCard from '@components/nexus-github-pulse-card/NexusGithubPulseCard.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 
 const auth = useAuthStore()
@@ -24,6 +25,7 @@ const auth = useAuthStore()
       <section class="widget-grid">
         <NexusSpotifyResumeCard />
         <NexusSpotifyOnRepeat />
+        <NexusGithubPulseCard />
       </section>
     </div>
   </NexusPageWrapper>

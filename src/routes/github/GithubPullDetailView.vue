@@ -6,6 +6,7 @@ import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vu
 import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
 import NexusGithubDiffViewer from '@components/nexus-github-diff-viewer/NexusGithubDiffViewer.vue'
 import { useGithubStore } from '@stores/github/github.store'
+import type { GithubSubmitReviewPayload } from '@/types/github/github'
 
 const github = useGithubStore()
 const route = useRoute()
@@ -16,6 +17,8 @@ const owner = computed(() => String(route.params.owner ?? ''))
 const repo = computed(() => String(route.params.repo ?? ''))
 const number = computed(() => Number(route.params.number))
 const mergeMethod = ref<'merge' | 'squash' | 'rebase'>('squash')
+const reviewBody = ref('')
+const reviewEvent = ref<GithubSubmitReviewPayload['event']>('COMMENT')
 
 const mergeOptions = [
   { label: 'Create a merge commit', value: 'merge' },
@@ -72,6 +75,28 @@ function mergeConfirm(event: Event): void {
     },
   })
 }
+
+function formatDate(value: string | null): string {
+  if (!value) return '—'
+  return new Date(value).toLocaleString()
+}
+
+async function submitReview(
+  event: GithubSubmitReviewPayload['event'],
+): Promise<void> {
+  reviewEvent.value = event
+  const body = reviewBody.value.trim()
+  if ((event === 'REQUEST_CHANGES' || event === 'COMMENT') && !body) {
+    return
+  }
+  const ok = await github.submitReview(owner.value, repo.value, number.value, {
+    event,
+    body: body || null,
+  })
+  if (ok) {
+    reviewBody.value = ''
+  }
+}
 </script>
 
 <template>
@@ -119,6 +144,29 @@ function mergeConfirm(event: Event): void {
               </span>
             </div>
 
+            <div
+              v-if="github.pullDetail.state === 'open' && !github.pullDetail.merged"
+              class="draft-bar"
+            >
+              <Button
+                v-if="github.pullDetail.draft"
+                label="Ready for review"
+                icon="pi pi-eye"
+                size="small"
+                :loading="github.writePending"
+                @click="github.markReady(owner, repo, number)"
+              />
+              <Button
+                v-else
+                label="Convert to draft"
+                icon="pi pi-file"
+                severity="secondary"
+                size="small"
+                :loading="github.writePending"
+                @click="github.convertToDraft(owner, repo, number)"
+              />
+            </div>
+
             <div v-if="canMerge()" class="merge-bar">
               <Select
                 v-model="mergeMethod"
@@ -133,6 +181,70 @@ function mergeConfirm(event: Event): void {
                 :loading="github.writePending"
                 @click="mergeConfirm"
               />
+            </div>
+          </section>
+
+          <section class="reviews">
+            <h3>Reviews</h3>
+            <div v-if="github.pullReviews.length === 0" class="empty-inline">
+              No reviews yet.
+            </div>
+            <ul v-else class="review-list">
+              <li
+                v-for="review in github.pullReviews"
+                :key="String(review.id)"
+                class="review-item"
+              >
+                <div class="review-head">
+                  <strong>{{ review.user.login ?? 'Unknown' }}</strong>
+                  <span class="badge">{{ review.state }}</span>
+                  <span class="review-date">{{ formatDate(review.submitted_at) }}</span>
+                </div>
+                <p v-if="review.body" class="review-body">{{ review.body }}</p>
+              </li>
+            </ul>
+
+            <div
+              v-if="github.pullDetail.state === 'open' && !github.pullDetail.merged"
+              class="review-actions"
+            >
+              <Textarea
+                v-model="reviewBody"
+                rows="3"
+                class="w-full"
+                placeholder="Leave a comment (required for request changes / comment)"
+                auto-resize
+              />
+              <div class="review-buttons">
+                <Button
+                  label="Approve"
+                  icon="pi pi-check"
+                  size="small"
+                  severity="success"
+                  :loading="github.writePending && reviewEvent === 'APPROVE'"
+                  @click="submitReview('APPROVE')"
+                />
+                <Button
+                  label="Request changes"
+                  icon="pi pi-times"
+                  size="small"
+                  severity="danger"
+                  :disabled="!reviewBody.trim()"
+                  :loading="
+                    github.writePending && reviewEvent === 'REQUEST_CHANGES'
+                  "
+                  @click="submitReview('REQUEST_CHANGES')"
+                />
+                <Button
+                  label="Comment"
+                  icon="pi pi-comment"
+                  size="small"
+                  severity="secondary"
+                  :disabled="!reviewBody.trim()"
+                  :loading="github.writePending && reviewEvent === 'COMMENT'"
+                  @click="submitReview('COMMENT')"
+                />
+              </div>
             </div>
           </section>
 
@@ -162,7 +274,8 @@ function mergeConfirm(event: Event): void {
   font-size: 0.9rem;
 }
 
-.summary {
+.summary,
+.reviews {
   padding: 1.1rem 1.2rem;
   border-radius: 1rem;
   background: var(--github-card-surface);
@@ -211,6 +324,7 @@ function mergeConfirm(event: Event): void {
   color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
 }
 
+.draft-bar,
 .merge-bar {
   display: flex;
   flex-wrap: wrap;
@@ -223,12 +337,64 @@ function mergeConfirm(event: Event): void {
   min-width: 14rem;
 }
 
+.reviews h3,
 .files h3 {
   margin: 0 0 0.75rem;
 }
 
-.empty {
+.review-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.review-item {
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--lavender-blush) 4%, transparent);
+}
+
+.review-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.review-date {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
+}
+
+.review-body {
+  margin: 0.45rem 0 0;
+  white-space: pre-wrap;
+  color: color-mix(in srgb, var(--lavender-blush) 75%, transparent);
+  line-height: 1.4;
+}
+
+.review-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.review-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.empty,
+.empty-inline {
   padding: 1rem;
   color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+}
+
+.empty-inline {
+  padding: 0 0 0.75rem;
 }
 </style>

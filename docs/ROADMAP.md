@@ -71,7 +71,11 @@ Photo / camera intake belongs to the **mobile app**; web may show images and sup
 - [x] Connect / disconnect / sync UX (`/github`, OAuth return)
 - [x] Account overview + repo list (GitHub black accent, sidebar under Spotify)
 - [x] Cross-repo pull request inbox
-- [x] Repo detail (PRs + commits), PR diffs, create PR, merge PR
+- [x] Repo detail (PRs + commits + branches), PR diffs, create PR, merge PR
+- [x] Search chrome + results (`/github/search`)
+- [x] Star toggles + All/Starred filter
+- [x] Draft PR create + ready/draft controls + reviews on PR detail
+- [x] Home GitHub pulse widget (open authored PRs)
 
 - **Instagram (optional)** — only if prioritized and API-backed
 

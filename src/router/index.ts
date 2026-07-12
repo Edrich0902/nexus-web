@@ -78,6 +78,12 @@ const routes: RouteRecordRaw[] = [
     meta: handleMeta(true, true, 'GitHub'),
   },
   {
+    path: '/github/search',
+    name: 'github-search',
+    component: () => import('@routes/github/GithubSearchView.vue'),
+    meta: handleMeta(true, true, 'Search'),
+  },
+  {
     path: '/github/pulls',
     name: 'github-pulls',
     component: () => import('@routes/github/GithubPullsView.vue'),

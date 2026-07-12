@@ -90,7 +90,14 @@ http.interceptors.response.use(
     if (error.response?.status === 401) {
       const url = error.config?.url ?? ''
       const isLoginRequest = url.includes('/auth/login')
-      if (!isLoginRequest) {
+      // Integration modules may historically return 401 for provider reauth;
+      // never clear the Nexus Sanctum session for those paths.
+      const isIntegrationRequest =
+        url.includes('/api/v1/github') ||
+        url.includes('/api/v1/spotify') ||
+        url.includes('/github/') ||
+        url.includes('/spotify/')
+      if (!isLoginRequest && !isIntegrationRequest) {
         writeStoredSession(null)
         onUnauthorized?.()
       }

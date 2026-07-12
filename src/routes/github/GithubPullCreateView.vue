@@ -17,6 +17,7 @@ const title = ref('')
 const body = ref('')
 const head = ref<string | null>(null)
 const base = ref<string | null>(null)
+const draft = ref(false)
 
 const branchOptions = computed(() =>
   github.branches.map((branch) => ({
@@ -74,6 +75,7 @@ async function submit(): Promise<void> {
     head: head.value,
     base: base.value,
     body: body.value.trim() || null,
+    draft: draft.value,
   })
   if (pull?.number) {
     await router.push({
@@ -128,6 +130,11 @@ async function submit(): Promise<void> {
           <label class="field">
             <span>Description</span>
             <Textarea v-model="body" rows="6" class="w-full" auto-resize />
+          </label>
+
+          <label class="draft-check">
+            <Checkbox v-model="draft" binary input-id="create-draft" />
+            <span>Create as draft</span>
           </label>
 
           <div class="actions">
@@ -241,6 +248,14 @@ async function submit(): Promise<void> {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.draft-check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--lavender-blush) 75%, transparent);
 }
 
 .preview-head {
