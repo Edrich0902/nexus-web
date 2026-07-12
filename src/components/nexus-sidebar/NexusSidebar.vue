@@ -6,11 +6,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@stores/auth/auth.store'
 import NexusAvatar from '@components/nexus-avatar/NexusAvatar.vue'
 import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
+import NexusGithubIcon from '@components/nexus-github-icon/NexusGithubIcon.vue'
 
 type SidebarMenuItem = MenuItem & {
   iconComponent?: Component
   to?: string
   matchPrefix?: boolean
+  accent?: 'spotify' | 'github'
 }
 
 const auth = useAuthStore()
@@ -40,6 +42,14 @@ const items = ref<SidebarMenuItem[]>([
         to: '/spotify',
         iconComponent: NexusSpotifyIcon,
         matchPrefix: true,
+        accent: 'spotify',
+      },
+      {
+        label: 'GitHub',
+        to: '/github',
+        iconComponent: NexusGithubIcon,
+        matchPrefix: true,
+        accent: 'github',
       },
     ],
   },
@@ -122,6 +132,12 @@ const handleSignOut = (event: Event) => {
               :is="(item as SidebarMenuItem).iconComponent"
               v-if="(item as SidebarMenuItem).iconComponent"
               class="nav-icon"
+              :class="{
+                'nav-icon--spotify':
+                  (item as SidebarMenuItem).accent === 'spotify',
+                'nav-icon--github':
+                  (item as SidebarMenuItem).accent === 'github',
+              }"
               :size="18"
             />
             <span
@@ -238,11 +254,16 @@ const handleSignOut = (event: Event) => {
   width: 1.25rem;
   height: 1.25rem;
   flex-shrink: 0;
-  color: #1db954;
 }
 
-.nav-item--active .nav-icon {
-  color: #1db954;
+.nav-icon--spotify,
+.nav-item--active .nav-icon--spotify {
+  color: var(--spotify-green);
+}
+
+.nav-icon--github,
+.nav-item--active .nav-icon--github {
+  color: var(--github-ink);
 }
 
 .nav-label {

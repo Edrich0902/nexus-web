@@ -66,7 +66,13 @@ Photo / camera intake belongs to the **mobile app**; web may show images and sup
 
 ## Milestone 3 — Developer & social integrations
 
-- **GitHub** — dashboard surfaces for personal developer context once API data exists
+### GitHub (done)
+
+- [x] Connect / disconnect / sync UX (`/github`, OAuth return)
+- [x] Account overview + repo list (GitHub black accent, sidebar under Spotify)
+- [x] Cross-repo pull request inbox
+- [x] Repo detail (PRs + commits), PR diffs, create PR, merge PR
+
 - **Instagram (optional)** — only if prioritized and API-backed
 
 ---

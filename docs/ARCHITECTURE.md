@@ -77,7 +77,7 @@ Entry: toolbar avatar menu → Profile. Sessions are a profile subnav item, not 
 |------|------|
 | **Home** | Cross-module summary / entry points |
 | **Spotify** | OAuth connect, Connect remote player, listening aggregates, Home resume widget |
-| **GitHub** | Developer activity / context |
+| **GitHub** | OAuth connect, repo overview, PR inbox/detail/diffs, create & merge |
 | **Cellar** | Wine inventory |
 | **Library** | Books / reading |
 | **Kitchen** | Recipes |

@@ -72,6 +72,36 @@ const routes: RouteRecordRaw[] = [
     meta: handleMeta(true, true, 'Playlist'),
   },
   {
+    path: '/github',
+    name: 'github',
+    component: () => import('@routes/github/GithubView.vue'),
+    meta: handleMeta(true, true, 'GitHub'),
+  },
+  {
+    path: '/github/pulls',
+    name: 'github-pulls',
+    component: () => import('@routes/github/GithubPullsView.vue'),
+    meta: handleMeta(true, true, 'Pull requests'),
+  },
+  {
+    path: '/github/:owner/:repo',
+    name: 'github-repo',
+    component: () => import('@routes/github/GithubRepoView.vue'),
+    meta: handleMeta(true, true, 'Repository'),
+  },
+  {
+    path: '/github/:owner/:repo/pulls/new',
+    name: 'github-pull-create',
+    component: () => import('@routes/github/GithubPullCreateView.vue'),
+    meta: handleMeta(true, true, 'New pull request'),
+  },
+  {
+    path: '/github/:owner/:repo/pulls/:number',
+    name: 'github-pull-detail',
+    component: () => import('@routes/github/GithubPullDetailView.vue'),
+    meta: handleMeta(true, true, 'Pull request'),
+  },
+  {
     path: '/profile',
     component: () => import('@routes/profile/ProfileLayoutView.vue'),
     meta: handleMeta(true, true, 'Profile'),
