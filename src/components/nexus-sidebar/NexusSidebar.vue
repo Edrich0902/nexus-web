@@ -7,12 +7,15 @@ import { useAuthStore } from '@stores/auth/auth.store'
 import NexusAvatar from '@components/nexus-avatar/NexusAvatar.vue'
 import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
 import NexusGithubIcon from '@components/nexus-github-icon/NexusGithubIcon.vue'
+import NexusSportIcon from '@components/nexus-sport-icon/NexusSportIcon.vue'
+import type { SportsSlug } from '@/types/sports/sports'
 
 type SidebarMenuItem = MenuItem & {
   iconComponent?: Component
   to?: string
   matchPrefix?: boolean
-  accent?: 'spotify' | 'github'
+  accent?: 'spotify' | 'github' | 'sports'
+  sport?: SportsSlug
 }
 
 const auth = useAuthStore()
@@ -50,6 +53,59 @@ const items = ref<SidebarMenuItem[]>([
         iconComponent: NexusGithubIcon,
         matchPrefix: true,
         accent: 'github',
+      },
+    ],
+  },
+  {
+    label: 'Sports Hub',
+    items: [
+      {
+        label: 'Football',
+        to: '/sports/football',
+        iconComponent: NexusSportIcon,
+        sport: 'football',
+        matchPrefix: true,
+        accent: 'sports',
+      },
+      {
+        label: 'Tennis',
+        to: '/sports/tennis',
+        iconComponent: NexusSportIcon,
+        sport: 'tennis',
+        matchPrefix: true,
+        accent: 'sports',
+      },
+      {
+        label: 'Rugby',
+        to: '/sports/rugby',
+        iconComponent: NexusSportIcon,
+        sport: 'rugby',
+        matchPrefix: true,
+        accent: 'sports',
+      },
+      {
+        label: 'Golf',
+        to: '/sports/golf',
+        iconComponent: NexusSportIcon,
+        sport: 'golf',
+        matchPrefix: true,
+        accent: 'sports',
+      },
+      {
+        label: 'Darts',
+        to: '/sports/darts',
+        iconComponent: NexusSportIcon,
+        sport: 'darts',
+        matchPrefix: true,
+        accent: 'sports',
+      },
+      {
+        label: 'Field Hockey',
+        to: '/sports/field-hockey',
+        iconComponent: NexusSportIcon,
+        sport: 'field-hockey',
+        matchPrefix: true,
+        accent: 'sports',
       },
     ],
   },
@@ -137,8 +193,11 @@ const handleSignOut = (event: Event) => {
                   (item as SidebarMenuItem).accent === 'spotify',
                 'nav-icon--github':
                   (item as SidebarMenuItem).accent === 'github',
+                'nav-icon--sports':
+                  (item as SidebarMenuItem).accent === 'sports',
               }"
               :size="18"
+              :sport="(item as SidebarMenuItem).sport ?? 'hub'"
             />
             <span
               v-else-if="item.icon"
@@ -264,6 +323,11 @@ const handleSignOut = (event: Event) => {
 .nav-icon--github,
 .nav-item--active .nav-icon--github {
   color: var(--github-ink);
+}
+
+.nav-icon--sports,
+.nav-item--active .nav-icon--sports {
+  color: var(--sports-accent);
 }
 
 .nav-label {

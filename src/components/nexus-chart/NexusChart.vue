@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Chart from 'primevue/chart'
 
 const props = withDefaults(
@@ -15,9 +15,36 @@ const props = withDefaults(
   },
 )
 
+const mounted = ref(false)
+const showChart = ref(false)
+
+const hasDrawableData = computed(() => {
+  const data = props.data as {
+    labels?: unknown[]
+    datasets?: Array<{ data?: unknown[] }>
+  }
+  const labels = Array.isArray(data?.labels) ? data.labels : []
+  const datasets = Array.isArray(data?.datasets) ? data.datasets : []
+  if (datasets.length === 0) return false
+  const points = datasets.some(
+    (d) => Array.isArray(d.data) && d.data.length > 0,
+  )
+  // Line/bar need at least one point; labels optional for some charts
+  return points && (labels.length > 0 || props.type === 'doughnut' || props.type === 'pie')
+})
+
+const chartKey = computed(() => {
+  try {
+    return `${props.type}:${JSON.stringify(props.data)}`
+  } catch {
+    return props.type
+  }
+})
+
 const baseOptions = {
   responsive: true,
   maintainAspectRatio: false,
+  animation: false,
   plugins: {
     legend: {
       labels: {
@@ -104,11 +131,44 @@ const mergedOptions = computed(() => {
         },
   }
 })
+
+async function remountChart(): Promise<void> {
+  showChart.value = false
+  await nextTick()
+  if (mounted.value && hasDrawableData.value) {
+    showChart.value = true
+  }
+}
+
+onMounted(async () => {
+  mounted.value = true
+  await remountChart()
+})
+
+onBeforeUnmount(() => {
+  mounted.value = false
+  showChart.value = false
+})
+
+watch(
+  () => [props.data, props.type],
+  () => {
+    void remountChart()
+  },
+  { deep: true },
+)
 </script>
 
 <template>
   <div class="nexus-chart" :style="{ height }">
-    <Chart :type="type" :data="data" :options="mergedOptions" class="chart" />
+    <Chart
+      v-if="showChart && hasDrawableData"
+      :key="chartKey"
+      :type="type"
+      :data="data"
+      :options="mergedOptions"
+      class="chart"
+    />
   </div>
 </template>
 

@@ -120,6 +120,16 @@ const routes: RouteRecordRaw[] = [
     meta: handleMeta(true, true, 'Pull request'),
   },
   {
+    path: '/sports',
+    redirect: '/sports/football',
+  },
+  {
+    path: '/sports/:sport(football|tennis|rugby|golf|darts|field-hockey)',
+    name: 'sports-sport',
+    component: () => import('@routes/sports/SportView.vue'),
+    meta: handleMeta(true, true, 'Sports'),
+  },
+  {
     path: '/profile',
     component: () => import('@routes/profile/ProfileLayoutView.vue'),
     meta: handleMeta(true, true, 'Profile'),

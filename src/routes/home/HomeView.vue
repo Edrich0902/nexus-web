@@ -5,6 +5,8 @@ import NexusSpotifyOnRepeat from '@components/nexus-spotify-on-repeat/NexusSpoti
 import NexusSpotifyTasteCard from '@components/nexus-spotify-taste-card/NexusSpotifyTasteCard.vue'
 import NexusGithubPulseCard from '@components/nexus-github-pulse-card/NexusGithubPulseCard.vue'
 import NexusGithubContributionsCard from '@components/nexus-github-contributions-card/NexusGithubContributionsCard.vue'
+import NexusSportsPulseCard from '@components/nexus-sports-pulse-card/NexusSportsPulseCard.vue'
+import NexusSportsSnapshotCard from '@components/nexus-sports-snapshot-card/NexusSportsSnapshotCard.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 
 const auth = useAuthStore()
@@ -23,10 +25,12 @@ const auth = useAuthStore()
       <div class="dashboard">
         <div class="dashboard-main">
           <NexusSpotifyResumeCard />
+          <NexusSportsPulseCard />
           <NexusSpotifyTasteCard />
           <NexusSpotifyOnRepeat />
         </div>
         <aside class="dashboard-side">
+          <NexusSportsSnapshotCard />
           <NexusGithubContributionsCard />
           <NexusGithubPulseCard />
         </aside>

@@ -28,6 +28,14 @@
       transparent 55%
     ),
     var(--coffee-bean-panel);
+  --sports-accent: #3d9b8f;
+  --sports-card-surface:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--sports-accent) 22%, transparent),
+      transparent 55%
+    ),
+    var(--coffee-bean-panel);
 
   color-scheme: dark;
   font-family:
