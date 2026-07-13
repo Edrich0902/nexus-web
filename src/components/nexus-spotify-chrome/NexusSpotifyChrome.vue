@@ -22,6 +22,11 @@ const links = [
     label: 'Library',
     match: (n: string) => n === 'spotify-library',
   },
+  {
+    name: 'spotify-stats',
+    label: 'Stats',
+    match: (n: string) => n === 'spotify-stats',
+  },
 ] as const
 </script>
 

@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 import * as spotifyService from '@services/spotify.service'
 import type { SpotifySearchResponse } from '@/types/spotify/spotify'
@@ -115,7 +117,12 @@ async function runSearch(q: string): Promise<void> {
         </div>
 
         <div v-if="loading" class="loading">
-          <ProgressSpinner style="width: 2rem; height: 2rem" stroke-width="4" />
+          <NexusSkeletonList
+            v-if="tab === 'tracks'"
+            :rows="6"
+            variant="track"
+          />
+          <NexusSkeletonCards v-else :cards="6" />
         </div>
         <Message v-else-if="errorMessage" severity="error" :closable="false">
           {{ errorMessage }}
@@ -247,7 +254,10 @@ async function runSearch(q: string): Promise<void> {
   color: var(--lavender-blush);
 }
 
-.loading,
+.loading {
+  min-height: 8rem;
+}
+
 .empty {
   display: grid;
   place-items: center;

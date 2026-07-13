@@ -227,6 +227,13 @@ export interface SpotifyTimeOfDaySkew {
   peak_bucket: string | null
 }
 
+export interface SpotifyTasteSummary {
+  plays_last_7d: number
+  unique_tracks_last_7d: number
+  top_genre: string | null
+  peak_bucket: string | null
+}
+
 export interface SpotifyTasteSnapshot {
   genres: SpotifyTasteGenre[]
   top_artists: Record<
@@ -239,6 +246,7 @@ export interface SpotifyTasteSnapshot {
   >
   on_repeat?: SpotifyOnRepeatItem[]
   time_of_day?: SpotifyTimeOfDaySkew
+  summary?: SpotifyTasteSummary
   notes: string[]
   computed_at: string | null
 }

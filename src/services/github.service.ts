@@ -22,6 +22,7 @@ import type {
   GithubSearchIssueHit,
   GithubSearchRepoHit,
   GithubSearchType,
+  GithubStats,
   GithubSubmitReviewPayload,
   GithubSyncResponse,
 } from '@/types/github/github'
@@ -54,6 +55,13 @@ export async function getProfile(): Promise<GithubProfile> {
 
 export async function getPulse(): Promise<GithubPulse> {
   const { data } = await http.get<GithubPulse>(`${BASE}/pulse`)
+  return data
+}
+
+export async function getStats(refresh = false): Promise<GithubStats> {
+  const { data } = await http.get<GithubStats>(`${BASE}/stats`, {
+    params: refresh ? { refresh: 1 } : undefined,
+  })
   return data
 }
 

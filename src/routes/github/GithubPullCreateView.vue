@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
 import NexusGithubDiffViewer from '@components/nexus-github-diff-viewer/NexusGithubDiffViewer.vue'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { useGithubStore } from '@stores/github/github.store'
 
 const github = useGithubStore()
@@ -182,8 +183,10 @@ async function submit(): Promise<void> {
           <div v-if="!base || !head || base === head" class="empty">
             Choose different base and compare branches to preview the diff.
           </div>
-          <div v-else-if="github.compareLoading" class="empty">
-            Loading comparison…
+          <div v-else-if="github.compareLoading" class="compare-skel">
+            <Skeleton width="60%" height="0.9rem" />
+            <Skeleton width="100%" height="8rem" border-radius="0.75rem" />
+            <NexusSkeletonList :rows="4" variant="repo" />
           </div>
           <NexusGithubDiffViewer
             v-else-if="github.compareResult"
@@ -282,5 +285,12 @@ async function submit(): Promise<void> {
 .empty {
   padding: 1rem;
   color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+}
+
+.compare-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.25rem 0;
 }
 </style>

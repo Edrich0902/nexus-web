@@ -54,6 +54,12 @@ const routes: RouteRecordRaw[] = [
     meta: handleMeta(true, true, 'Library'),
   },
   {
+    path: '/spotify/stats',
+    name: 'spotify-stats',
+    component: () => import('@routes/spotify/SpotifyStatsView.vue'),
+    meta: handleMeta(true, true, 'Spotify Stats'),
+  },
+  {
     path: '/spotify/artists/:artistId',
     name: 'spotify-artist',
     component: () => import('@routes/spotify/SpotifyArtistView.vue'),
@@ -88,6 +94,12 @@ const routes: RouteRecordRaw[] = [
     name: 'github-pulls',
     component: () => import('@routes/github/GithubPullsView.vue'),
     meta: handleMeta(true, true, 'Pull requests'),
+  },
+  {
+    path: '/github/stats',
+    name: 'github-stats',
+    component: () => import('@routes/github/GithubStatsView.vue'),
+    meta: handleMeta(true, true, 'GitHub Stats'),
   },
   {
     path: '/github/:owner/:repo',

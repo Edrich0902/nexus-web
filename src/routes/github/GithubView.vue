@@ -5,6 +5,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
 import NexusGithubIcon from '@components/nexus-github-icon/NexusGithubIcon.vue'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { useGithubStore } from '@stores/github/github.store'
 
 const github = useGithubStore()
@@ -122,6 +123,12 @@ function formatDate(value: string | null): string {
           </div>
         </section>
 
+        <div v-else-if="github.statusLoading" class="hub-skel">
+          <Skeleton width="100%" height="6rem" border-radius="1rem" />
+          <Skeleton width="10rem" height="1.1rem" />
+          <NexusSkeletonList :rows="5" variant="repo" />
+        </div>
+
         <template v-else-if="github.connected">
           <section v-if="github.profile" class="profile-strip">
             <img
@@ -181,7 +188,11 @@ function formatDate(value: string | null): string {
               </div>
             </div>
 
-            <div v-if="github.reposLoading" class="empty">Loading repositories…</div>
+            <NexusSkeletonList
+              v-if="github.reposLoading"
+              :rows="6"
+              variant="repo"
+            />
             <div v-else-if="filteredRepos.length === 0" class="empty">
               <template v-if="filter === 'starred'">
                 No starred repositories yet.
@@ -229,6 +240,12 @@ function formatDate(value: string | null): string {
   gap: 1.5rem;
   padding-top: 0.5rem;
   padding-bottom: 2rem;
+}
+
+.hub-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .toolbar-actions {

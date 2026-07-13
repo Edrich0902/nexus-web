@@ -90,7 +90,11 @@ function commitSubject(message: string | null): string {
             <template v-if="mode === 'connect'">
               Connect to see where you left off
             </template>
-            <template v-else-if="mode === 'loading'">Loading…</template>
+            <Skeleton
+              v-else-if="mode === 'loading'"
+              width="7rem"
+              height="0.75rem"
+            />
             <template v-else>
               {{ openPulls.length }} open
               <router-link :to="{ name: 'github-pulls' }" class="inbox-link">
@@ -121,8 +125,11 @@ function commitSubject(message: string | null): string {
     <div v-if="mode === 'connect'" class="pulse-empty">
       Open PRs, recent merges, and latest commits across your repos.
     </div>
-    <div v-else-if="mode === 'loading'" class="pulse-empty">
-      Fetching your GitHub snapshot…
+    <div v-else-if="mode === 'loading'" class="pulse-skel">
+      <div v-for="n in 4" :key="n" class="pulse-skel-row">
+        <Skeleton width="72%" height="0.85rem" />
+        <Skeleton width="48%" height="0.65rem" />
+      </div>
     </div>
     <div v-else-if="mode === 'empty'" class="pulse-empty">
       Nothing recent yet. Sync from the GitHub hub after connecting.
@@ -238,6 +245,22 @@ function commitSubject(message: string | null): string {
   color: color-mix(in srgb, var(--lavender-blush) 58%, transparent);
   font-size: 0.92rem;
   line-height: 1.4;
+}
+
+.pulse-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.2rem 0;
+}
+
+.pulse-skel-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--lavender-blush) 4%, transparent);
 }
 
 .pulse-section h4 {

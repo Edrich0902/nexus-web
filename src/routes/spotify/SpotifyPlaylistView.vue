@@ -5,6 +5,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
+import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 import type { SpotifyPlaylist } from '@/types/spotify/spotify'
 import { Status } from '@/types/status'
@@ -122,10 +123,7 @@ async function removeTrack(uri: string, position: number): Promise<void> {
 
     <NexusSpotifyChrome>
     <div class="playlist-page">
-      <div v-if="status === Status.LOADING" class="loading-block">
-        <ProgressSpinner style="width: 2.5rem; height: 2.5rem" stroke-width="4" />
-        <span>Loading playlist…</span>
-      </div>
+      <NexusSkeletonMedia v-if="status === Status.LOADING" :rows="8" />
 
       <p v-else-if="!playlist" class="empty">Playlist not found.</p>
 
@@ -255,13 +253,6 @@ async function removeTrack(uri: string, position: number): Promise<void> {
   gap: 1.5rem;
   padding-top: 0.5rem;
   padding-bottom: 2rem;
-}
-
-.loading-block {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
 }
 
 .empty {

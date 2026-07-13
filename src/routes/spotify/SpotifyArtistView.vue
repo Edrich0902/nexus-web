@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
+import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
+import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 import * as spotifyService from '@services/spotify.service'
 import type {
@@ -89,7 +91,11 @@ async function playTop(): Promise<void> {
   <NexusPageWrapper show-toolbar :title="artist?.name ?? 'Artist'">
     <NexusSpotifyChrome>
       <div v-if="loading" class="loading">
-        <ProgressSpinner style="width: 2.25rem; height: 2.25rem" stroke-width="4" />
+        <NexusSkeletonMedia :rows="5" />
+        <div class="albums-skel">
+          <Skeleton width="5rem" height="1rem" class="mb-2" />
+          <NexusSkeletonCards :cards="4" />
+        </div>
       </div>
       <div v-else class="artist-page">
         <header class="hero">
@@ -160,9 +166,15 @@ async function playTop(): Promise<void> {
 
 <style scoped>
 .loading {
-  display: grid;
-  place-items: center;
-  min-height: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.albums-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .artist-page {

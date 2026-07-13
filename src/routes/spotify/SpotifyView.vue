@@ -7,6 +7,8 @@ import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChr
 import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
 import NexusSpotifyPlayer from '@components/nexus-spotify-player/NexusSpotifyPlayer.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 
 const spotify = useSpotifyStore()
@@ -158,8 +160,11 @@ async function submitCreatePlaylist(): Promise<void> {
       </section>
 
       <div v-else-if="spotify.statusLoading" class="loading-block">
-        <ProgressSpinner style="width: 2.5rem; height: 2.5rem" stroke-width="4" />
-        <span>Checking Spotify connection…</span>
+        <Skeleton width="100%" height="4.5rem" border-radius="1rem" />
+        <div class="loading-bands">
+          <Skeleton width="9rem" height="1.05rem" class="mb-3" />
+          <NexusSkeletonList :rows="4" variant="track" />
+        </div>
       </div>
 
       <template v-else>
@@ -169,9 +174,11 @@ async function submitCreatePlaylist(): Promise<void> {
           <div class="band-head">
             <h3>Recently played</h3>
           </div>
-          <div v-if="spotify.recentlyLoading" class="loading-inline">
-            <ProgressSpinner style="width: 1.75rem; height: 1.75rem" stroke-width="4" />
-          </div>
+          <NexusSkeletonList
+            v-if="spotify.recentlyLoading"
+            :rows="6"
+            variant="track"
+          />
           <p v-else-if="spotify.recentlyPlayed.length === 0" class="empty">
             No recent plays yet. Hit Sync after listening on Spotify.
           </p>
@@ -216,9 +223,10 @@ async function submitCreatePlaylist(): Promise<void> {
               />
             </div>
           </div>
-          <div v-if="spotify.playlistsLoading" class="loading-inline">
-            <ProgressSpinner style="width: 1.75rem; height: 1.75rem" stroke-width="4" />
-          </div>
+          <NexusSkeletonCards
+            v-if="spotify.playlistsLoading"
+            :cards="6"
+          />
           <p v-else-if="spotify.playlists.length === 0" class="empty">
             No playlists synced yet.
           </p>
@@ -267,8 +275,17 @@ async function submitCreatePlaylist(): Promise<void> {
           <div class="band-head">
             <h3>Taste & suggestions</h3>
           </div>
-          <div v-if="spotify.tasteLoading" class="loading-inline">
-            <ProgressSpinner style="width: 1.75rem; height: 1.75rem" stroke-width="4" />
+          <div v-if="spotify.tasteLoading" class="taste-skel">
+            <div class="genre-skel">
+              <Skeleton
+                v-for="n in 5"
+                :key="n"
+                width="5.5rem"
+                height="1.75rem"
+                border-radius="999px"
+              />
+            </div>
+            <NexusSkeletonList :rows="4" variant="track" />
           </div>
           <template v-else>
             <div v-if="genres.length" class="genre-chips">
@@ -397,12 +414,28 @@ async function submitCreatePlaylist(): Promise<void> {
   line-height: 1.45;
 }
 
-.loading-block,
-.loading-inline {
+.loading-block {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.loading-bands {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.taste-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.genre-skel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .band {

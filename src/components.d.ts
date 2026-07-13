@@ -11,7 +11,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    AppSidebar: typeof import('./components/sidebar/AppSidebar.vue')['default']
     Avatar: typeof import('primevue/avatar')['default']
     Button: typeof import('primevue/button')['default']
     Checkbox: typeof import('primevue/checkbox')['default']
@@ -36,13 +35,13 @@ declare module 'vue' {
     NexusSpotifyQueuePanel: typeof import('./components/nexus-spotify-queue-panel/NexusSpotifyQueuePanel.vue')['default']
     NexusSpotifyResumeCard: typeof import('./components/nexus-spotify-resume-card/NexusSpotifyResumeCard.vue')['default']
     NexusSpotifyTrackRow: typeof import('./components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue')['default']
-    PageWrapper: typeof import('./components/page-wrapper/PageWrapper.vue')['default']
     Password: typeof import('primevue/password')['default']
     Popover: typeof import('primevue/popover')['default']
     ProgressSpinner: typeof import('primevue/progressspinner')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     Select: typeof import('primevue/select')['default']
+    Skeleton: typeof import('primevue/skeleton')['default']
     Slider: typeof import('primevue/slider')['default']
     Tag: typeof import('primevue/tag')['default']
     Textarea: typeof import('primevue/textarea')['default']

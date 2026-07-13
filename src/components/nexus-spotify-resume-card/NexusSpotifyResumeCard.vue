@@ -22,10 +22,12 @@ const lastPlayed = computed(() => {
   return row?.track ?? null
 })
 
-const mode = computed<'now' | 'last' | 'connect' | 'empty'>(() => {
+const mode = computed<'loading' | 'now' | 'last' | 'connect' | 'empty'>(() => {
+  if (spotify.statusLoading) return 'loading'
   if (!spotify.connected) return 'connect'
   if (liveItem.value?.uri) return 'now'
   if (lastPlayed.value) return 'last'
+  if (spotify.playerLoading || spotify.recentlyLoading) return 'loading'
   return 'empty'
 })
 
@@ -100,6 +102,7 @@ async function primaryAction(event: Event): Promise<void> {
 }
 
 function openSpotify(): void {
+  if (mode.value === 'loading') return
   void router.push({ name: 'spotify' })
 }
 </script>
@@ -107,60 +110,74 @@ function openSpotify(): void {
 <template>
   <article
     class="resume-card"
-    role="link"
-    tabindex="0"
+    :class="{ loading: mode === 'loading' }"
+    :role="mode === 'loading' ? undefined : 'link'"
+    :tabindex="mode === 'loading' ? undefined : 0"
+    :aria-busy="mode === 'loading'"
     @click="openSpotify"
     @keydown.enter="openSpotify"
   >
-    <div class="art-plane">
-      <img
-        v-if="artUrl"
-        :src="artUrl"
-        :alt="title"
-        class="art-image"
-      />
-      <div v-else class="art-empty">
-        <NexusSpotifyIcon v-if="mode === 'connect' || mode === 'empty'" :size="36" />
-        <span v-else class="pi pi-headphones text-3xl" />
+    <template v-if="mode === 'loading'">
+      <Skeleton width="100%" height="100%" border-radius="0.85rem" class="art-skel" />
+      <div class="body">
+        <Skeleton width="6rem" height="0.7rem" />
+        <Skeleton width="70%" height="1.5rem" />
+        <Skeleton width="45%" height="0.9rem" />
+        <Skeleton width="7rem" height="2.25rem" border-radius="0.5rem" class="cta-skel" />
       </div>
-      <div class="art-veil" />
-    </div>
+    </template>
 
-    <div class="body">
-      <div class="status-row">
-        <span class="now-badge">{{ badge }}</span>
-        <span v-if="deviceLabel" class="device-label">
-          <span class="pi pi-wifi" />
-          {{ deviceLabel }}
-        </span>
-      </div>
-
-      <h3 class="title">{{ title }}</h3>
-      <p class="subtitle">{{ subtitle }}</p>
-
-      <div class="actions">
-        <Button
-          :label="
-            mode === 'connect'
-              ? 'Connect Spotify'
-              : mode === 'now' && spotify.player?.is_playing
-                ? 'Pause'
-                : 'Play'
-          "
-          :icon="
-            mode === 'connect'
-              ? 'pi pi-link'
-              : mode === 'now' && spotify.player?.is_playing
-                ? 'pi pi-pause'
-                : 'pi pi-play'
-          "
-          :severity="mode === 'connect' ? 'success' : undefined"
-          :loading="spotify.controlBusy"
-          :disabled="mode === 'empty'"
-          @click="primaryAction"
+    <template v-else>
+      <div class="art-plane">
+        <img
+          v-if="artUrl"
+          :src="artUrl"
+          :alt="title"
+          class="art-image"
         />
+        <div v-else class="art-empty">
+          <NexusSpotifyIcon v-if="mode === 'connect' || mode === 'empty'" :size="36" />
+          <span v-else class="pi pi-headphones text-3xl" />
+        </div>
+        <div class="art-veil" />
       </div>
-    </div>
+
+      <div class="body">
+        <div class="status-row">
+          <span class="now-badge">{{ badge }}</span>
+          <span v-if="deviceLabel" class="device-label">
+            <span class="pi pi-wifi" />
+            {{ deviceLabel }}
+          </span>
+        </div>
+
+        <h3 class="title">{{ title }}</h3>
+        <p class="subtitle">{{ subtitle }}</p>
+
+        <div class="actions">
+          <Button
+            :label="
+              mode === 'connect'
+                ? 'Connect Spotify'
+                : mode === 'now' && spotify.player?.is_playing
+                  ? 'Pause'
+                  : 'Play'
+            "
+            :icon="
+              mode === 'connect'
+                ? 'pi pi-link'
+                : mode === 'now' && spotify.player?.is_playing
+                  ? 'pi pi-pause'
+                  : 'pi pi-play'
+            "
+            :severity="mode === 'connect' ? 'success' : undefined"
+            :loading="spotify.controlBusy"
+            :disabled="mode === 'empty'"
+            @click="primaryAction"
+          />
+        </div>
+      </div>
+    </template>
   </article>
 </template>
 
@@ -182,12 +199,16 @@ function openSpotify(): void {
     box-shadow 0.15s ease;
 }
 
-.resume-card:hover {
+.resume-card.loading {
+  cursor: default;
+}
+
+.resume-card:not(.loading):hover {
   border-color: color-mix(in srgb, var(--light-green) 45%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--light-green) 12%, transparent);
 }
 
-.resume-card:focus-visible {
+.resume-card:not(.loading):focus-visible {
   outline: 2px solid color-mix(in srgb, var(--light-green) 55%, transparent);
   outline-offset: 2px;
 }
@@ -196,6 +217,11 @@ function openSpotify(): void {
   .resume-card {
     grid-template-columns: 1fr;
   }
+}
+
+.art-skel {
+  min-height: 9rem;
+  aspect-ratio: 1;
 }
 
 .art-plane {
@@ -241,6 +267,10 @@ function openSpotify(): void {
   gap: 0.45rem;
   min-width: 0;
   padding: 0.15rem 0.25rem 0.15rem 0;
+}
+
+.cta-skel {
+  margin-top: 0.25rem;
 }
 
 .status-row {

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { useGithubStore } from '@stores/github/github.store'
 import type { GithubPullStateFilter } from '@/types/github/github'
 
@@ -168,7 +169,11 @@ async function createBranch(): Promise<void> {
             />
           </div>
 
-          <div v-if="github.repoPullsLoading" class="empty">Loading…</div>
+          <NexusSkeletonList
+            v-if="github.repoPullsLoading"
+            :rows="5"
+            variant="repo"
+          />
           <div v-else-if="github.repoPulls.length === 0" class="empty">
             No pull requests for this filter.
           </div>
@@ -197,7 +202,11 @@ async function createBranch(): Promise<void> {
         </template>
 
         <template v-else-if="tab === 'commits'">
-          <div v-if="github.commitsLoading" class="empty">Loading commits…</div>
+          <NexusSkeletonList
+            v-if="github.commitsLoading"
+            :rows="6"
+            variant="repo"
+          />
           <div v-else-if="github.commits.length === 0" class="empty">
             No commits found.
           </div>
@@ -262,7 +271,11 @@ async function createBranch(): Promise<void> {
             />
           </form>
 
-          <div v-if="github.branchesLoading" class="empty">Loading branches…</div>
+          <NexusSkeletonList
+            v-if="github.branchesLoading"
+            :rows="5"
+            variant="plain"
+          />
           <div v-else-if="github.branches.length === 0" class="empty">
             No branches found.
           </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import type { SpotifyPlayerItem } from '@/types/spotify/spotify'
 
 const spotify = useSpotifyStore()
@@ -43,9 +44,11 @@ function queueUri(item: SpotifyPlayerItem): string | null {
     :style="{ width: 'min(24rem, 92vw)' }"
   >
     <div class="queue-panel">
-      <div v-if="spotify.queueLoading && !spotify.queue" class="loading">
-        <ProgressSpinner style="width: 2rem; height: 2rem" stroke-width="4" />
-      </div>
+      <NexusSkeletonList
+        v-if="spotify.queueLoading && !spotify.queue"
+        :rows="6"
+        variant="track"
+      />
 
       <template v-else>
         <section class="section">
@@ -108,12 +111,6 @@ function queueUri(item: SpotifyPlayerItem): string | null {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-}
-
-.loading {
-  display: grid;
-  place-items: center;
-  padding: 2rem 0;
 }
 
 .section h4 {

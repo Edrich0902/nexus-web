@@ -39,6 +39,7 @@ import type {
   GithubSearchIssueHit,
   GithubSearchRepoHit,
   GithubSearchType,
+  GithubStats,
   GithubSubmitReviewPayload,
 } from '@/types/github/github'
 
@@ -88,6 +89,8 @@ export const useGithubStore = defineStore('github', () => {
   } | null>(null)
   const pulse = ref<GithubPulse | null>(null)
   const pulseLoading = ref(false)
+  const stats = ref<GithubStats | null>(null)
+  const statsLoading = ref(false)
 
   const status = computed(() => statusQuery.data.value ?? null)
   const connected = computed(() => status.value?.connected === true)
@@ -239,6 +242,23 @@ export const useGithubStore = defineStore('github', () => {
       pulse.value = null
     } finally {
       pulseLoading.value = false
+    }
+  }
+
+  async function loadStats(refresh = false): Promise<void> {
+    statsLoading.value = true
+    try {
+      await statusQuery.refetch()
+      if (!connected.value) {
+        stats.value = null
+        return
+      }
+      stats.value = await githubService.getStats(refresh)
+    } catch (error) {
+      toastError(error, 'Unable to load GitHub stats')
+      stats.value = null
+    } finally {
+      statsLoading.value = false
     }
   }
 
@@ -627,6 +647,8 @@ export const useGithubStore = defineStore('github', () => {
     currentRepo,
     pulse,
     pulseLoading,
+    stats,
+    statsLoading,
     loadHub,
     connect,
     disconnect,
@@ -634,6 +656,7 @@ export const useGithubStore = defineStore('github', () => {
     handleOAuthReturn,
     loadInbox,
     loadPulse,
+    loadStats,
     loadRepoPulls,
     loadCommits,
     loadBranches,

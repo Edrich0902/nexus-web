@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useConfirm } from 'primevue/useconfirm'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@stores/auth/auth.store'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { Status } from '@/types/status'
 import type { DeviceSession } from '@/types/auth/device-session'
 
@@ -96,9 +97,11 @@ function confirmRevokeOthers(event: Event): void {
       />
     </div>
 
-    <div v-if="loading && auth.sessions.length === 0" class="py-8 text-surface-400">
-      Loading sessions…
-    </div>
+    <NexusSkeletonList
+      v-if="loading && auth.sessions.length === 0"
+      :rows="3"
+      variant="session"
+    />
 
     <div v-else-if="auth.sessions.length === 0" class="py-8 text-surface-400">
       No active sessions found.

@@ -17,6 +17,11 @@ const links = [
     label: 'Pull requests',
     match: (n: string) => n === 'github-pulls' || n.startsWith('github-pull'),
   },
+  {
+    name: 'github-stats',
+    label: 'Stats',
+    match: (n: string) => n === 'github-stats',
+  },
 ] as const
 </script>
 

@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { useGithubStore } from '@stores/github/github.store'
 import type {
   GithubSearchCodeHit,
@@ -97,7 +98,11 @@ watch([query, type], () => {
         </div>
 
         <p v-if="query.trim()" class="result-meta">
-          <template v-if="github.searchLoading">Searching…</template>
+          <Skeleton
+            v-if="github.searchLoading"
+            width="6rem"
+            height="0.75rem"
+          />
           <template v-else>
             {{ github.searchTotal }} result{{
               github.searchTotal === 1 ? '' : 's'
@@ -109,7 +114,11 @@ watch([query, type], () => {
           Search only your account — repositories you own, plus issues, PRs, and
           code in those repos.
         </div>
-        <div v-else-if="github.searchLoading" class="empty">Searching…</div>
+        <NexusSkeletonList
+          v-else-if="github.searchLoading"
+          :rows="6"
+          variant="repo"
+        />
         <div
           v-else-if="github.searchResults.length === 0"
           class="empty"

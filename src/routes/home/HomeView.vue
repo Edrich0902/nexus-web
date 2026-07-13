@@ -2,7 +2,9 @@
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusSpotifyResumeCard from '@components/nexus-spotify-resume-card/NexusSpotifyResumeCard.vue'
 import NexusSpotifyOnRepeat from '@components/nexus-spotify-on-repeat/NexusSpotifyOnRepeat.vue'
+import NexusSpotifyTasteCard from '@components/nexus-spotify-taste-card/NexusSpotifyTasteCard.vue'
 import NexusGithubPulseCard from '@components/nexus-github-pulse-card/NexusGithubPulseCard.vue'
+import NexusGithubContributionsCard from '@components/nexus-github-contributions-card/NexusGithubContributionsCard.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 
 const auth = useAuthStore()
@@ -16,17 +18,19 @@ const auth = useAuthStore()
         <h2>
           Welcome<span v-if="auth.user">, {{ auth.user.name }}</span>
         </h2>
-        <p class="lede">
-          Resume listening, then open modules from the side menu as they come
-          online.
-        </p>
       </header>
 
-      <section class="widget-grid">
-        <NexusSpotifyResumeCard />
-        <NexusSpotifyOnRepeat />
-        <NexusGithubPulseCard />
-      </section>
+      <div class="dashboard">
+        <div class="dashboard-main">
+          <NexusSpotifyResumeCard />
+          <NexusSpotifyTasteCard />
+          <NexusSpotifyOnRepeat />
+        </div>
+        <aside class="dashboard-side">
+          <NexusGithubContributionsCard />
+          <NexusGithubPulseCard />
+        </aside>
+      </div>
     </div>
   </NexusPageWrapper>
 </template>
@@ -35,16 +39,17 @@ const auth = useAuthStore()
 .home-page {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
   padding-top: 0.5rem;
   padding-bottom: 2rem;
-  max-width: 52rem;
+  max-width: 72rem;
+  width: 100%;
 }
 
 .home-intro {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.25rem;
 }
 
 .eyebrow {
@@ -63,16 +68,30 @@ const auth = useAuthStore()
   letter-spacing: -0.02em;
 }
 
-.lede {
-  margin: 0;
-  max-width: 34rem;
-  color: color-mix(in srgb, var(--lavender-blush) 58%, transparent);
-  line-height: 1.45;
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(17rem, 1fr);
+  gap: 1rem;
+  align-items: start;
 }
 
-.widget-grid {
-  display: grid;
-  grid-template-columns: 1fr;
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
+  min-width: 0;
+}
+
+.dashboard-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

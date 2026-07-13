@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { useGithubStore } from '@stores/github/github.store'
 import type { GithubPullStateFilter } from '@/types/github/github'
 
@@ -50,7 +51,11 @@ function formatDate(value: string | null): string {
           />
         </div>
 
-        <div v-if="github.inboxLoading" class="empty">Loading pull requests…</div>
+        <NexusSkeletonList
+          v-if="github.inboxLoading"
+          :rows="6"
+          variant="repo"
+        />
         <div v-else-if="github.inbox.length === 0" class="empty">
           No pull requests found for this filter.
         </div>

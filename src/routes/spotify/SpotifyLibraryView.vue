@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 import * as spotifyService from '@services/spotify.service'
 import type {
@@ -143,8 +145,16 @@ const canLoadMore = computed(() => {
           </button>
         </div>
 
-        <div v-if="loading && !tracks.length && !albums.length && !artists.length" class="loading">
-          <ProgressSpinner style="width: 2rem; height: 2rem" stroke-width="4" />
+        <div
+          v-if="loading && !tracks.length && !albums.length && !artists.length"
+          class="loading"
+        >
+          <NexusSkeletonList
+            v-if="tab === 'tracks'"
+            :rows="8"
+            variant="track"
+          />
+          <NexusSkeletonCards v-else :cards="8" />
         </div>
         <Message v-else-if="errorMessage" severity="error" :closable="false">
           {{ errorMessage }}
@@ -259,7 +269,10 @@ const canLoadMore = computed(() => {
   color: var(--lavender-blush);
 }
 
-.loading,
+.loading {
+  min-height: 6rem;
+}
+
 .empty {
   display: grid;
   place-items: center;

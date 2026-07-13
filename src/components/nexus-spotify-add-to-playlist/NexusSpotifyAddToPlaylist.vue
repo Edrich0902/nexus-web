@@ -134,9 +134,12 @@ async function createAndAdd(): Promise<void> {
         No playlists yet. Create one above or sync after connecting.
       </p>
       <div v-else class="list">
-        <p v-if="membershipLoading" class="membership-hint">
-          Checking which playlists already have this track…
-        </p>
+        <Skeleton
+          v-if="membershipLoading"
+          width="100%"
+          height="0.65rem"
+          class="membership-hint"
+        />
         <button
           v-for="playlist in playlists"
           :key="playlist.id"
@@ -155,10 +158,10 @@ async function createAndAdd(): Promise<void> {
             <span v-else class="pi pi-list" />
           </div>
           <span class="name">{{ playlist.name }}</span>
-          <ProgressSpinner
+          <Skeleton
             v-if="busyId === playlist.id"
-            style="width: 1.25rem; height: 1.25rem"
-            stroke-width="5"
+            shape="circle"
+            size="1.25rem"
           />
           <template v-else-if="containingIds.has(playlist.id)">
             <span class="action-label">Remove</span>
@@ -197,9 +200,7 @@ async function createAndAdd(): Promise<void> {
 }
 
 .membership-hint {
-  margin: 0 0 0.25rem;
-  font-size: 0.75rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
+  margin-bottom: 0.25rem;
 }
 
 .playlist-row {

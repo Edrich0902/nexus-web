@@ -235,3 +235,48 @@ export type GithubPulse = {
   merged_pulls: GithubInboxPull[]
   commits: GithubPulseCommit[]
 }
+
+export type GithubContributionDay = {
+  date: string
+  count: number
+  color: string | null
+}
+
+export type GithubContributionWeek = {
+  contribution_days: GithubContributionDay[]
+}
+
+export type GithubStatsSparklinePoint = {
+  date: string
+  count: number
+}
+
+export type GithubStatsLanguage = {
+  language: string
+  count: number
+}
+
+export type GithubStatsRepo = {
+  owner: string
+  name: string
+  full_name: string
+  language: string | null
+  private: boolean
+  html_url: string | null
+  pushed_at: string | null
+}
+
+export type GithubStats = {
+  total_contributions: number
+  current_streak: number
+  longest_streak: number
+  open_pr_count: number
+  merged_pr_count: number
+  calendar: {
+    weeks: GithubContributionWeek[]
+  }
+  sparkline: GithubStatsSparklinePoint[]
+  languages: GithubStatsLanguage[]
+  top_repos: GithubStatsRepo[]
+  computed_at: string | null
+}

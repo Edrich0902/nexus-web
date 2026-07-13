@@ -5,6 +5,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
 import NexusGithubDiffViewer from '@components/nexus-github-diff-viewer/NexusGithubDiffViewer.vue'
+import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { useGithubStore } from '@stores/github/github.store'
 import type { GithubSubmitReviewPayload } from '@/types/github/github'
 
@@ -115,7 +116,12 @@ async function submitReview(
 
     <div class="github-page">
       <NexusGithubChrome>
-        <div v-if="github.pullDetailLoading" class="empty">Loading pull request…</div>
+        <div v-if="github.pullDetailLoading" class="detail-skel">
+          <Skeleton width="70%" height="1.5rem" />
+          <Skeleton width="40%" height="0.85rem" />
+          <Skeleton width="100%" height="6rem" border-radius="0.75rem" />
+          <NexusSkeletonList :rows="3" variant="repo" />
+        </div>
         <template v-else-if="github.pullDetail">
           <section class="summary">
             <div class="summary-top">
@@ -265,6 +271,12 @@ async function submitReview(
   flex-direction: column;
   gap: 1rem;
   padding-bottom: 2rem;
+}
+
+.detail-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
 }
 
 .external {

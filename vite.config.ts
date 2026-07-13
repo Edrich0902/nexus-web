@@ -34,29 +34,35 @@ function buildConfig(outDir: string, sourcemap: boolean) {
     outDir,
     sourcemap,
     target: 'esnext' as const,
-    rollupOptions: {
+    // Vite 8: codeSplitting replaces deprecated manualChunks.
+    // Never group all of primevue together — that regenerates a ~575 kB chunk.
+    // Components stay on automatic splits with the lazy routes that import them.
+    rolldownOptions: {
       output: {
-        manualChunks(id: string) {
-          if (!id.includes('node_modules')) return
-          if (
-            id.includes('/vue/') ||
-            id.includes('/vue-router/') ||
-            id.includes('/pinia/') ||
-            id.includes('/@pinia/')
-          ) {
-            return 'vue-vendor'
-          }
-          if (
-            id.includes('/primevue/') ||
-            id.includes('/@primeuix/') ||
-            id.includes('/@primevue/') ||
-            id.includes('/primeicons/')
-          ) {
-            return 'primevue'
-          }
-          if (id.includes('/axios/')) {
-            return 'axios'
-          }
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vue-vendor',
+              test: /node_modules[\\/](vue|vue-router|pinia|@pinia)([\\/]|$)/,
+              priority: 30,
+            },
+            {
+              name: 'axios',
+              test: /node_modules[\\/]axios([\\/]|$)/,
+              priority: 20,
+            },
+            {
+              name: 'prime-theme',
+              test: /node_modules[\\/](@primeuix|@primevue|primeicons)([\\/]|$)/,
+              maxSize: 200_000,
+              priority: 15,
+            },
+            {
+              name: 'primevue-core',
+              test: /node_modules[\\/]primevue[\\/](config|toastservice|confirmationservice|tooltip|ripple|usetoast|useconfirm|usedialog|api|basedirective|basecomponent|base)([\\/.]|$)/,
+              priority: 10,
+            },
+          ],
         },
       },
     },

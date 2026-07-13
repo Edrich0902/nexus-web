@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
+import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 import * as spotifyService from '@services/spotify.service'
 import type { SpotifyAlbumDetail, SpotifyTrack } from '@/types/spotify/spotify'
@@ -74,9 +75,7 @@ async function playAlbum(): Promise<void> {
 <template>
   <NexusPageWrapper show-toolbar :title="album?.name ?? 'Album'">
     <NexusSpotifyChrome>
-      <div v-if="loading" class="loading">
-        <ProgressSpinner style="width: 2.25rem; height: 2.25rem" stroke-width="4" />
-      </div>
+      <NexusSkeletonMedia v-if="loading" :rows="8" />
       <div v-else-if="!album?.available" class="empty-state">
         <Message severity="warn" :closable="false">
           {{ album?.message ?? 'Album unavailable from Spotify for this app.' }}
@@ -151,7 +150,6 @@ async function playAlbum(): Promise<void> {
 </template>
 
 <style scoped>
-.loading,
 .empty-state {
   display: grid;
   place-items: center;
