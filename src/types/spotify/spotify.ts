@@ -247,8 +247,70 @@ export interface SpotifyTasteSnapshot {
   on_repeat?: SpotifyOnRepeatItem[]
   time_of_day?: SpotifyTimeOfDaySkew
   summary?: SpotifyTasteSummary
+  audio_metrics?: {
+    '7d'?: SpotifyListeningWindow
+    '30d'?: SpotifyListeningWindow
+  }
   notes: string[]
   computed_at: string | null
+}
+
+export interface SpotifyTrackAudioFeatures {
+  provider: string
+  acousticness: number | null
+  danceability: number | null
+  energy: number | null
+  instrumentalness: number | null
+  key: number | null
+  liveness: number | null
+  loudness: number | null
+  mode: number | null
+  speechiness: number | null
+  tempo: number | null
+  valence: number | null
+  fetched_at?: string | null
+}
+
+export type SpotifyFeaturesStatus = 'idle' | 'loading' | 'ready' | 'unavailable'
+
+export interface SpotifyListeningHeartbeatResponse {
+  session_id: number
+  spotify_id: string
+  engaged: boolean
+  max_progress_ms: number
+  features_status: SpotifyFeaturesStatus
+  features: SpotifyTrackAudioFeatures | null
+  settings: {
+    auto_queue_enabled: boolean
+    auto_queue_min_upcoming: number
+    auto_queue_batch: number
+  }
+}
+
+export interface SpotifyListeningWindow {
+  sample_count: number
+  samples_with_features?: number
+  total_weight: number
+  averages: Record<string, number | null>
+}
+
+export interface SpotifyListeningProfile {
+  windows: {
+    '7d': SpotifyListeningWindow
+    '30d': SpotifyListeningWindow
+    all: SpotifyListeningWindow
+  }
+  sample_count_total: number
+  computed_at: string
+}
+
+export interface SpotifyListeningSettings {
+  engage_progress_ms: number
+  engage_ratio: number
+  full_listen_ratio: number
+  auto_queue_enabled: boolean
+  auto_queue_min_upcoming: number
+  auto_queue_batch: number
 }
 
 export interface SpotifySuggestionItem {
@@ -260,6 +322,7 @@ export interface SpotifySuggestionItem {
 export interface SpotifySuggestionsResponse {
   source: string
   items: SpotifySuggestionItem[]
+  seed?: string
 }
 
 export interface PaginatedResponse<T> {

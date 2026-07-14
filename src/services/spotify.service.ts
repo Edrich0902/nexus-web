@@ -9,10 +9,14 @@ import type {
   SpotifyConnectionStatus,
   SpotifyCreatePlaylistPayload,
   SpotifyDevice,
+  SpotifyFeaturesStatus,
   SpotifyLibraryAlbumsResponse,
   SpotifyLibraryArtistsResponse,
   SpotifyLibraryContainsResponse,
   SpotifyLibraryTracksResponse,
+  SpotifyListeningHeartbeatResponse,
+  SpotifyListeningProfile,
+  SpotifyListeningSettings,
   SpotifyPlayPayload,
   SpotifyPlaybackState,
   SpotifyPlaylist,
@@ -26,6 +30,7 @@ import type {
   SpotifyTimeRange,
   SpotifyTopItem,
   SpotifyTopType,
+  SpotifyTrackAudioFeatures,
   SpotifyTransferPayload,
   SpotifyUpdatePlaylistPayload,
 } from '@/types/spotify/spotify'
@@ -344,6 +349,75 @@ export async function getTaste(): Promise<SpotifyTasteSnapshot> {
 export async function getSuggestions(): Promise<SpotifySuggestionsResponse> {
   const { data } = await http.get<SpotifySuggestionsResponse>(
     `${BASE}/suggestions`,
+  )
+  return data
+}
+
+export async function postListeningHeartbeat(payload: {
+  spotify_id: string
+  progress_ms: number
+  duration_ms?: number | null
+  is_playing?: boolean
+  name?: string | null
+  uri?: string | null
+  album_name?: string | null
+  album_image_url?: string | null
+  artists?: Array<{ id?: string; name?: string }> | null
+}): Promise<SpotifyListeningHeartbeatResponse> {
+  const { data } = await http.post<SpotifyListeningHeartbeatResponse>(
+    `${BASE}/listening/heartbeat`,
+    payload,
+  )
+  return data
+}
+
+export async function getTrackFeatures(
+  spotifyId: string,
+  sync = false,
+): Promise<{
+  status: SpotifyFeaturesStatus
+  features: SpotifyTrackAudioFeatures | null
+}> {
+  const { data } = await http.get<{
+    status: SpotifyFeaturesStatus
+    features: SpotifyTrackAudioFeatures | null
+  }>(`${BASE}/tracks/${encodeURIComponent(spotifyId)}/features`, {
+    params: sync ? { sync: 1 } : undefined,
+  })
+  return data
+}
+
+export async function getListeningProfile(): Promise<SpotifyListeningProfile> {
+  const { data } = await http.get<SpotifyListeningProfile>(
+    `${BASE}/listening/profile`,
+  )
+  return data
+}
+
+export async function getListeningSettings(): Promise<SpotifyListeningSettings> {
+  const { data } = await http.get<SpotifyListeningSettings>(
+    `${BASE}/listening/settings`,
+  )
+  return data
+}
+
+export async function updateListeningSettings(
+  payload: Partial<SpotifyListeningSettings>,
+): Promise<SpotifyListeningSettings> {
+  const { data } = await http.put<SpotifyListeningSettings>(
+    `${BASE}/listening/settings`,
+    payload,
+  )
+  return data
+}
+
+export async function getSimilarRecommendations(
+  seed: string,
+  limit = 12,
+): Promise<SpotifySuggestionsResponse> {
+  const { data } = await http.get<SpotifySuggestionsResponse>(
+    `${BASE}/recommendations/similar`,
+    { params: { seed, limit } },
   )
   return data
 }

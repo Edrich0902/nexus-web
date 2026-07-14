@@ -43,9 +43,13 @@ import {
 } from '@stores/spotify/spotify.mutations'
 import type {
   SpotifyCreatePlaylistPayload,
+  SpotifyFeaturesStatus,
+  SpotifyListeningSettings,
   SpotifyPlayPayload,
   SpotifyPlaylist,
   SpotifyQueueResponse,
+  SpotifySuggestionItem,
+  SpotifyTrackAudioFeatures,
   SpotifyUpdatePlaylistPayload,
 } from '@/types/spotify/spotify'
 
@@ -108,6 +112,31 @@ export const useSpotifyStore = defineStore('spotify', () => {
   const addToPlaylistUri = ref<string | null>(null)
   let queueRefreshTimer: ReturnType<typeof setInterval> | null = null
   let queueLastFetchedAt = 0
+
+  const trackFeaturesStatus = ref<SpotifyFeaturesStatus>('idle')
+  const trackFeatures = ref<SpotifyTrackAudioFeatures | null>(null)
+  const trackFeaturesSpotifyId = ref<string | null>(null)
+  const similarRecommendations = ref<SpotifySuggestionItem[]>([])
+  const similarLoading = ref(false)
+  /** Seed we’ve finished fetching for — drives empty vs loading UI. */
+  const similarReadySeed = ref<string | null>(null)
+  const listeningSettings = ref<SpotifyListeningSettings | null>(null)
+  let heartbeatInFlight = false
+  let lastHeartbeatSpotifyId: string | null = null
+  let autoQueueRunning = false
+  let lastAutoQueueSeed: string | null = null
+  const autoQueuedUris = new Set<string>()
+  /** Seeds that returned no similar tracks — don't re-toast / re-hammer every poll. */
+  const autoQueueEmptySeeds = new Set<string>()
+  let similarLoadPromise: Promise<void> | null = null
+  let similarLoadSeed: string | null = null
+  /** Seeds that returned non-empty similar tracks — skip refetch until track changes. */
+  const similarFetchedSeeds = new Set<string>()
+  /** Seeds that already got a features-ready refresh. */
+  const similarFeaturesRefreshed = new Set<string>()
+  /** Last attempt time for empty/error fetches — throttle retries (ms since epoch). */
+  const similarAttemptAt = new Map<string, number>()
+  const SIMILAR_RETRY_MS = 8_000
 
   const status = computed(() => statusQuery.data.value ?? null)
   const connected = computed(() => status.value?.connected === true)
@@ -226,6 +255,7 @@ export const useSpotifyStore = defineStore('spotify', () => {
         playerPollMs = PLAYER_POLL_MS
         restartPollTimer()
       }
+      void sendListeningHeartbeat()
     } catch (error) {
       if (isReauthError(error)) {
         await statusQuery.refetch()
@@ -236,6 +266,323 @@ export const useSpotifyStore = defineStore('spotify', () => {
       }
     } finally {
       playerFetchInFlight = false
+    }
+  }
+
+  async function sendListeningHeartbeat(): Promise<void> {
+    if (!connected.value) return
+    if (heartbeatInFlight || isRateLimited()) return
+
+    const item = player.value?.item
+    const spotifyId = item?.id
+    if (!spotifyId || item?.type === 'episode') {
+      if (trackFeaturesSpotifyId.value !== null) {
+        trackFeaturesStatus.value = 'idle'
+        trackFeatures.value = null
+        trackFeaturesSpotifyId.value = null
+        similarRecommendations.value = []
+        similarReadySeed.value = null
+        similarLoading.value = false
+        similarFetchedSeeds.clear()
+        similarFeaturesRefreshed.clear()
+        similarAttemptAt.clear()
+        autoQueueEmptySeeds.clear()
+      }
+      return
+    }
+
+    if (lastHeartbeatSpotifyId !== spotifyId) {
+      lastHeartbeatSpotifyId = spotifyId
+      autoQueuedUris.clear()
+      autoQueueEmptySeeds.clear()
+      lastAutoQueueSeed = null
+      similarFetchedSeeds.clear()
+      similarFeaturesRefreshed.clear()
+      similarAttemptAt.clear()
+      if (trackFeaturesSpotifyId.value !== spotifyId) {
+        trackFeaturesStatus.value = 'idle'
+        trackFeatures.value = null
+        trackFeaturesSpotifyId.value = spotifyId
+        similarRecommendations.value = []
+        similarReadySeed.value = null
+        similarLoading.value = true
+      }
+    }
+
+    heartbeatInFlight = true
+    try {
+      const albumImages = item.album?.images ?? []
+      const response = await spotifyService.postListeningHeartbeat({
+        spotify_id: spotifyId,
+        progress_ms: player.value?.progress_ms ?? 0,
+        duration_ms: item.duration_ms ?? null,
+        is_playing: player.value?.is_playing ?? false,
+        name: item.name ?? null,
+        uri: item.uri ?? null,
+        album_name: item.album?.name ?? null,
+        album_image_url: albumImages[0]?.url ?? null,
+        artists: item.artists ?? null,
+      })
+
+      trackFeaturesSpotifyId.value = response.spotify_id
+      if (trackFeaturesStatus.value !== response.features_status) {
+        trackFeaturesStatus.value = response.features_status
+      }
+      if (!featuresEqual(trackFeatures.value, response.features)) {
+        trackFeatures.value = response.features
+      }
+
+      const nextSettings = {
+        engage_progress_ms:
+          listeningSettings.value?.engage_progress_ms ?? 30_000,
+        engage_ratio: listeningSettings.value?.engage_ratio ?? 0.25,
+        full_listen_ratio: listeningSettings.value?.full_listen_ratio ?? 0.5,
+        auto_queue_enabled: response.settings.auto_queue_enabled,
+        auto_queue_min_upcoming: response.settings.auto_queue_min_upcoming,
+        auto_queue_batch: response.settings.auto_queue_batch,
+      }
+      if (
+        !listeningSettings.value ||
+        listeningSettings.value.auto_queue_enabled !==
+          nextSettings.auto_queue_enabled ||
+        listeningSettings.value.auto_queue_min_upcoming !==
+          nextSettings.auto_queue_min_upcoming ||
+        listeningSettings.value.auto_queue_batch !== nextSettings.auto_queue_batch
+      ) {
+        listeningSettings.value = nextSettings
+      }
+
+      // Don't wait for engage/features — toggle-auto-queue used to be the only
+      // path that force-fetched. Refresh once when acoustics land for better targets.
+      const featuresJustReady =
+        response.features_status === 'ready' &&
+        !similarFeaturesRefreshed.has(spotifyId)
+      if (featuresJustReady) {
+        similarFeaturesRefreshed.add(spotifyId)
+      }
+      void loadSimilarRecommendations(spotifyId, {
+        force: featuresJustReady,
+      }).then(() => {
+        if (listeningSettings.value?.auto_queue_enabled) {
+          void maybeAutoQueue(spotifyId)
+        }
+      })
+    } catch {
+      // Heartbeat is best-effort; player poll should keep working.
+    } finally {
+      heartbeatInFlight = false
+    }
+  }
+
+  function featuresEqual(
+    a: SpotifyTrackAudioFeatures | null,
+    b: SpotifyTrackAudioFeatures | null,
+  ): boolean {
+    if (a === b) return true
+    if (!a || !b) return false
+    return (
+      a.provider === b.provider &&
+      a.acousticness === b.acousticness &&
+      a.danceability === b.danceability &&
+      a.energy === b.energy &&
+      a.instrumentalness === b.instrumentalness &&
+      a.key === b.key &&
+      a.liveness === b.liveness &&
+      a.loudness === b.loudness &&
+      a.mode === b.mode &&
+      a.speechiness === b.speechiness &&
+      a.tempo === b.tempo &&
+      a.valence === b.valence
+    )
+  }
+
+  async function loadSimilarRecommendations(
+    seed: string,
+    options: { force?: boolean } = {},
+  ): Promise<void> {
+    // Join an in-flight request before throttle/cache short-circuits.
+    if (similarLoadPromise && similarLoadSeed === seed && !options.force) {
+      await similarLoadPromise
+      return
+    }
+
+    // Non-empty results are sticky until the track changes. Empty/errors retry
+    // on a throttle so the panel can appear without toggling auto-queue.
+    if (!options.force && similarFetchedSeeds.has(seed)) {
+      return
+    }
+    if (!options.force) {
+      const lastAttempt = similarAttemptAt.get(seed)
+      if (
+        lastAttempt !== undefined &&
+        Date.now() - lastAttempt < SIMILAR_RETRY_MS
+      ) {
+        return
+      }
+    }
+    if (options.force) {
+      similarFetchedSeeds.delete(seed)
+      similarAttemptAt.delete(seed)
+    }
+
+    similarLoading.value = true
+    similarLoadSeed = seed
+    similarAttemptAt.set(seed, Date.now())
+    similarLoadPromise = (async () => {
+      try {
+        const result = await spotifyService.getSimilarRecommendations(seed, 10)
+        if (trackFeaturesSpotifyId.value === seed) {
+          similarRecommendations.value = result.items
+          similarReadySeed.value = seed
+        }
+        if (result.items.length > 0) {
+          similarFetchedSeeds.add(seed)
+        }
+      } catch {
+        // Leave seed uncached so a later heartbeat can retry after throttle.
+        if (trackFeaturesSpotifyId.value === seed) {
+          similarReadySeed.value = seed
+        }
+      } finally {
+        if (similarLoadSeed === seed) {
+          similarLoading.value = false
+          similarLoadPromise = null
+          similarLoadSeed = null
+        }
+      }
+    })()
+
+    await similarLoadPromise
+  }
+
+  async function loadListeningSettings(): Promise<void> {
+    try {
+      listeningSettings.value = await spotifyService.getListeningSettings()
+    } catch {
+      // ignore
+    }
+  }
+
+  async function setAutoQueueEnabled(enabled: boolean): Promise<boolean> {
+    try {
+      listeningSettings.value = await spotifyService.updateListeningSettings({
+        auto_queue_enabled: enabled,
+      })
+      toast.add({
+        severity: 'success',
+        summary: enabled ? 'Auto-queue on' : 'Auto-queue off',
+        detail: enabled
+          ? 'Similar tracks will be added for the current song'
+          : 'Queue stays manual',
+        life: 2500,
+      })
+      if (enabled) {
+        const seed =
+          trackFeaturesSpotifyId.value ?? player.value?.item?.id ?? null
+        if (seed) {
+          void maybeAutoQueue(seed, { force: true })
+        }
+      }
+      return true
+    } catch (error) {
+      toastError(error, 'Unable to update listening settings')
+      return false
+    }
+  }
+
+  async function maybeAutoQueue(
+    seed: string,
+    options: { force?: boolean } = {},
+  ): Promise<void> {
+    const settings = listeningSettings.value
+    if (!settings?.auto_queue_enabled || autoQueueRunning) return
+
+    if (options.force) {
+      autoQueueEmptySeeds.delete(seed)
+    } else if (autoQueueEmptySeeds.has(seed)) {
+      // Already warned once for this track — stay quiet until the track changes.
+      return
+    }
+
+    // First injection for a seed always runs. Refills only when the upcoming
+    // queue is thin — Spotify autoplay often keeps queue length high during
+    // single-track listening, which previously blocked all auto-queue adds.
+    const alreadySeeded = lastAutoQueueSeed === seed && autoQueuedUris.size > 0
+
+    autoQueueRunning = true
+    try {
+      let upcomingUris = new Set<string>()
+      let upcomingCount = 0
+      try {
+        const currentQueue = await spotifyService.getQueue()
+        queue.value = currentQueue
+        queueLastFetchedAt = Date.now()
+        upcomingCount = currentQueue.queue?.length ?? 0
+        upcomingUris = new Set(
+          (currentQueue.queue ?? [])
+            .map((item) => item.uri)
+            .filter((uri): uri is string => Boolean(uri)),
+        )
+      } catch {
+        // Queue fetch can fail when idle; still attempt adds for an active player.
+      }
+
+      if (
+        alreadySeeded &&
+        !options.force &&
+        upcomingCount >= settings.auto_queue_min_upcoming
+      ) {
+        return
+      }
+
+      await loadSimilarRecommendations(seed, { force: options.force === true })
+      if (similarRecommendations.value.length === 0) {
+        const firstEmptyForSeed = !autoQueueEmptySeeds.has(seed)
+        autoQueueEmptySeeds.add(seed)
+        if (firstEmptyForSeed) {
+          toast.add({
+            severity: 'warn',
+            summary: 'Auto-queue',
+            detail: 'No similar tracks available to queue yet',
+            life: 3000,
+          })
+        }
+        return
+      }
+
+      const batch = settings.auto_queue_batch
+      const deviceId = player.value?.device?.id
+      let added = 0
+
+      for (const item of similarRecommendations.value) {
+        if (added >= batch) break
+        const uri = item.track.uri
+        if (!uri || autoQueuedUris.has(uri) || upcomingUris.has(uri)) continue
+        try {
+          await addToQueueMutation.mutateAsync({ uri, deviceId })
+          autoQueuedUris.add(uri)
+          added += 1
+        } catch (error) {
+          toastError(error, 'Unable to auto-queue a similar track')
+          break
+        }
+      }
+
+      if (added > 0) {
+        lastAutoQueueSeed = seed
+        toast.add({
+          severity: 'success',
+          summary: 'Auto-queue',
+          detail:
+            added === 1
+              ? 'Added 1 similar track to your queue'
+              : `Added ${added} similar tracks to your queue`,
+          life: 2500,
+        })
+        if (queueOpen.value) await fetchQueue(true)
+      }
+    } finally {
+      autoQueueRunning = false
     }
   }
 
@@ -301,7 +648,11 @@ export const useSpotifyStore = defineStore('spotify', () => {
       [() => playerQuery.refetch()],
       [() => devicesQuery.refetch(), () => recentlyPlayedQuery.refetch()],
       [() => playlistsQuery.refetch()],
-      [() => tasteQuery.refetch(), () => suggestionsQuery.refetch()],
+      [
+        () => tasteQuery.refetch(),
+        () => suggestionsQuery.refetch(),
+        () => loadListeningSettings(),
+      ],
     ]
 
     for (const [index, phase] of phases.entries()) {
@@ -786,6 +1137,13 @@ export const useSpotifyStore = defineStore('spotify', () => {
     playlists,
     taste,
     suggestions,
+    trackFeaturesStatus,
+    trackFeatures,
+    trackFeaturesSpotifyId,
+    similarRecommendations,
+    similarLoading,
+    similarReadySeed,
+    listeningSettings,
     statusLoading,
     playerLoading,
     recentlyLoading,
@@ -838,5 +1196,7 @@ export const useSpotifyStore = defineStore('spotify', () => {
     playlistsContainingUri,
     addTracksToPlaylist,
     removeTrackFromPlaylist,
+    setAutoQueueEnabled,
+    loadSimilarRecommendations,
   }
 })

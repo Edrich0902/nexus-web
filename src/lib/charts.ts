@@ -108,6 +108,38 @@ export function toLineChartData(
   }
 }
 
+export function toRadarChartData(
+  items: ChartCountItem[],
+  datasetLabel = 'Metrics',
+  color = '#ace894',
+): {
+  labels: string[]
+  datasets: Array<{
+    label: string
+    data: number[]
+    borderColor: string
+    backgroundColor: string
+    borderWidth: number
+    pointBackgroundColor: string
+    pointBorderColor: string
+  }>
+} {
+  return {
+    labels: items.map((i) => i.label),
+    datasets: [
+      {
+        label: datasetLabel,
+        data: items.map((i) => i.count),
+        borderColor: color,
+        backgroundColor: `${color}55`,
+        borderWidth: 2,
+        pointBackgroundColor: color,
+        pointBorderColor: '#f6e8ea',
+      },
+    ],
+  }
+}
+
 export function formatBucketLabel(bucket: string): string {
   return bucket.charAt(0).toUpperCase() + bucket.slice(1)
 }

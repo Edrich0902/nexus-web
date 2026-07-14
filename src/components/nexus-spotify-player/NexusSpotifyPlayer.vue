@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import NexusSpotifyPlayingIndicator from '@components/nexus-spotify-playing-indicator/NexusSpotifyPlayingIndicator.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 
 const spotify = useSpotifyStore()
@@ -157,6 +158,13 @@ function cycleRepeat(): void {
   void spotify.setRepeat(next)
 }
 
+const autoQueue = computed({
+  get: () => spotify.listeningSettings?.auto_queue_enabled === true,
+  set: (value: boolean) => {
+    void spotify.setAutoQueueEnabled(value)
+  },
+})
+
 /** PrimeVue design tokens — keep handle ring + inner disc proportional. */
 const seekSliderDt = {
   track: {
@@ -220,7 +228,12 @@ const volumeSliderDt = {
 
     <div class="player-body">
       <div class="status-row">
-        <span class="now-badge">{{ isPlaying ? 'Now playing' : 'Ready' }}</span>
+        <span class="now-badge">
+          <NexusSpotifyPlayingIndicator :active="isPlaying" size="md" />
+          <span class="now-badge-label">
+            {{ isPlaying ? 'Now playing' : item ? 'Paused' : 'Ready' }}
+          </span>
+        </span>
         <span v-if="device" class="device-label">
           <span class="pi pi-wifi" />
           Playing on {{ device.name }}
@@ -405,6 +418,11 @@ const volumeSliderDt = {
           <span class="volume-label">{{ volumePercent }}%</span>
         </div>
       </div>
+
+      <div class="auto-queue">
+        <label for="player-auto-queue-toggle">Auto-queue similar tracks</label>
+        <ToggleSwitch id="player-auto-queue-toggle" v-model="autoQueue" />
+      </div>
     </div>
 
     <Popover ref="deviceMenu">
@@ -510,11 +528,31 @@ const volumeSliderDt = {
 }
 
 .now-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--light-green);
+  line-height: 1;
+}
+
+.now-badge-label {
+  line-height: 1;
+}
+
+.auto-queue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--lavender-blush) 12%, transparent);
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--lavender-blush) 80%, transparent);
 }
 
 .device-label {

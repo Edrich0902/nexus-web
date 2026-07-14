@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
+import NexusSpotifyPlayingIndicator from '@components/nexus-spotify-playing-indicator/NexusSpotifyPlayingIndicator.vue'
 
 const spotify = useSpotifyStore()
 const router = useRouter()
@@ -144,7 +145,13 @@ function openSpotify(): void {
 
       <div class="body">
         <div class="status-row">
-          <span class="now-badge">{{ badge }}</span>
+          <span class="now-badge">
+            <NexusSpotifyPlayingIndicator
+              v-if="mode === 'now'"
+              :active="spotify.player?.is_playing === true"
+            />
+            <span class="now-badge-label">{{ badge }}</span>
+          </span>
           <span v-if="deviceLabel" class="device-label">
             <span class="pi pi-wifi" />
             {{ deviceLabel }}
@@ -281,11 +288,19 @@ function openSpotify(): void {
 }
 
 .now-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--light-green);
+  line-height: 1;
+}
+
+.now-badge-label {
+  line-height: 1;
 }
 
 .device-label {

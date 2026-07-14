@@ -184,4 +184,26 @@ router.beforeEach((to) => {
   }
 })
 
+/** `vite build --watch` rewrites hashed chunks; tab may still point at an old file. */
+function isChunkLoadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('Importing a module script failed') ||
+    message.includes('error loading dynamically imported module')
+  )
+}
+
+router.onError((error, to) => {
+  if (!isChunkLoadError(error)) return
+
+  const key = 'nexus:chunk-reload'
+  const last = sessionStorage.getItem(key)
+  const now = String(Date.now())
+  // Avoid a reload loop if the asset is genuinely missing.
+  if (last && Date.now() - Number(last) < 10_000) return
+  sessionStorage.setItem(key, now)
+  window.location.assign(to.fullPath)
+})
+
 export default router

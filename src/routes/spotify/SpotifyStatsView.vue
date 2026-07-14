@@ -11,6 +11,7 @@ import {
   formatBucketLabel,
   toBarChartData,
   toDoughnutChartData,
+  toRadarChartData,
 } from '@lib/charts'
 import type { SpotifyTimeRange } from '@/types/spotify/spotify'
 
@@ -83,6 +84,31 @@ const topTracks = computed(
 )
 
 const onRepeat = computed(() => spotify.taste?.on_repeat?.slice(0, 10) ?? [])
+
+const listeningRadarData = computed(() => {
+  const averages = spotify.taste?.audio_metrics?.['7d']?.averages
+  if (!averages) return { labels: [], datasets: [] }
+  const keys: Array<{ key: string; label: string }> = [
+    { key: 'energy', label: 'Energy' },
+    { key: 'danceability', label: 'Dance' },
+    { key: 'valence', label: 'Mood' },
+    { key: 'acousticness', label: 'Acoustic' },
+    { key: 'instrumentalness', label: 'Instrumental' },
+    { key: 'speechiness', label: 'Speech' },
+  ]
+  const items = keys
+    .map(({ key, label }) => ({
+      label,
+      count: typeof averages[key] === 'number' ? (averages[key] as number) : null,
+    }))
+    .filter((i): i is { label: string; count: number } => i.count !== null)
+  if (items.length === 0) return { labels: [], datasets: [] }
+  return toRadarChartData(items, 'Last 7 days', '#5ecf8a')
+})
+
+const hasListeningRadar = computed(
+  () => (listeningRadarData.value.labels?.length ?? 0) > 0,
+)
 
 const hasCharts = computed(
   () =>
@@ -177,6 +203,10 @@ watch(
             <section class="chart-card chart-card--wide">
               <h3>Genres</h3>
               <NexusChart type="doughnut" :data="genreData" height="16rem" />
+            </section>
+            <section v-if="hasListeningRadar" class="chart-card">
+              <h3>Listening DNA (7d)</h3>
+              <NexusChart type="radar" :data="listeningRadarData" height="14rem" />
             </section>
           </div>
 

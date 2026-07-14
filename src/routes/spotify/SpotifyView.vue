@@ -6,6 +6,8 @@ import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vu
 import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
 import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
 import NexusSpotifyPlayer from '@components/nexus-spotify-player/NexusSpotifyPlayer.vue'
+import NexusSpotifyTrackMetrics from '@components/nexus-spotify-track-metrics/NexusSpotifyTrackMetrics.vue'
+import NexusSpotifySimilarRecs from '@components/nexus-spotify-similar-recs/NexusSpotifySimilarRecs.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
 import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
@@ -168,7 +170,12 @@ async function submitCreatePlaylist(): Promise<void> {
       </div>
 
       <template v-else>
-        <NexusSpotifyPlayer />
+        <div class="player-metrics-row">
+          <NexusSpotifyPlayer />
+          <NexusSpotifyTrackMetrics />
+        </div>
+
+        <NexusSpotifySimilarRecs />
 
         <section class="band">
           <div class="band-head">
@@ -368,6 +375,19 @@ async function submitCreatePlaylist(): Promise<void> {
   gap: 1.5rem;
   padding-top: 0.5rem;
   padding-bottom: 2rem;
+}
+
+.player-metrics-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.85fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+@media (max-width: 980px) {
+  .player-metrics-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .reauth-banner {

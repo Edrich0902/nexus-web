@@ -29,8 +29,14 @@ const hasDrawableData = computed(() => {
   const points = datasets.some(
     (d) => Array.isArray(d.data) && d.data.length > 0,
   )
-  // Line/bar need at least one point; labels optional for some charts
-  return points && (labels.length > 0 || props.type === 'doughnut' || props.type === 'pie')
+  return (
+    points &&
+    (labels.length > 0 ||
+      props.type === 'doughnut' ||
+      props.type === 'pie' ||
+      props.type === 'radar' ||
+      props.type === 'polarArea')
+  )
 })
 
 const chartKey = computed(() => {
@@ -40,6 +46,8 @@ const chartKey = computed(() => {
     return props.type
   }
 })
+
+let lastMountedKey: string | null = null
 
 const baseOptions = {
   responsive: true,
@@ -79,6 +87,7 @@ const baseOptions = {
 const mergedOptions = computed(() => {
   const extra = props.options as Record<string, unknown>
   const hideScales = props.type === 'doughnut' || props.type === 'pie'
+  const isRadar = props.type === 'radar' || props.type === 'polarArea'
   const extraPlugins = (extra.plugins as Record<string, unknown>) ?? {}
   const extraScales = (extra.scales as Record<string, unknown>) ?? {}
   const baseScales = baseOptions.scales as Record<string, Record<string, unknown>>
@@ -104,6 +113,25 @@ const mergedOptions = computed(() => {
     }
   }
 
+  const radarScale = {
+    r: {
+      beginAtZero: true,
+      min: 0,
+      max: 1,
+      ticks: {
+        display: false,
+        backdropColor: 'transparent',
+      },
+      pointLabels: {
+        color: 'rgba(246, 232, 234, 0.85)',
+        font: { size: 11 },
+      },
+      grid: { color: 'rgba(246, 232, 234, 0.12)' },
+      angleLines: { color: 'rgba(246, 232, 234, 0.12)' },
+      ...((extraScales.r as object) ?? {}),
+    },
+  }
+
   return {
     ...baseOptions,
     ...extra,
@@ -117,6 +145,7 @@ const mergedOptions = computed(() => {
       legend: {
         ...((baseOptions.plugins.legend as object) ?? {}),
         ...((extraPlugins.legend as object) ?? {}),
+        ...(isRadar ? { display: false } : {}),
       },
       tooltip: {
         ...((baseOptions.plugins.tooltip as object) ?? {}),
@@ -125,38 +154,47 @@ const mergedOptions = computed(() => {
     },
     scales: hideScales
       ? {}
-      : {
-          x: mergeScale('x'),
-          y: mergeScale('y'),
-        },
+      : isRadar
+        ? radarScale
+        : {
+            x: mergeScale('x'),
+            y: mergeScale('y'),
+          },
   }
 })
 
-async function remountChart(): Promise<void> {
+async function remountChart(force = false): Promise<void> {
+  const key = chartKey.value
+  if (!force && showChart.value && lastMountedKey === key) {
+    return
+  }
+
   showChart.value = false
   await nextTick()
   if (mounted.value && hasDrawableData.value) {
+    lastMountedKey = key
     showChart.value = true
+  } else {
+    lastMountedKey = null
   }
 }
 
 onMounted(async () => {
   mounted.value = true
-  await remountChart()
+  await remountChart(true)
 })
 
 onBeforeUnmount(() => {
   mounted.value = false
   showChart.value = false
+  lastMountedKey = null
 })
 
-watch(
-  () => [props.data, props.type],
-  () => {
+watch(chartKey, (next, prev) => {
+  if (next !== prev) {
     void remountChart()
-  },
-  { deep: true },
-)
+  }
+})
 </script>
 
 <template>
