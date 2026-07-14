@@ -7,6 +7,7 @@ import NexusGithubPulseCard from '@components/nexus-github-pulse-card/NexusGithu
 import NexusGithubContributionsCard from '@components/nexus-github-contributions-card/NexusGithubContributionsCard.vue'
 import NexusSportsPulseCard from '@components/nexus-sports-pulse-card/NexusSportsPulseCard.vue'
 import NexusSportsSnapshotCard from '@components/nexus-sports-snapshot-card/NexusSportsSnapshotCard.vue'
+import NexusF1PulseCard from '@components/nexus-f1-pulse-card/NexusF1PulseCard.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 
 const auth = useAuthStore()
@@ -25,6 +26,7 @@ const auth = useAuthStore()
       <div class="dashboard">
         <div class="dashboard-main">
           <NexusSpotifyResumeCard />
+          <NexusF1PulseCard />
           <NexusSportsPulseCard />
           <NexusSpotifyTasteCard />
           <NexusSpotifyOnRepeat />

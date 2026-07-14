@@ -83,7 +83,7 @@ Entry: toolbar avatar menu → Profile. Sessions are a profile subnav item, not 
 | **Kitchen** | Recipes |
 | **Media vaults** | Personal media libraries |
 | **Social** | Optional (e.g. Instagram) |
-| **F1 / Sports** | Schedules, standings, ticker |
+| **F1 / Sports** | Sports schedules + F1 historical calendar, standings, session analysis, post-session track replay |
 
 Exact widgets are defined when each milestone is specified.
 

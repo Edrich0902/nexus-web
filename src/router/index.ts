@@ -130,6 +130,30 @@ const routes: RouteRecordRaw[] = [
     meta: handleMeta(true, true, 'Sports'),
   },
   {
+    path: '/f1',
+    name: 'f1',
+    component: () => import('@routes/f1/F1View.vue'),
+    meta: handleMeta(true, true, 'Formula 1'),
+  },
+  {
+    path: '/f1/meetings/:meetingKey',
+    name: 'f1-meeting',
+    component: () => import('@routes/f1/F1MeetingView.vue'),
+    meta: handleMeta(true, true, 'F1 Weekend'),
+  },
+  {
+    path: '/f1/sessions/:sessionKey',
+    name: 'f1-session',
+    component: () => import('@routes/f1/F1SessionView.vue'),
+    meta: handleMeta(true, true, 'F1 Session'),
+  },
+  {
+    path: '/f1/sessions/:sessionKey/replay',
+    name: 'f1-replay',
+    component: () => import('@routes/f1/F1ReplayView.vue'),
+    meta: handleMeta(true, true, 'F1 Replay'),
+  },
+  {
     path: '/profile',
     component: () => import('@routes/profile/ProfileLayoutView.vue'),
     meta: handleMeta(true, true, 'Profile'),

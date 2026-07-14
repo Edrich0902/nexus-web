@@ -89,7 +89,10 @@ Browse and manage personal media vaults once storage and API shape are defined.
 
 ## Milestone 5 — Sports & F1
 
-Race/season views, standings, and a compact weekend / live ticker on the home shell when feeds exist.
+Race/season views, standings, and a compact weekend ticker on the home shell.
+
+- [x] Sports Hub (TheSportsDB-backed sports)
+- [x] Formula 1 module (OpenF1 historical): `/f1` calendar & standings, weekend/session analysis, post-session track replay
 
 ---
 

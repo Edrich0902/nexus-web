@@ -8,13 +8,14 @@ import NexusAvatar from '@components/nexus-avatar/NexusAvatar.vue'
 import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
 import NexusGithubIcon from '@components/nexus-github-icon/NexusGithubIcon.vue'
 import NexusSportIcon from '@components/nexus-sport-icon/NexusSportIcon.vue'
+import NexusF1Icon from '@components/nexus-f1-icon/NexusF1Icon.vue'
 import type { SportsSlug } from '@/types/sports/sports'
 
 type SidebarMenuItem = MenuItem & {
   iconComponent?: Component
   to?: string
   matchPrefix?: boolean
-  accent?: 'spotify' | 'github'
+  accent?: 'spotify' | 'github' | 'f1'
   sport?: SportsSlug
 }
 
@@ -59,6 +60,13 @@ const items = ref<SidebarMenuItem[]>([
   {
     label: 'Sports Hub',
     items: [
+      {
+        label: 'Formula 1',
+        to: '/f1',
+        iconComponent: NexusF1Icon,
+        matchPrefix: true,
+        accent: 'f1',
+      },
       {
         label: 'Football',
         to: '/sports/football',
@@ -187,6 +195,7 @@ const handleSignOut = (event: Event) => {
                   (item as SidebarMenuItem).accent === 'spotify',
                 'nav-icon--github':
                   (item as SidebarMenuItem).accent === 'github',
+                'nav-icon--f1': (item as SidebarMenuItem).accent === 'f1',
               }"
               :size="18"
               :sport="(item as SidebarMenuItem).sport ?? 'hub'"
@@ -315,6 +324,11 @@ const handleSignOut = (event: Event) => {
 .nav-icon--github,
 .nav-item--active .nav-icon--github {
   color: var(--github-ink);
+}
+
+.nav-icon--f1,
+.nav-item--active .nav-icon--f1 {
+  color: var(--sport-f1);
 }
 
 .nav-label {
