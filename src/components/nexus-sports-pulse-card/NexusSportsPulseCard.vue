@@ -6,6 +6,7 @@ import NexusSportIcon from '@components/nexus-sport-icon/NexusSportIcon.vue'
 import NexusTeamBadge from '@components/nexus-team-badge/NexusTeamBadge.vue'
 import {
   HOME_FOCUS_SPORTS,
+  SPORT_ACCENT_VARS,
   SPORT_LABELS,
   type SportsEventSummary,
   type SportsSlug,
@@ -141,6 +142,11 @@ function plainSportsText(raw: string): string {
             :key="lane.slug"
             type="button"
             class="lane"
+            :style="{
+              '--sport-current':
+                SPORT_ACCENT_VARS[lane.slug as SportsSlug] ??
+                SPORT_ACCENT_VARS.hub,
+            }"
             @click.stop="openSport(lane.slug)"
           >
             <div class="lane-head">
@@ -281,7 +287,11 @@ p {
 }
 
 .lane:hover {
-  border-color: color-mix(in srgb, var(--sports-accent) 40%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--sport-current, var(--sports-accent)) 40%,
+    transparent
+  );
 }
 
 .lane-head {
@@ -297,7 +307,7 @@ p {
   gap: 0.4rem;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--sports-accent);
+  color: var(--sport-current, var(--sports-accent));
 }
 
 .league {

@@ -14,7 +14,7 @@ type SidebarMenuItem = MenuItem & {
   iconComponent?: Component
   to?: string
   matchPrefix?: boolean
-  accent?: 'spotify' | 'github' | 'sports'
+  accent?: 'spotify' | 'github'
   sport?: SportsSlug
 }
 
@@ -65,7 +65,6 @@ const items = ref<SidebarMenuItem[]>([
         iconComponent: NexusSportIcon,
         sport: 'football',
         matchPrefix: true,
-        accent: 'sports',
       },
       {
         label: 'Tennis',
@@ -73,7 +72,6 @@ const items = ref<SidebarMenuItem[]>([
         iconComponent: NexusSportIcon,
         sport: 'tennis',
         matchPrefix: true,
-        accent: 'sports',
       },
       {
         label: 'Rugby',
@@ -81,7 +79,6 @@ const items = ref<SidebarMenuItem[]>([
         iconComponent: NexusSportIcon,
         sport: 'rugby',
         matchPrefix: true,
-        accent: 'sports',
       },
       {
         label: 'Golf',
@@ -89,7 +86,6 @@ const items = ref<SidebarMenuItem[]>([
         iconComponent: NexusSportIcon,
         sport: 'golf',
         matchPrefix: true,
-        accent: 'sports',
       },
       {
         label: 'Darts',
@@ -97,7 +93,6 @@ const items = ref<SidebarMenuItem[]>([
         iconComponent: NexusSportIcon,
         sport: 'darts',
         matchPrefix: true,
-        accent: 'sports',
       },
       {
         label: 'Field Hockey',
@@ -105,7 +100,6 @@ const items = ref<SidebarMenuItem[]>([
         iconComponent: NexusSportIcon,
         sport: 'field-hockey',
         matchPrefix: true,
-        accent: 'sports',
       },
     ],
   },
@@ -193,8 +187,6 @@ const handleSignOut = (event: Event) => {
                   (item as SidebarMenuItem).accent === 'spotify',
                 'nav-icon--github':
                   (item as SidebarMenuItem).accent === 'github',
-                'nav-icon--sports':
-                  (item as SidebarMenuItem).accent === 'sports',
               }"
               :size="18"
               :sport="(item as SidebarMenuItem).sport ?? 'hub'"
@@ -323,11 +315,6 @@ const handleSignOut = (event: Event) => {
 .nav-icon--github,
 .nav-item--active .nav-icon--github {
   color: var(--github-ink);
-}
-
-.nav-icon--sports,
-.nav-item--active .nav-icon--sports {
-  color: var(--sports-accent);
 }
 
 .nav-label {

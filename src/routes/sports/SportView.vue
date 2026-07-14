@@ -9,7 +9,7 @@ import NexusSportsStandings from '@components/nexus-sports-standings/NexusSports
 import NexusTeamBadge from '@components/nexus-team-badge/NexusTeamBadge.vue'
 import { useSportsStore } from '@stores/sports/sports.store'
 import { formatDate } from '@lib/datetime'
-import { SPORT_LABELS, type SportsSlug } from '@/types/sports/sports'
+import { SPORT_ACCENT_VARS, SPORT_LABELS, type SportsSlug } from '@/types/sports/sports'
 
 const route = useRoute()
 const sports = useSportsStore()
@@ -18,6 +18,9 @@ const sportSlug = computed(
   () => String(route.params.sport ?? 'football') as SportsSlug,
 )
 const title = computed(() => SPORT_LABELS[sportSlug.value] ?? sportSlug.value)
+const sportAccent = computed(
+  () => SPORT_ACCENT_VARS[sportSlug.value] ?? SPORT_ACCENT_VARS.hub,
+)
 
 const upcomingCount = computed(() => sports.overview?.upcoming.length ?? 0)
 const recentCount = computed(() => sports.overview?.recent.length ?? 0)
@@ -45,7 +48,10 @@ watch(sportSlug, (slug) => {
       />
     </template>
 
-    <div class="sport-page">
+    <div
+      class="sport-page"
+      :style="{ '--sports-accent': sportAccent }"
+    >
       <header class="sport-hero">
         <div class="hero-glow" aria-hidden="true" />
         <div class="hero-main">

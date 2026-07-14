@@ -29,6 +29,12 @@
     ),
     var(--coffee-bean-panel);
   --sports-accent: #3d9b8f;
+  --sport-football: #5ecf8a;
+  --sport-tennis: #d4e157;
+  --sport-rugby: #e0a45a;
+  --sport-golf: #8fd16a;
+  --sport-darts: #e85d5d;
+  --sport-field-hockey: #4db8d0;
   --sports-card-surface:
     radial-gradient(
       circle at top left,

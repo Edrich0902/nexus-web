@@ -117,6 +117,17 @@ export const SPORT_LABELS: Record<SportsSlug, string> = {
   'field-hockey': 'Field Hockey',
 }
 
+/** CSS custom-property refs for each sport accent (defined in style.css). */
+export const SPORT_ACCENT_VARS: Record<SportsSlug | 'hub', string> = {
+  football: 'var(--sport-football)',
+  tennis: 'var(--sport-tennis)',
+  rugby: 'var(--sport-rugby)',
+  golf: 'var(--sport-golf)',
+  darts: 'var(--sport-darts)',
+  'field-hockey': 'var(--sport-field-hockey)',
+  hub: 'var(--sports-accent)',
+}
+
 export const SPORT_ROUTES: SportsSlug[] = [
   'football',
   'tennis',
