@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import NexusTeamBadge from '@components/nexus-team-badge/NexusTeamBadge.vue'
+import { formatDateTime } from '@lib/datetime'
 import type { SportsEventSummary } from '@/types/sports/sports'
 
 const props = defineProps<{
@@ -51,9 +52,7 @@ function plainResultText(raw?: string | null): string {
 }
 
 function formatWhen(event: SportsEventSummary): string {
-  if (!event.event_date) return '—'
-  const time = event.event_time ? ` · ${event.event_time.slice(0, 5)}` : ''
-  return `${event.event_date}${time}`
+  return formatDateTime(event.starts_at)
 }
 </script>
 

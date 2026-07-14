@@ -7,6 +7,7 @@ import NexusGithubContributionGrid from '@components/nexus-github-contribution-g
 import NexusChart from '@components/nexus-chart/NexusChart.vue'
 import { useGithubStore } from '@stores/github/github.store'
 import { toDoughnutChartData, toLineChartData } from '@lib/charts'
+import { formatDate } from '@lib/datetime'
 
 const github = useGithubStore()
 const router = useRouter()
@@ -233,7 +234,7 @@ function openRepo(owner: string, name: string): void {
                       severity="secondary"
                     />
                     <span v-if="repo.pushed_at" class="pushed">
-                      {{ new Date(repo.pushed_at).toLocaleDateString() }}
+                      {{ formatDate(repo.pushed_at) }}
                     </span>
                   </span>
                 </button>

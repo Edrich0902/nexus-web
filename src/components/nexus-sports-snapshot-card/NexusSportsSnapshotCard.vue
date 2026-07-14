@@ -10,6 +10,7 @@ import {
   type SportsEventSummary,
   type SportsSlug,
 } from '@/types/sports/sports'
+import { formatDate } from '@lib/datetime'
 
 const sports = useSportsStore()
 const router = useRouter()
@@ -53,13 +54,7 @@ function labelFor(slug: string): string {
 }
 
 function whenLabel(event: SportsEventSummary): string {
-  if (!event.event_date) return '—'
-  const day = new Date(`${event.event_date}T00:00:00`)
-  if (Number.isNaN(day.getTime())) return event.event_date
-  return day.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-  })
+  return formatDate(event.starts_at)
 }
 
 function line(event: SportsEventSummary): string {

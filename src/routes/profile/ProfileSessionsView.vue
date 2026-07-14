@@ -4,6 +4,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@stores/auth/auth.store'
 import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import { formatDateTime } from '@lib/datetime'
 import { Status } from '@/types/status'
 import type { DeviceSession } from '@/types/auth/device-session'
 
@@ -21,12 +22,7 @@ onMounted(() => {
 })
 
 function formatDate(value: string | null): string {
-  if (!value) return '—'
-  try {
-    return new Date(value).toLocaleString()
-  } catch {
-    return value
-  }
+  return formatDateTime(value)
 }
 
 function shortAgent(value: string | null): string {

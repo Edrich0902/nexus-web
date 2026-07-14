@@ -7,6 +7,7 @@ import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome
 import NexusGithubDiffViewer from '@components/nexus-github-diff-viewer/NexusGithubDiffViewer.vue'
 import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { useGithubStore } from '@stores/github/github.store'
+import { formatDateTime } from '@lib/datetime'
 import type { GithubSubmitReviewPayload } from '@/types/github/github'
 
 const github = useGithubStore()
@@ -78,8 +79,7 @@ function mergeConfirm(event: Event): void {
 }
 
 function formatDate(value: string | null): string {
-  if (!value) return '—'
-  return new Date(value).toLocaleString()
+  return formatDateTime(value)
 }
 
 async function submitReview(

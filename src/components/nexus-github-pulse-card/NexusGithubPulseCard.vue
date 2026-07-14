@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGithubStore } from '@stores/github/github.store'
 import NexusGithubIcon from '@components/nexus-github-icon/NexusGithubIcon.vue'
+import { formatDate } from '@lib/datetime'
 import type { GithubInboxPull, GithubPulseCommit } from '@/types/github/github'
 
 const github = useGithubStore()
@@ -70,7 +71,7 @@ function formatRelative(value: string | null): string {
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d ago`
-  return new Date(at).toLocaleDateString()
+  return formatDate(value)
 }
 
 function commitSubject(message: string | null): string {

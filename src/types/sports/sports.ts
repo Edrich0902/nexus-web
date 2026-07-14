@@ -26,7 +26,7 @@ export interface SportsEventSummary {
   name: string
   league_name: string | null
   event_date: string | null
-  event_time: string | null
+  starts_at: string | null
   status: string | null
   home_team: string | null
   away_team: string | null

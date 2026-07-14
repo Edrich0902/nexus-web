@@ -10,6 +10,7 @@ import {
   type SportsEventSummary,
   type SportsSlug,
 } from '@/types/sports/sports'
+import { formatDateTime } from '@lib/datetime'
 
 const sports = useSportsStore()
 const router = useRouter()
@@ -53,17 +54,7 @@ function openCard(): void {
 }
 
 function whenLabel(event: SportsEventSummary): string {
-  if (!event.event_date) return '—'
-  const day = new Date(`${event.event_date}T00:00:00`)
-  const dateBit = Number.isNaN(day.getTime())
-    ? event.event_date
-    : day.toLocaleDateString(undefined, {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-      })
-  const time = event.event_time ? event.event_time.slice(0, 5) : null
-  return time ? `${dateBit} · ${time}` : dateBit
+  return formatDateTime(event.starts_at)
 }
 
 function headline(event: SportsEventSummary): string {

@@ -6,6 +6,7 @@ import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vu
 import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
 import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { useGithubStore } from '@stores/github/github.store'
+import { formatDateTime } from '@lib/datetime'
 import type { GithubPullStateFilter } from '@/types/github/github'
 
 const github = useGithubStore()
@@ -65,8 +66,7 @@ watch([owner, repo, tab, state], () => {
 })
 
 function formatDate(value: string | null): string {
-  if (!value) return '—'
-  return new Date(value).toLocaleString()
+  return formatDateTime(value)
 }
 
 function deleteBranchConfirm(event: Event, branch: string): void {

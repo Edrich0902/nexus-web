@@ -8,6 +8,7 @@ import NexusSportsEventCard from '@components/nexus-sports-event-card/NexusSport
 import NexusSportsStandings from '@components/nexus-sports-standings/NexusSportsStandings.vue'
 import NexusTeamBadge from '@components/nexus-team-badge/NexusTeamBadge.vue'
 import { useSportsStore } from '@stores/sports/sports.store'
+import { formatDate } from '@lib/datetime'
 import { SPORT_LABELS, type SportsSlug } from '@/types/sports/sports'
 
 const route = useRoute()
@@ -99,7 +100,7 @@ watch(sportSlug, (slug) => {
                 <p class="league-meta">
                   {{
                     league.last_synced_at
-                      ? `Synced ${new Date(league.last_synced_at).toLocaleDateString()}`
+                      ? `Synced ${formatDate(league.last_synced_at)}`
                       : 'Awaiting sync'
                   }}
                 </p>
