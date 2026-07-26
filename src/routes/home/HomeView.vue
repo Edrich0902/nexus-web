@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
+import NexusHomeBrief from '@components/nexus-home-brief/NexusHomeBrief.vue'
 import NexusSpotifyResumeCard from '@components/nexus-spotify-resume-card/NexusSpotifyResumeCard.vue'
 import NexusSpotifyOnRepeat from '@components/nexus-spotify-on-repeat/NexusSpotifyOnRepeat.vue'
 import NexusSpotifyTasteCard from '@components/nexus-spotify-taste-card/NexusSpotifyTasteCard.vue'
@@ -10,6 +11,7 @@ import NexusSportsSnapshotCard from '@components/nexus-sports-snapshot-card/Nexu
 import NexusF1PulseCard from '@components/nexus-f1-pulse-card/NexusF1PulseCard.vue'
 import NexusAdminPulseCard from '@components/nexus-admin-pulse-card/NexusAdminPulseCard.vue'
 import NexusFoodDrinkPulseCard from '@components/nexus-food-drink-pulse-card/NexusFoodDrinkPulseCard.vue'
+import NexusLibraryPulseCard from '@components/nexus-library-pulse-card/NexusLibraryPulseCard.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 
 const auth = useAuthStore()
@@ -25,6 +27,8 @@ const auth = useAuthStore()
         </h2>
       </header>
 
+      <NexusHomeBrief />
+
       <div class="dashboard">
         <div class="col col-main">
           <NexusSpotifyResumeCard />
@@ -36,6 +40,7 @@ const auth = useAuthStore()
         <div class="col col-ops">
           <NexusAdminPulseCard />
           <NexusFoodDrinkPulseCard />
+          <NexusLibraryPulseCard />
           <NexusSportsSnapshotCard />
         </div>
         <div class="col col-dev">

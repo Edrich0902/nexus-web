@@ -6,6 +6,7 @@ import * as libraryService from '@services/library/library.service'
 import type {
   LibraryBook,
   LibraryCandidatesResponse,
+  LibraryPulse,
   LibrarySearchResult,
   StoreLibraryBookPayload,
 } from '@/types/library/library'
@@ -18,6 +19,8 @@ export const useLibraryStore = defineStore('library', () => {
   const booksTotal = ref(0)
   const book = ref<LibraryBook | null>(null)
   const bookLoading = ref(false)
+  const pulse = ref<LibraryPulse | null>(null)
+  const pulseLoading = ref(false)
   const catalogResults = ref<LibrarySearchResult[]>([])
   const candidates = ref<LibraryCandidatesResponse | null>(null)
   const candidatesLoading = ref(false)
@@ -30,6 +33,20 @@ export const useLibraryStore = defineStore('library', () => {
       detail: extractApiErrorMessage(error, fallback),
       life: 4000,
     })
+  }
+
+  async function loadPulse(options?: { silent?: boolean }): Promise<void> {
+    pulseLoading.value = true
+    try {
+      pulse.value = await libraryService.getPulse()
+    } catch (error) {
+      pulse.value = null
+      if (!options?.silent) {
+        toastError(error, 'Could not load library pulse.')
+      }
+    } finally {
+      pulseLoading.value = false
+    }
   }
 
   async function loadBooks(params?: {
@@ -197,10 +214,13 @@ export const useLibraryStore = defineStore('library', () => {
     booksTotal,
     book,
     bookLoading,
+    pulse,
+    pulseLoading,
     catalogResults,
     candidates,
     candidatesLoading,
     saving,
+    loadPulse,
     loadBooks,
     loadBook,
     createBook,

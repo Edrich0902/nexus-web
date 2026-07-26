@@ -3,6 +3,7 @@ import type { Paginated } from '@/types/food-drink/cellar'
 import type {
   LibraryBook,
   LibraryCandidatesResponse,
+  LibraryPulse,
   LibrarySearchResult,
   StoreLibraryBookPayload,
 } from '@/types/library/library'
@@ -24,6 +25,11 @@ export async function listBooks(params?: {
 
 export async function getBook(id: number): Promise<LibraryBook> {
   const { data } = await http.get<LibraryBook>(`${BASE}/books/${id}`)
+  return data
+}
+
+export async function getPulse(): Promise<LibraryPulse> {
+  const { data } = await http.get<LibraryPulse>(`${BASE}/pulse`)
   return data
 }
 

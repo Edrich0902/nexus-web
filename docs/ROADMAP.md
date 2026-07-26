@@ -74,6 +74,7 @@ Photo / camera intake belongs to the **mobile app** later. Image uploads deferre
 - [x] Book detail — status, rating, notes, dates, cover
 - [x] Match dialog (Open Library candidates)
 - [x] Sidebar Library nav item
+- [x] Home library pulse + Today command brief (cross-module)
 
 ---
 

@@ -66,3 +66,16 @@ export interface StoreLibraryBookPayload {
   started_at?: string | null
   finished_at?: string | null
 }
+
+export interface LibraryPulseCounts {
+  want: number
+  reading: number
+  read: number
+  total: number
+}
+
+export interface LibraryPulse {
+  counts: LibraryPulseCounts
+  reading: LibraryBook[]
+  recent: LibraryBook[]
+}
