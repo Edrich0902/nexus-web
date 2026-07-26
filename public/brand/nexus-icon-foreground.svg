@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+<!-- Android adaptive foreground: mark kept inside the centre 66% safe zone. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="1024" height="1024" fill="none">
   <mask id="junction" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
     <rect width="64" height="64" fill="#fff" />
     <path d="M32 21.5 42.5 32 32 42.5 21.5 32Z" fill="#000" />
   </mask>
-  <rect width="64" height="64" rx="14" fill="#1a090d" />
-  <g transform="translate(32 32) scale(.86) translate(-32 -32)">
+  <g transform="translate(32 32) scale(.66) translate(-32 -32)">
     <path
       d="M14 49V15l36 34V15"
       stroke="#5ecf8a"

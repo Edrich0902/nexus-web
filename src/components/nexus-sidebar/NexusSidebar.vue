@@ -5,6 +5,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@stores/auth/auth.store'
 import NexusAvatar from '@components/nexus-avatar/NexusAvatar.vue'
+import NexusLogo from '@components/nexus-logo/NexusLogo.vue'
 import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
 import NexusGithubIcon from '@components/nexus-github-icon/NexusGithubIcon.vue'
 import NexusSportIcon from '@components/nexus-sport-icon/NexusSportIcon.vue'
@@ -160,7 +161,7 @@ const handleSignOut = (event: Event) => {
           <div
             class="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30 shrink-0"
           >
-            <span class="pi pi-code text-lg" />
+            <NexusLogo :size="22" />
           </div>
           <div class="flex flex-col leading-tight min-w-0 flex-1">
             <span class="text-base font-semibold text-[var(--lavender-blush)]"

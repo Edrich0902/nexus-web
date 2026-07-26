@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="1024" height="1024" fill="none">
+  <defs>
+    <radialGradient
+      id="wash"
+      cx="0"
+      cy="0"
+      r="1"
+      gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(4 4) scale(70)"
+    >
+      <stop stop-color="#5ecf8a" stop-opacity=".30" />
+      <stop offset="1" stop-color="#5ecf8a" stop-opacity="0" />
+    </radialGradient>
+    <mask id="junction" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#fff" />
+      <path d="M32 21.5 42.5 32 32 42.5 21.5 32Z" fill="#000" />
+    </mask>
+  </defs>
+  <rect width="64" height="64" fill="#1a090d" />
+  <rect width="64" height="64" fill="url(#wash)" />
+  <g transform="translate(32 32) scale(.84) translate(-32 -32)">
+    <path
+      d="M14 49V15l36 34V15"
+      stroke="#5ecf8a"
+      stroke-width="9"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      mask="url(#junction)"
+    />
+    <path d="M32 25.5 38.5 32 32 38.5 25.5 32Z" fill="#5ecf8a" />
+  </g>
+</svg>
