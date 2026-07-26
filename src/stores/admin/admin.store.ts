@@ -31,17 +31,19 @@ export const useAdminStore = defineStore('admin', () => {
   const pendingByQueue = computed(() => overview.value?.queues ?? [])
   const telescopeUrl = computed(() => overview.value?.telescope_url ?? null)
 
-  async function loadOverview(): Promise<void> {
+  async function loadOverview(options: { silent?: boolean } = {}): Promise<void> {
     overviewLoading.value = true
     try {
       overview.value = await adminService.getOverview()
     } catch (error) {
-      toast.add({
-        severity: 'error',
-        summary: 'Admin',
-        detail: extractApiErrorMessage(error, 'Could not load overview.'),
-        life: 4000,
-      })
+      if (!options.silent) {
+        toast.add({
+          severity: 'error',
+          summary: 'Admin',
+          detail: extractApiErrorMessage(error, 'Could not load overview.'),
+          life: 4000,
+        })
+      }
     } finally {
       overviewLoading.value = false
     }

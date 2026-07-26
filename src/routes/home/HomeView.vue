@@ -8,6 +8,7 @@ import NexusGithubContributionsCard from '@components/nexus-github-contributions
 import NexusSportsPulseCard from '@components/nexus-sports-pulse-card/NexusSportsPulseCard.vue'
 import NexusSportsSnapshotCard from '@components/nexus-sports-snapshot-card/NexusSportsSnapshotCard.vue'
 import NexusF1PulseCard from '@components/nexus-f1-pulse-card/NexusF1PulseCard.vue'
+import NexusAdminPulseCard from '@components/nexus-admin-pulse-card/NexusAdminPulseCard.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 
 const auth = useAuthStore()
@@ -24,18 +25,21 @@ const auth = useAuthStore()
       </header>
 
       <div class="dashboard">
-        <div class="dashboard-main">
+        <div class="col col-main">
           <NexusSpotifyResumeCard />
           <NexusF1PulseCard />
           <NexusSportsPulseCard />
           <NexusSpotifyTasteCard />
           <NexusSpotifyOnRepeat />
         </div>
-        <aside class="dashboard-side">
+        <div class="col col-ops">
+          <NexusAdminPulseCard />
           <NexusSportsSnapshotCard />
+        </div>
+        <div class="col col-dev">
           <NexusGithubContributionsCard />
           <NexusGithubPulseCard />
-        </aside>
+        </div>
       </div>
     </div>
   </NexusPageWrapper>
@@ -48,8 +52,9 @@ const auth = useAuthStore()
   gap: 1.25rem;
   padding-top: 0.5rem;
   padding-bottom: 2rem;
-  max-width: 72rem;
   width: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .home-intro {
@@ -76,28 +81,53 @@ const auth = useAuthStore()
 
 .dashboard {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(17rem, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
+  width: 100%;
+  flex: 1;
 }
 
-.dashboard-main {
+.col {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   min-width: 0;
 }
 
-.dashboard-side {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  min-width: 0;
+.col > :deep(*) {
+  width: 100%;
+}
+
+.col-ops,
+.col-dev {
+  grid-column: 2;
+}
+
+@media (min-width: 1400px) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .col-ops {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .col-dev {
+    grid-column: 3;
+    grid-row: 1;
+  }
 }
 
 @media (max-width: 960px) {
   .dashboard {
     grid-template-columns: 1fr;
+  }
+
+  .col-ops,
+  .col-dev {
+    grid-column: 1;
   }
 }
 </style>
