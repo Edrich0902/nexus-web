@@ -54,6 +54,8 @@ const busy = ref(false)
 const unsplashQuery = ref('')
 const unsplashQuality = ref<UnsplashQuality>('regular')
 const isCoarsePointer = ref(false)
+const deviceFileInput = ref<HTMLInputElement | null>(null)
+const cameraFileInput = ref<HTMLInputElement | null>(null)
 
 const open = computed({
   get: () => props.visible,
@@ -85,6 +87,14 @@ async function onDeviceSelect(event: Event): Promise<void> {
   input.value = ''
   if (!file) return
   await uploadFile(file)
+}
+
+function browseDeviceFiles(): void {
+  deviceFileInput.value?.click()
+}
+
+function openCameraCapture(): void {
+  cameraFileInput.value?.click()
 }
 
 async function onDrop(event: DragEvent): Promise<void> {
@@ -185,6 +195,7 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
                 Drop an image here or choose from your device.
               </p>
               <input
+                ref="deviceFileInput"
                 class="file-input"
                 type="file"
                 accept="image/*"
@@ -192,14 +203,14 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
                 @change="onDeviceSelect"
               />
               <Button
-                class="mt-3"
+                class="browse-btn mt-3"
                 label="Browse files"
                 icon="pi pi-folder-open"
                 severity="secondary"
                 outlined
                 size="small"
                 :disabled="busy"
-                @click="($event.target as HTMLElement).parentElement?.querySelector('input')?.click()"
+                @click.stop="browseDeviceFiles"
               />
             </div>
           </TabPanel>
@@ -211,6 +222,7 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
                 Capture a photo with your camera.
               </p>
               <input
+                ref="cameraFileInput"
                 class="file-input"
                 type="file"
                 accept="image/*"
@@ -219,12 +231,12 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
                 @change="onDeviceSelect"
               />
               <Button
-                class="mt-3"
+                class="browse-btn mt-3"
                 label="Open camera"
                 icon="pi pi-camera"
                 size="small"
                 :disabled="busy"
-                @click="($event.target as HTMLElement).parentElement?.querySelector('input')?.click()"
+                @click.stop="openCameraCapture"
               />
             </div>
           </TabPanel>
@@ -337,6 +349,11 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
   inset: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+.browse-btn {
+  position: relative;
+  z-index: 1;
 }
 
 .grid {
