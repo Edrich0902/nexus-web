@@ -53,14 +53,19 @@ import type {
   SpotifyUpdatePlaylistPayload,
 } from '@/types/spotify/spotify'
 
-const PLAYER_POLL_MS = 4000
+const PLAYER_POLL_MS = 8000
 const PLAYER_POLL_MAX_MS = 20000
 const HUB_STAGGER_MS = 350
+const DOCK_STORAGE_KEY = 'nexus-spotify-dock'
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms)
   })
+}
+
+function readDockExpanded(): boolean {
+  return localStorage.getItem(DOCK_STORAGE_KEY) === 'open'
 }
 
 export const useSpotifyStore = defineStore('spotify', () => {
@@ -107,6 +112,7 @@ export const useSpotifyStore = defineStore('spotify', () => {
   const likedByUri = ref<Record<string, boolean>>({})
   const controlBusy = ref(false)
   const queueOpen = ref(false)
+  const dockExpanded = ref(readDockExpanded())
   const queue = ref<SpotifyQueueResponse | null>(null)
   const queueLoading = ref(false)
   const addToPlaylistUri = ref<string | null>(null)
@@ -172,6 +178,9 @@ export const useSpotifyStore = defineStore('spotify', () => {
   )
 
   const currentTrackUri = computed(() => player.value?.item?.uri ?? null)
+  const hasActiveTrack = computed(
+    () => connected.value && Boolean(player.value?.item),
+  )
 
   watch(
     currentTrackUri,
@@ -929,6 +938,11 @@ export const useSpotifyStore = defineStore('spotify', () => {
     clearQueueRefreshTimer()
   }
 
+  function setDockExpanded(open: boolean): void {
+    dockExpanded.value = open
+    localStorage.setItem(DOCK_STORAGE_KEY, open ? 'open' : 'closed')
+  }
+
   async function queueTrack(uri: string): Promise<boolean> {
     const deviceId = player.value?.device?.id
     controlBusy.value = true
@@ -1153,6 +1167,8 @@ export const useSpotifyStore = defineStore('spotify', () => {
     likedByUri,
     controlBusy,
     queueOpen,
+    dockExpanded,
+    hasActiveTrack,
     queue,
     queueLoading,
     addToPlaylistUri,
@@ -1190,6 +1206,7 @@ export const useSpotifyStore = defineStore('spotify', () => {
     fetchQueue,
     openQueuePanel,
     closeQueuePanel,
+    setDockExpanded,
     queueTrack,
     openAddToPlaylist,
     closeAddToPlaylist,

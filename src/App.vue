@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterView, useRoute } from 'vue-router'
 import NexusSidebar from '@components/nexus-sidebar/NexusSidebar.vue'
+import NexusSpotifyDock from '@components/nexus-spotify-dock/NexusSpotifyDock.vue'
 import { useLayoutStore } from '@stores/layout/layout.store'
 
 const route = useRoute()
@@ -35,6 +36,8 @@ const layout = useLayoutStore()
       </Transition>
     </RouterView>
   </div>
+
+  <NexusSpotifyDock v-if="route.meta.showMenu" />
 </template>
 
 <style scoped>

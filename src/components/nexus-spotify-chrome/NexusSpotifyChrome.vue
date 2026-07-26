@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
-import { useSpotifyKeyboardShortcuts } from '@/composables/useSpotifyKeyboardShortcuts'
 import NexusSpotifyQueuePanel from '@components/nexus-spotify-queue-panel/NexusSpotifyQueuePanel.vue'
 import NexusSpotifyAddToPlaylist from '@components/nexus-spotify-add-to-playlist/NexusSpotifyAddToPlaylist.vue'
 
 const spotify = useSpotifyStore()
 const route = useRoute()
 
-useSpotifyKeyboardShortcuts()
+// Playback shortcuts are registered app-wide by NexusSpotifyDock.
 
 const links = [
   { name: 'spotify', label: 'Home', match: (n: string) => n === 'spotify' },

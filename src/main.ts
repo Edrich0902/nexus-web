@@ -12,7 +12,10 @@ import NexusPreset from './theme/nexus-preset'
 import { pinia } from '@stores/pinia.store'
 import { useAuthStore } from '@stores/auth/auth.store'
 import { setSessionRefreshHandler, setUnauthorizedHandler } from '@lib/http'
+import { initAutoHideScrollbars } from '@lib/scrollbar'
 import router from './router'
+
+initAutoHideScrollbars()
 
 const app = createApp(App)
 

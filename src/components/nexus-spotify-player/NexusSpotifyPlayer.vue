@@ -1,40 +1,39 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import NexusSpotifyPlayingIndicator from '@components/nexus-spotify-playing-indicator/NexusSpotifyPlayingIndicator.vue'
+import { useSpotifyProgress } from '@/composables/useSpotifyProgress'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 
 const spotify = useSpotifyStore()
 const router = useRouter()
-const seekPreview = ref<number | null>(null)
 const volumePreview = ref<number | null>(null)
-const localProgressMs = ref(0)
 const deviceMenu = ref<{
   toggle: (event: Event) => void
   hide: () => void
 } | null>(null)
 
-let tickTimer: ReturnType<typeof setInterval> | null = null
-let lastTickAt = 0
+const {
+  progressMs,
+  durationMs,
+  progressLabel,
+  durationLabel,
+  onSeekInput,
+  onSeekCommit,
+} = useSpotifyProgress()
 
 onMounted(() => {
   spotify.startPlayerPolling()
   void spotify.refreshDevices()
-  startProgressTicker()
 })
 
 onUnmounted(() => {
   spotify.stopPlayerPolling()
-  stopProgressTicker()
 })
 
 const item = computed(() => spotify.player?.item ?? null)
 const device = computed(() => spotify.player?.device ?? null)
 const isPlaying = computed(() => spotify.player?.is_playing === true)
-const durationMs = computed(() => item.value?.duration_ms ?? 0)
-const progressMs = computed(
-  () => seekPreview.value ?? localProgressMs.value,
-)
 
 const artUrl = computed(() => {
   const images = item.value?.album?.images
@@ -54,9 +53,6 @@ const artistLinks = computed(() =>
   ),
 )
 
-const progressLabel = computed(() => formatTime(progressMs.value))
-const durationLabel = computed(() => formatTime(durationMs.value))
-
 const volumePercent = computed(() => {
   if (volumePreview.value !== null) return volumePreview.value
   return spotify.player?.device?.volume_percent ?? 50
@@ -65,71 +61,6 @@ const volumePercent = computed(() => {
 const volumeAvailable = computed(
   () => spotify.player?.device != null && !spotify.controlBusy,
 )
-
-/** Resync local clock whenever Spotify reports a new progress snapshot. */
-watch(
-  () => [
-    spotify.player?.progress_ms,
-    spotify.player?.item?.uri,
-    spotify.player?.is_playing,
-  ] as const,
-  ([progress, , playing]) => {
-    if (seekPreview.value !== null) return
-    if (typeof progress === 'number') {
-      localProgressMs.value = progress
-      lastTickAt = performance.now()
-    } else if (!playing) {
-      localProgressMs.value = 0
-    }
-  },
-  { immediate: true },
-)
-
-function startProgressTicker(): void {
-  stopProgressTicker()
-  lastTickAt = performance.now()
-  tickTimer = setInterval(() => {
-    if (seekPreview.value !== null) return
-    if (!isPlaying.value) {
-      lastTickAt = performance.now()
-      return
-    }
-
-    const now = performance.now()
-    const delta = now - lastTickAt
-    lastTickAt = now
-    const duration = durationMs.value
-    const next = localProgressMs.value + delta
-    localProgressMs.value =
-      duration > 0 ? Math.min(next, duration) : Math.max(0, next)
-  }, 250)
-}
-
-function stopProgressTicker(): void {
-  if (tickTimer) {
-    clearInterval(tickTimer)
-    tickTimer = null
-  }
-}
-
-function formatTime(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-function onSeekInput(value: number): void {
-  seekPreview.value = value
-}
-
-async function onSeekCommit(value: number): Promise<void> {
-  seekPreview.value = value
-  localProgressMs.value = value
-  lastTickAt = performance.now()
-  await spotify.seek(value)
-  seekPreview.value = null
-}
 
 function onVolumeInput(value: number): void {
   volumePreview.value = value

@@ -84,6 +84,10 @@
     ),
     var(--coffee-bean-panel);
 
+  /* Overlay scrollbars — soft lavender; no layout gutter */
+  --scrollbar-size: 0.375rem;
+  --scrollbar-thumb: color-mix(in srgb, var(--lavender-blush) 32%, transparent);
+
   color-scheme: dark;
   font-family:
     'Segoe UI',
@@ -100,6 +104,40 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Native scrollbars off — no gutter / content shift. Overlay thumbs in lib/scrollbar.ts */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.nexus-scrollbar-thumb {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 999px;
+  background-color: var(--scrollbar-thumb);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  will-change: top, left, width, height, opacity;
+}
+
+.nexus-scrollbar-thumb.is-visible {
+  opacity: 1;
+}
+
+.nexus-scrollbar-thumb--y {
+  min-height: 1.75rem;
+}
+
+.nexus-scrollbar-thumb--x {
+  min-width: 1.75rem;
 }
 
 html,
