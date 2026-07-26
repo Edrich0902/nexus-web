@@ -82,7 +82,7 @@ Entry: toolbar avatar menu → Profile. Sessions are a profile subnav item, not 
 | **Cellar** | Wine drinking journal |
 | **Kitchen** | Recipe discover + saved recipes |
 | **Beer** | Beer log + brewery links |
-| **Library** | Books / reading (future) |
+| **Library** | Book shelf at `/library` |
 | **Media vaults** | Cloudinary-backed vault at `/media`; `NexusImageUploader` + media-aware `NexusImage` |
 | **Social** | Optional (e.g. Instagram) |
 | **F1 / Sports** | Sports schedules + F1 historical calendar, standings, session analysis, post-session track replay |

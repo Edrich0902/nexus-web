@@ -21,7 +21,7 @@ Same directional milestones as the API. UI work tracks API availability; when a 
 | **Cellar** | Wine journal UI (photo intake mobile-later) |
 | **Kitchen** | Recipe discover + saved library |
 | **Beer** | Beer log + brewery linking |
-| **Library** | Book catalog (future) |
+| **Library** | Book shelf + Open Library match |
 | **Media vaults** | Browse / manage personal media vaults |
 | **Social (e.g. Instagram)** | Optional, if prioritized |
 | **Sports & F1** | Schedules, standings, weekend ticker |

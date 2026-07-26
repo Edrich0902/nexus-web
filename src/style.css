@@ -67,6 +67,14 @@
       transparent 55%
     ),
     var(--coffee-bean-panel);
+  --library-accent: #7a8fbf;
+  --library-card-surface:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--library-accent) 22%, transparent),
+      transparent 55%
+    ),
+    var(--coffee-bean-panel);
   --kitchen-accent: #6a9e6e;
   --kitchen-card-surface:
     radial-gradient(

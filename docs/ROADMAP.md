@@ -66,6 +66,17 @@ Photo / camera intake belongs to the **mobile app** later. Image uploads deferre
 
 ---
 
+## Milestone 2.1 — Book library
+
+**Intent:** Log books, track read status, optional Open Library match for metadata and covers.
+
+- [x] `/library` shelf list with status filters
+- [x] Book detail — status, rating, notes, dates, cover
+- [x] Match dialog (Open Library candidates)
+- [x] Sidebar Library nav item
+
+---
+
 ## Milestone 3 — Developer & social integrations
 
 ### GitHub (done)
