@@ -75,6 +75,14 @@ export type F1HomeSnapshot = {
   computed_at?: string
 }
 
+export type F1ProviderHealth = {
+  available: boolean
+  live_lockout: boolean
+  reason?: string | null
+  locked_until?: string | null
+  last_checked_at?: string | null
+}
+
 export type F1Status = {
   provider: string
   year: number
@@ -84,6 +92,7 @@ export type F1Status = {
   last_ok_by_job: Record<string, string | null | undefined>
   last_failed: { job: string; error: string | null; finished_at: string | null } | null
   live_tracking: boolean
+  provider_health?: F1ProviderHealth
   rate_limit?: Record<string, number>
 }
 

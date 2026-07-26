@@ -3,6 +3,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusF1TrackReplay from '@components/nexus-f1-track-replay/NexusF1TrackReplay.vue'
+import NexusF1LockoutBanner from '@components/nexus-f1-lockout-banner/NexusF1LockoutBanner.vue'
+import NexusDataTable from '@components/nexus-data-table/NexusDataTable.vue'
 import { useF1Store } from '@stores/f1/f1.store'
 
 const route = useRoute()
@@ -17,6 +19,9 @@ const status = computed(() => f1.replay?.status ?? null)
 const isPending = computed(() => status.value === 'pending')
 const isFailed = computed(() => status.value === 'failed')
 const isPartial = computed(() => Boolean(f1.replay?.partial))
+const isLockout = computed(
+  () => Boolean(f1.status?.provider_health?.live_lockout),
+)
 const isReady = computed(
   () => status.value === 'ready' && (f1.replay?.location?.length ?? 0) > 0,
 )
@@ -97,13 +102,20 @@ onUnmounted(() => {
     </template>
 
     <div class="wrap">
+      <NexusF1LockoutBanner :health="f1.status?.provider_health" />
+
       <Message severity="info" :closable="false">
         Replay syncs a small set of cars at ≈0.25 Hz, one driver at a time so
         the queue worker stays healthy. First car unlocks the map; others fill
         in shortly after.
       </Message>
 
-      <Message v-if="isPending" severity="warn" :closable="false">
+      <Message v-if="isPending && isLockout" severity="warn" :closable="false">
+        Replay is waiting because OpenF1 is locked for a live session. The job
+        will retry automatically — leave the queue worker running.
+      </Message>
+
+      <Message v-else-if="isPending" severity="warn" :closable="false">
         Preparing replay…
         <span v-if="f1.replay?.message">{{ f1.replay.message }}</span>
         Keep this page open — status refreshes automatically.
@@ -150,10 +162,9 @@ onUnmounted(() => {
           }}
           samples)
         </h3>
-        <DataTable
+        <NexusDataTable
+          accent="f1"
           :value="f1.replay.car_data.samples.slice(0, 100)"
-          size="small"
-          striped-rows
           paginator
           :rows="20"
         >
@@ -164,7 +175,7 @@ onUnmounted(() => {
           <Column field="throttle" header="Throttle" />
           <Column field="brake" header="Brake" />
           <Column field="drs" header="DRS" />
-        </DataTable>
+        </NexusDataTable>
       </section>
     </div>
   </NexusPageWrapper>

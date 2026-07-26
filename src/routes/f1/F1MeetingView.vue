@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
 import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import NexusF1LockoutBanner from '@components/nexus-f1-lockout-banner/NexusF1LockoutBanner.vue'
 import { useF1Store } from '@stores/f1/f1.store'
 import { formatDateTime } from '@lib/datetime'
 
@@ -45,6 +46,7 @@ function openSession(sessionKey: number): void {
       <NexusSkeletonList :count="3" />
     </div>
     <div v-else-if="f1.meeting" class="wrap">
+      <NexusF1LockoutBanner :health="f1.status?.provider_health" />
       <header class="hero">
         <NexusImage
           v-if="f1.meeting.circuit_image"

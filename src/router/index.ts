@@ -154,6 +154,12 @@ const routes: RouteRecordRaw[] = [
     meta: handleMeta(true, true, 'F1 Replay'),
   },
   {
+    path: '/admin',
+    name: 'admin',
+    component: () => import('@routes/admin/AdminView.vue'),
+    meta: handleMeta(true, true, 'Admin'),
+  },
+  {
     path: '/profile',
     component: () => import('@routes/profile/ProfileLayoutView.vue'),
     meta: handleMeta(true, true, 'Profile'),

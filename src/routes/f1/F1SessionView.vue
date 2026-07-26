@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import NexusF1LockoutBanner from '@components/nexus-f1-lockout-banner/NexusF1LockoutBanner.vue'
+import NexusDataTable from '@components/nexus-data-table/NexusDataTable.vue'
 import { useF1Store } from '@stores/f1/f1.store'
 
 const route = useRoute()
@@ -82,6 +84,7 @@ function openReplay(): void {
       <NexusSkeletonList :count="4" />
     </div>
     <div v-else-if="f1.sessionDetail" class="wrap">
+      <NexusF1LockoutBanner :health="f1.status?.provider_health" />
       <header class="hero">
         <div>
           <p class="eyebrow">{{ f1.sessionDetail.meeting?.meeting_name }}</p>
@@ -109,11 +112,7 @@ function openReplay(): void {
         </TabList>
         <TabPanels>
           <TabPanel value="results">
-            <DataTable
-              :value="f1.sessionDetail.results"
-              size="small"
-              striped-rows
-            >
+            <NexusDataTable accent="f1" :value="f1.sessionDetail.results">
               <Column field="position" header="Pos" style="width: 3rem" />
               <Column header="Driver">
                 <template #body="{ data }">
@@ -140,15 +139,11 @@ function openReplay(): void {
                   <span v-else>—</span>
                 </template>
               </Column>
-            </DataTable>
+            </NexusDataTable>
           </TabPanel>
 
           <TabPanel value="grid">
-            <DataTable
-              :value="f1.sessionDetail.starting_grid"
-              size="small"
-              striped-rows
-            >
+            <NexusDataTable accent="f1" :value="f1.sessionDetail.starting_grid">
               <Column field="position" header="Pos" />
               <Column header="Driver">
                 <template #body="{ data }">
@@ -164,15 +159,11 @@ function openReplay(): void {
                   }}
                 </template>
               </Column>
-            </DataTable>
+            </NexusDataTable>
           </TabPanel>
 
           <TabPanel value="stints">
-            <DataTable
-              :value="f1.analysis?.stints ?? []"
-              size="small"
-              striped-rows
-            >
+            <NexusDataTable accent="f1" :value="f1.analysis?.stints ?? []">
               <Column header="Driver">
                 <template #body="{ data }">
                   {{ driverLabel(Number(data.driver_number)) }}
@@ -183,15 +174,11 @@ function openReplay(): void {
               <Column field="lap_start" header="From" />
               <Column field="lap_end" header="To" />
               <Column field="tyre_age_at_start" header="Age" />
-            </DataTable>
+            </NexusDataTable>
           </TabPanel>
 
           <TabPanel value="pits">
-            <DataTable
-              :value="f1.analysis?.pits ?? []"
-              size="small"
-              striped-rows
-            >
+            <NexusDataTable accent="f1" :value="f1.analysis?.pits ?? []">
               <Column header="Driver">
                 <template #body="{ data }">
                   {{ driverLabel(Number(data.driver_number)) }}
@@ -200,27 +187,22 @@ function openReplay(): void {
               <Column field="lap_number" header="Lap" />
               <Column field="stop_duration" header="Stop" />
               <Column field="lane_duration" header="Lane" />
-            </DataTable>
+            </NexusDataTable>
           </TabPanel>
 
           <TabPanel value="control">
-            <DataTable
-              :value="f1.analysis?.race_control ?? []"
-              size="small"
-              striped-rows
-            >
+            <NexusDataTable accent="f1" :value="f1.analysis?.race_control ?? []">
               <Column field="date" header="When" />
               <Column field="category" header="Category" />
               <Column field="flag" header="Flag" />
               <Column field="message" header="Message" />
-            </DataTable>
+            </NexusDataTable>
           </TabPanel>
 
           <TabPanel value="positions">
-            <DataTable
+            <NexusDataTable
+              accent="f1"
               :value="(f1.analysis?.positions ?? []).slice(-200)"
-              size="small"
-              striped-rows
               paginator
               :rows="25"
             >
@@ -231,7 +213,7 @@ function openReplay(): void {
                 </template>
               </Column>
               <Column field="position" header="Pos" />
-            </DataTable>
+            </NexusDataTable>
             <p class="muted hint">
               Showing recent position changes (last 200 of timeline).
             </p>

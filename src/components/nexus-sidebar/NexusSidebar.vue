@@ -15,7 +15,7 @@ type SidebarMenuItem = MenuItem & {
   iconComponent?: Component
   to?: string
   matchPrefix?: boolean
-  accent?: 'spotify' | 'github' | 'f1'
+  accent?: 'spotify' | 'github' | 'f1' | 'admin'
   sport?: SportsSlug
 }
 
@@ -35,6 +35,13 @@ const items = ref<SidebarMenuItem[]>([
         label: 'Home',
         to: '/home',
         icon: 'pi pi-home',
+      },
+      {
+        label: 'Admin',
+        to: '/admin',
+        icon: 'pi pi-server',
+        matchPrefix: true,
+        accent: 'admin',
       },
     ],
   },
@@ -196,14 +203,22 @@ const handleSignOut = (event: Event) => {
                 'nav-icon--github':
                   (item as SidebarMenuItem).accent === 'github',
                 'nav-icon--f1': (item as SidebarMenuItem).accent === 'f1',
+                'nav-icon--admin':
+                  (item as SidebarMenuItem).accent === 'admin',
               }"
               :size="18"
               :sport="(item as SidebarMenuItem).sport ?? 'hub'"
             />
             <span
               v-else-if="item.icon"
-              :class="item.icon"
-              class="w-5 text-center text-base shrink-0"
+              :class="[
+                item.icon,
+                'w-5 text-center text-base shrink-0',
+                {
+                  'nav-icon--admin':
+                    (item as SidebarMenuItem).accent === 'admin',
+                },
+              ]"
             />
             <span class="nav-label">{{ item.label }}</span>
           </a>
@@ -329,6 +344,11 @@ const handleSignOut = (event: Event) => {
 .nav-icon--f1,
 .nav-item--active .nav-icon--f1 {
   color: var(--sport-f1);
+}
+
+.nav-icon--admin,
+.nav-item--active .nav-icon--admin {
+  color: var(--admin-accent);
 }
 
 .nav-label {

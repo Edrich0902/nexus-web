@@ -43,6 +43,14 @@
       transparent 55%
     ),
     var(--coffee-bean-panel);
+  --admin-accent: #5b9fd4;
+  --admin-card-surface:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--admin-accent) 22%, transparent),
+      transparent 55%
+    ),
+    var(--coffee-bean-panel);
 
   color-scheme: dark;
   font-family:

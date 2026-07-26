@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import NexusDataTable from '@components/nexus-data-table/NexusDataTable.vue'
 import type { F1StandingDriver, F1StandingTeam } from '@/types/f1/f1'
 
 const props = defineProps<{
@@ -25,7 +26,11 @@ function colour(hex?: string | null): string {
   <div class="f1-standings" :class="{ compact }">
     <section>
       <h3>Drivers</h3>
-      <DataTable :value="driverRows" size="small" striped-rows>
+      <NexusDataTable
+        accent="f1"
+        :value="driverRows"
+        empty-message="No driver standings yet."
+      >
         <Column field="position" header="Pos" style="width: 3rem" />
         <Column header="Driver">
           <template #body="{ data }">
@@ -34,7 +39,9 @@ function colour(hex?: string | null): string {
                 class="team-dot"
                 :style="{ background: colour(data.team_colour) }"
               />
-              <span>{{ data.name_acronym || data.name || `#${data.driver_number}` }}</span>
+              <span>{{
+                data.name_acronym || data.name || `#${data.driver_number}`
+              }}</span>
               <span v-if="!compact && data.team_name" class="muted">{{
                 data.team_name
               }}</span>
@@ -42,15 +49,19 @@ function colour(hex?: string | null): string {
           </template>
         </Column>
         <Column field="points" header="Pts" style="width: 4rem" />
-      </DataTable>
+      </NexusDataTable>
     </section>
     <section>
       <h3>Constructors</h3>
-      <DataTable :value="teamRows" size="small" striped-rows>
+      <NexusDataTable
+        accent="f1"
+        :value="teamRows"
+        empty-message="No constructor standings yet."
+      >
         <Column field="position" header="Pos" style="width: 3rem" />
         <Column field="team_name" header="Team" />
         <Column field="points" header="Pts" style="width: 4rem" />
-      </DataTable>
+      </NexusDataTable>
     </section>
   </div>
 </template>

@@ -4,6 +4,7 @@ import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vu
 import NexusF1Icon from '@components/nexus-f1-icon/NexusF1Icon.vue'
 import NexusF1MeetingCard from '@components/nexus-f1-meeting-card/NexusF1MeetingCard.vue'
 import NexusF1Standings from '@components/nexus-f1-standings/NexusF1Standings.vue'
+import NexusF1LockoutBanner from '@components/nexus-f1-lockout-banner/NexusF1LockoutBanner.vue'
 import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import { useF1Store } from '@stores/f1/f1.store'
 
@@ -29,6 +30,8 @@ onMounted(() => {
     </template>
 
     <div class="f1-page">
+      <NexusF1LockoutBanner :health="f1.status?.provider_health" />
+
       <header class="hero">
         <div class="glow" aria-hidden="true" />
         <div class="hero-main">
