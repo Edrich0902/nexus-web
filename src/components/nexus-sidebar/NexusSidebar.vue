@@ -198,95 +198,100 @@ const handleSignOut = (event: Event) => {
 
 <template>
   <aside class="sidebar-shell">
-    <Menu :model="items" class="app-sidebar w-full">
-      <template #start>
-        <div class="flex items-center gap-3 px-4 py-4">
-          <div
-            class="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30 shrink-0"
-          >
-            <NexusLogo :size="22" />
-          </div>
-          <div class="flex flex-col leading-tight min-w-0 flex-1">
-            <span class="text-base font-semibold text-[var(--lavender-blush)]"
-              >Nexus Hub</span
-            >
-            <span
-              class="text-xs text-[color-mix(in_srgb,var(--lavender-blush)_55%,transparent)]"
-              >Command Station</span
-            >
-          </div>
-        </div>
-      </template>
-
-      <template #item="{ item, props }">
-        <router-link
-          v-if="item.to"
-          v-slot="{ href, navigate, isExactActive }"
-          :to="item.to"
-          custom
+    <div class="sidebar-header">
+      <div class="flex items-center gap-3 px-4 py-4">
+        <div
+          class="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30 shrink-0"
         >
-          <a
-            v-ripple
-            :href="href"
-            v-bind="props.action"
-            :class="{
-              'nav-item--active': isNavActive(
-                item as SidebarMenuItem,
-                isExactActive,
-              ),
-            }"
-            @click="navigate"
+          <NexusLogo :size="22" />
+        </div>
+        <div class="flex flex-col leading-tight min-w-0 flex-1">
+          <span class="text-base font-semibold text-[var(--lavender-blush)]"
+            >Nexus Hub</span
           >
-            <component
-              :is="(item as SidebarMenuItem).iconComponent"
-              v-if="(item as SidebarMenuItem).iconComponent"
-              class="nav-icon"
+          <span
+            class="text-xs text-[color-mix(in_srgb,var(--lavender-blush)_55%,transparent)]"
+            >Command Station</span
+          >
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-nav">
+      <Menu :model="items" class="app-sidebar w-full">
+        <template #item="{ item, props }">
+          <router-link
+            v-if="item.to"
+            v-slot="{ href, navigate, isExactActive }"
+            :to="item.to"
+            custom
+          >
+            <a
+              v-ripple
+              :href="href"
+              v-bind="props.action"
               :class="{
-                'nav-icon--spotify':
-                  (item as SidebarMenuItem).accent === 'spotify',
-                'nav-icon--github':
-                  (item as SidebarMenuItem).accent === 'github',
-                'nav-icon--f1': (item as SidebarMenuItem).accent === 'f1',
-                'nav-icon--admin':
-                  (item as SidebarMenuItem).accent === 'admin',
-                'nav-icon--food-drink':
-                  (item as SidebarMenuItem).accent === 'food-drink',
-                'nav-icon--cellar':
-                  (item as SidebarMenuItem).accent === 'cellar',
-                'nav-icon--kitchen':
-                  (item as SidebarMenuItem).accent === 'kitchen',
-                'nav-icon--beer':
-                  (item as SidebarMenuItem).accent === 'beer',
+                'nav-item--active': isNavActive(
+                  item as SidebarMenuItem,
+                  isExactActive,
+                ),
               }"
-              :size="18"
-              :sport="(item as SidebarMenuItem).sport ?? 'hub'"
-            />
-            <span
-              v-else-if="item.icon"
-              :class="[
-                item.icon,
-                'w-5 text-center text-base shrink-0',
-                {
+              @click="navigate"
+            >
+              <component
+                :is="(item as SidebarMenuItem).iconComponent"
+                v-if="(item as SidebarMenuItem).iconComponent"
+                class="nav-icon"
+                :class="{
+                  'nav-icon--spotify':
+                    (item as SidebarMenuItem).accent === 'spotify',
+                  'nav-icon--github':
+                    (item as SidebarMenuItem).accent === 'github',
+                  'nav-icon--f1': (item as SidebarMenuItem).accent === 'f1',
                   'nav-icon--admin':
                     (item as SidebarMenuItem).accent === 'admin',
-                },
-              ]"
+                  'nav-icon--food-drink':
+                    (item as SidebarMenuItem).accent === 'food-drink',
+                  'nav-icon--cellar':
+                    (item as SidebarMenuItem).accent === 'cellar',
+                  'nav-icon--kitchen':
+                    (item as SidebarMenuItem).accent === 'kitchen',
+                  'nav-icon--beer':
+                    (item as SidebarMenuItem).accent === 'beer',
+                }"
+                :size="18"
+                :sport="(item as SidebarMenuItem).sport ?? 'hub'"
+              />
+              <span
+                v-else-if="item.icon"
+                :class="[
+                  item.icon,
+                  'w-5 text-center text-base shrink-0',
+                  {
+                    'nav-icon--admin':
+                      (item as SidebarMenuItem).accent === 'admin',
+                  },
+                ]"
+              />
+              <span class="nav-label">{{ item.label }}</span>
+            </a>
+          </router-link>
+          <a
+            v-else
+            v-ripple
+            :href="item.url"
+            :target="item.target"
+            v-bind="props.action"
+          >
+            <span
+              :class="item.icon"
+              class="w-5 text-center text-base shrink-0"
             />
             <span class="nav-label">{{ item.label }}</span>
           </a>
-        </router-link>
-        <a
-          v-else
-          v-ripple
-          :href="item.url"
-          :target="item.target"
-          v-bind="props.action"
-        >
-          <span :class="item.icon" class="w-5 text-center text-base shrink-0" />
-          <span class="nav-label">{{ item.label }}</span>
-        </a>
-      </template>
-    </Menu>
+        </template>
+      </Menu>
+    </div>
 
     <div class="sidebar-footer">
       <div class="flex items-center gap-3">
@@ -317,6 +322,7 @@ const handleSignOut = (event: Event) => {
 <style scoped>
 .sidebar-shell {
   height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border-radius: 1rem;
@@ -326,12 +332,23 @@ const handleSignOut = (event: Event) => {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 
+.sidebar-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
+  background-color: var(--coffee-bean-panel);
+}
+
+.sidebar-nav {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .sidebar-shell :deep(.p-menu),
 .sidebar-shell :deep(.p-menu-list),
-.sidebar-shell :deep(.p-menu-start),
 .sidebar-shell :deep([data-pc-section='root']),
-.sidebar-shell :deep([data-pc-section='list']),
-.sidebar-shell :deep([data-pc-section='start']) {
+.sidebar-shell :deep([data-pc-section='list']) {
   background-color: var(--coffee-bean-panel) !important;
   background-image: none !important;
   border-color: transparent !important;
@@ -339,11 +356,6 @@ const handleSignOut = (event: Event) => {
 }
 
 .app-sidebar {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  display: flex !important;
-  flex-direction: column !important;
   --p-menu-background: var(--coffee-bean-panel);
   --p-menu-border-color: transparent;
   --p-content-background: var(--coffee-bean-panel);
@@ -430,7 +442,6 @@ const handleSignOut = (event: Event) => {
 
 .sidebar-footer {
   flex-shrink: 0;
-  margin-top: auto;
   padding: 0.75rem;
   border-top: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
   background-color: var(--coffee-bean-panel);

@@ -17,7 +17,7 @@ const layout = useLayoutStore()
   >
     <div
       v-if="route.meta.showMenu"
-      class="w-64 h-full shrink-0 transition-[margin,transform] duration-300 ease-in-out"
+      class="w-64 min-h-0 shrink-0 self-stretch transition-[margin,transform] duration-300 ease-in-out"
       :class="
         layout.sidebarVisible
           ? 'ml-0 mr-3 translate-x-0'
