@@ -11,7 +11,7 @@ import App from './App.vue'
 import NexusPreset from './theme/nexus-preset'
 import { pinia } from '@stores/pinia.store'
 import { useAuthStore } from '@stores/auth/auth.store'
-import { setUnauthorizedHandler } from '@lib/http'
+import { setSessionRefreshHandler, setUnauthorizedHandler } from '@lib/http'
 import router from './router'
 
 const app = createApp(App)
@@ -42,6 +42,8 @@ setUnauthorizedHandler(() => {
     void router.replace({ name: 'login' })
   }
 })
+
+setSessionRefreshHandler(() => authStore.refresh())
 
 app.use(router)
 app.mount('#app')

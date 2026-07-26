@@ -17,9 +17,11 @@ Same directional milestones as the API. UI work tracks API availability; when a 
 | **Foundation & Auth** | Shell, router, API client, login, Pinia auth session |
 | **Spotify** | Connect flow, listening widgets, stats |
 | **GitHub** | Developer activity / repo surfaces |
-| **Cellar** | Wine inventory UI (photo intake is mobile-first later) |
-| **Library** | Book catalog and reading status |
-| **Kitchen** | Recipe browsing and editing |
+| **Food & Drink** | Hub, pairings, home pulse |
+| **Cellar** | Wine journal UI (photo intake mobile-later) |
+| **Kitchen** | Recipe discover + saved library |
+| **Beer** | Beer log + brewery linking |
+| **Library** | Book catalog (future) |
 | **Media vaults** | Browse / manage personal media vaults |
 | **Social (e.g. Instagram)** | Optional, if prioritized |
 | **Sports & F1** | Schedules, standings, weekend ticker |

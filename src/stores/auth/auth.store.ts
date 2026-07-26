@@ -139,8 +139,8 @@ export const useAuthStore = defineStore('auth', () => {
       applyTokenResponse(response)
       return true
     } catch {
-      clearSession()
-      status.value = Status.UNAUTHENTICATED
+      // Keep the existing session on transient refresh failures. A true expiry
+      // still surfaces as 401 on the next API call and clears via http.ts.
       return false
     }
   }

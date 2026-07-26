@@ -9,6 +9,7 @@ import NexusSportsPulseCard from '@components/nexus-sports-pulse-card/NexusSport
 import NexusSportsSnapshotCard from '@components/nexus-sports-snapshot-card/NexusSportsSnapshotCard.vue'
 import NexusF1PulseCard from '@components/nexus-f1-pulse-card/NexusF1PulseCard.vue'
 import NexusAdminPulseCard from '@components/nexus-admin-pulse-card/NexusAdminPulseCard.vue'
+import NexusFoodDrinkPulseCard from '@components/nexus-food-drink-pulse-card/NexusFoodDrinkPulseCard.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 
 const auth = useAuthStore()
@@ -34,6 +35,7 @@ const auth = useAuthStore()
         </div>
         <div class="col col-ops">
           <NexusAdminPulseCard />
+          <NexusFoodDrinkPulseCard />
           <NexusSportsSnapshotCard />
         </div>
         <div class="col col-dev">

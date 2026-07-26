@@ -9,12 +9,47 @@ import {
 } from '@/types/auth/auth'
 
 let onUnauthorized: (() => void) | null = null
+let sessionRefreshHandler: (() => Promise<boolean>) | null = null
+let refreshInFlight: Promise<boolean> | null = null
+
+/** Refresh Sanctum tokens when fewer than this many ms remain. */
+const REFRESH_WITHIN_MS = 10 * 60 * 1000
 
 /** Shared Spotify/API cooldown after a 429 (ms since epoch). */
 let rateLimitUntilMs = 0
 
 export function setUnauthorizedHandler(handler: (() => void) | null): void {
   onUnauthorized = handler
+}
+
+export function setSessionRefreshHandler(
+  handler: (() => Promise<boolean>) | null,
+): void {
+  sessionRefreshHandler = handler
+}
+
+function shouldRefreshSession(session: AuthSession | null): boolean {
+  if (!session?.expiresAt) return false
+  const expiresAtMs = Date.parse(session.expiresAt)
+  if (!Number.isFinite(expiresAtMs)) return false
+  const msLeft = expiresAtMs - Date.now()
+  return msLeft > 0 && msLeft <= REFRESH_WITHIN_MS
+}
+
+function isAuthBootstrapUrl(url: string): boolean {
+  return url.includes('/auth/login') || url.includes('/auth/refresh')
+}
+
+async function maybeRefreshSession(url: string): Promise<void> {
+  if (isAuthBootstrapUrl(url) || !sessionRefreshHandler) return
+  if (!shouldRefreshSession(readStoredSession())) return
+
+  if (!refreshInFlight) {
+    refreshInFlight = sessionRefreshHandler().finally(() => {
+      refreshInFlight = null
+    })
+  }
+  await refreshInFlight
 }
 
 export function readStoredSession(): AuthSession | null {
@@ -76,6 +111,8 @@ http.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   if (remaining > 0) {
     await sleep(Math.min(remaining, 15000))
   }
+
+  await maybeRefreshSession(config.url ?? '')
 
   const session = readStoredSession()
   if (session?.token) {

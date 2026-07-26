@@ -52,15 +52,17 @@ Application skeleton and dashboard shell.
 
 ---
 
-## Milestone 2 — Collections (Cellar, Library, Kitchen)
+## Milestone 2 — Food & Drink (Cellar, Kitchen, Beer)
 
-**Intent:** Rich CRUD and browse UIs for owned collections.
+**Intent:** Wine journal, recipe library, beer log, pairings hub.
 
-- **Cellar** — inventory, detail, stock adjustments, drinking-window cues
-- **Library** — catalog, reading status, ratings/notes
-- **Kitchen** — recipes and related content
+- [x] **Food & Drink hub** — `/food-drink`, pairings, home pulse card
+- [x] **Cellar** — journal list/detail, WineAPI match dialog, tastings, quota badge
+- [x] **Kitchen** — saved recipes + TheMealDB discover
+- [x] **Beer** — log beers, OBDB / manual brewery link
+- Sidebar: Modules → Food & Drink; Cellar & Kitchen → Wine / Beer / Recipes
 
-Photo / camera intake belongs to the **mobile app**; web may show images and support manual add/edit.
+Photo / camera intake belongs to the **mobile app** later. Image uploads deferred (external URLs only for now).
 
 ---
 

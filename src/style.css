@@ -51,6 +51,38 @@
       transparent 55%
     ),
     var(--coffee-bean-panel);
+  --wine-accent: #c45c6a;
+  --wine-card-surface:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--wine-accent) 22%, transparent),
+      transparent 55%
+    ),
+    var(--coffee-bean-panel);
+  --beer-accent: #d4a017;
+  --beer-card-surface:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--beer-accent) 22%, transparent),
+      transparent 55%
+    ),
+    var(--coffee-bean-panel);
+  --kitchen-accent: #6a9e6e;
+  --kitchen-card-surface:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--kitchen-accent) 22%, transparent),
+      transparent 55%
+    ),
+    var(--coffee-bean-panel);
+  --food-drink-accent: #b87a4b;
+  --food-drink-card-surface:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--food-drink-accent) 22%, transparent),
+      transparent 55%
+    ),
+    var(--coffee-bean-panel);
 
   color-scheme: dark;
   font-family:

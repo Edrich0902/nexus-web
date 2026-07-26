@@ -10,13 +10,17 @@ import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vu
 import NexusGithubIcon from '@components/nexus-github-icon/NexusGithubIcon.vue'
 import NexusSportIcon from '@components/nexus-sport-icon/NexusSportIcon.vue'
 import NexusF1Icon from '@components/nexus-f1-icon/NexusF1Icon.vue'
+import NexusFoodDrinkIcon from '@components/nexus-food-drink-icon/NexusFoodDrinkIcon.vue'
+import NexusWineIcon from '@components/nexus-wine-icon/NexusWineIcon.vue'
+import NexusBeerIcon from '@components/nexus-beer-icon/NexusBeerIcon.vue'
+import NexusRecipeIcon from '@components/nexus-recipe-icon/NexusRecipeIcon.vue'
 import type { SportsSlug } from '@/types/sports/sports'
 
 type SidebarMenuItem = MenuItem & {
   iconComponent?: Component
   to?: string
   matchPrefix?: boolean
-  accent?: 'spotify' | 'github' | 'f1' | 'admin'
+  accent?: 'spotify' | 'github' | 'f1' | 'admin' | 'food-drink' | 'cellar' | 'kitchen' | 'beer'
   sport?: SportsSlug
 }
 
@@ -62,6 +66,39 @@ const items = ref<SidebarMenuItem[]>([
         iconComponent: NexusGithubIcon,
         matchPrefix: true,
         accent: 'github',
+      },
+      {
+        label: 'Food & Drink',
+        to: '/food-drink',
+        iconComponent: NexusFoodDrinkIcon,
+        matchPrefix: true,
+        accent: 'food-drink',
+      },
+    ],
+  },
+  {
+    label: 'Cellar & Kitchen',
+    items: [
+      {
+        label: 'Wine',
+        to: '/cellar',
+        iconComponent: NexusWineIcon,
+        matchPrefix: true,
+        accent: 'cellar',
+      },
+      {
+        label: 'Beer',
+        to: '/beer',
+        iconComponent: NexusBeerIcon,
+        matchPrefix: true,
+        accent: 'beer',
+      },
+      {
+        label: 'Recipes',
+        to: '/kitchen',
+        iconComponent: NexusRecipeIcon,
+        matchPrefix: true,
+        accent: 'kitchen',
       },
     ],
   },
@@ -206,6 +243,14 @@ const handleSignOut = (event: Event) => {
                 'nav-icon--f1': (item as SidebarMenuItem).accent === 'f1',
                 'nav-icon--admin':
                   (item as SidebarMenuItem).accent === 'admin',
+                'nav-icon--food-drink':
+                  (item as SidebarMenuItem).accent === 'food-drink',
+                'nav-icon--cellar':
+                  (item as SidebarMenuItem).accent === 'cellar',
+                'nav-icon--kitchen':
+                  (item as SidebarMenuItem).accent === 'kitchen',
+                'nav-icon--beer':
+                  (item as SidebarMenuItem).accent === 'beer',
               }"
               :size="18"
               :sport="(item as SidebarMenuItem).sport ?? 'hub'"
@@ -350,6 +395,26 @@ const handleSignOut = (event: Event) => {
 .nav-icon--admin,
 .nav-item--active .nav-icon--admin {
   color: var(--admin-accent);
+}
+
+.nav-icon--food-drink,
+.nav-item--active .nav-icon--food-drink {
+  color: var(--food-drink-accent);
+}
+
+.nav-icon--cellar,
+.nav-item--active .nav-icon--cellar {
+  color: var(--wine-accent);
+}
+
+.nav-icon--kitchen,
+.nav-item--active .nav-icon--kitchen {
+  color: var(--kitchen-accent);
+}
+
+.nav-icon--beer,
+.nav-item--active .nav-icon--beer {
+  color: var(--beer-accent);
 }
 
 .nav-label {

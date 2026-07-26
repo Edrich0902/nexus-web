@@ -78,9 +78,11 @@ Entry: toolbar avatar menu → Profile. Sessions are a profile subnav item, not 
 | **Home** | Cross-module summary / entry points |
 | **Spotify** | OAuth connect, Connect remote player, listening aggregates, Home resume widget |
 | **GitHub** | OAuth connect, repo overview, PR inbox/detail/diffs, create & merge |
-| **Cellar** | Wine inventory |
-| **Library** | Books / reading |
-| **Kitchen** | Recipes |
+| **Food & Drink** | Hub dashboard, pairings, suggestions |
+| **Cellar** | Wine drinking journal |
+| **Kitchen** | Recipe discover + saved recipes |
+| **Beer** | Beer log + brewery links |
+| **Library** | Books / reading (future) |
 | **Media vaults** | Personal media libraries |
 | **Social** | Optional (e.g. Instagram) |
 | **F1 / Sports** | Sports schedules + F1 historical calendar, standings, session analysis, post-session track replay |
