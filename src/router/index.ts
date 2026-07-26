@@ -225,6 +225,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@routes/admin/AdminView.vue'),
         meta: handleMeta(true, true, 'Admin'),
       },
+      {
+        path: '/media',
+        name: 'media',
+        component: () => import('@routes/media/MediaVaultView.vue'),
+        meta: handleMeta(true, true, 'Media vault'),
+      },
   {
     path: '/profile',
     component: () => import('@routes/profile/ProfileLayoutView.vue'),

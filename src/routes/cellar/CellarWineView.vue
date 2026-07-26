@@ -3,13 +3,16 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
+import NexusRatingDisplay from '@components/nexus-rating-display/NexusRatingDisplay.vue'
 import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
 import NexusQuotaBadge from '@components/nexus-quota-badge/NexusQuotaBadge.vue'
 import NexusTastingTimeline from '@components/nexus-tasting-timeline/NexusTastingTimeline.vue'
 import NexusWineMatchDialog from '@components/nexus-wine-match-dialog/NexusWineMatchDialog.vue'
 import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
+import NexusImageUploader from '@components/nexus-image-uploader/NexusImageUploader.vue'
 import { useCellarStore } from '@stores/food-drink/cellar.store'
 import type { WineMatchCandidate } from '@/types/food-drink/cellar'
+import type { MediaImage } from '@/types/media/media'
 
 const cellar = useCellarStore()
 const route = useRoute()
@@ -18,6 +21,7 @@ const router = useRouter()
 const wineId = computed(() => Number(route.params.wineId))
 const showMatch = ref(false)
 const showTasting = ref(false)
+const showImageUploader = ref(false)
 const tastingForm = reactive({
   tasted_on: new Date().toISOString().slice(0, 10),
   rating: null as number | null,
@@ -70,6 +74,12 @@ async function removeWine(): Promise<void> {
     await router.push({ name: 'cellar' })
   }
 }
+
+function onImageUploaded(image: MediaImage | null): void {
+  if (!cellar.wine || !image) return
+  cellar.wine.media = image
+  cellar.wine.image_url = image.url
+}
 </script>
 
 <template>
@@ -89,41 +99,71 @@ async function removeWine(): Promise<void> {
 
     <div v-else-if="cellar.wine" class="detail">
       <header class="hero">
-        <NexusImage
-          :src="cellar.wine.catalog?.image_url"
-          :alt="cellar.wine.name"
-          size="lg"
-          rounded
-        />
-        <div class="info">
-          <p class="eyebrow">{{ cellar.wine.producer_name || 'Wine journal' }}</p>
-          <h2>{{ cellar.wine.name }}</h2>
-          <p class="meta">
-            <span v-if="cellar.wine.vintage">{{ cellar.wine.vintage }}</span>
-            <span v-if="cellar.wine.wine_type"> · {{ cellar.wine.wine_type }}</span>
-            <span v-if="cellar.wine.region_name || cellar.wine.country">
-              · {{ cellar.wine.region_name || cellar.wine.country }}
-            </span>
-          </p>
-          <NexusRatingInput :model-value="cellar.wine.rating" readonly />
-          <div class="actions">
+        <div class="hero-media">
+          <NexusImage
+            :media="cellar.wine.media ?? cellar.wine.catalog?.media"
+            :src="cellar.wine.image_url ?? cellar.wine.catalog?.image_url"
+            :alt="cellar.wine.name"
+            variant="hero"
+            size="fill"
+            fit="cover"
+            previewable
+          />
+        </div>
+
+        <div class="hero-body">
+          <div class="hero-info">
+            <p class="eyebrow">{{ cellar.wine.producer_name || 'Wine journal' }}</p>
+            <h2>{{ cellar.wine.name }}</h2>
+            <p class="meta">
+              <span v-if="cellar.wine.vintage">{{ cellar.wine.vintage }}</span>
+              <span v-if="cellar.wine.wine_type"> · {{ cellar.wine.wine_type }}</span>
+              <span v-if="cellar.wine.region_name || cellar.wine.country">
+                · {{ cellar.wine.region_name || cellar.wine.country }}
+              </span>
+            </p>
+            <NexusRatingDisplay :model-value="cellar.wine.rating" />
+            <p v-if="cellar.wine.match_status" class="match">
+              Match: {{ cellar.wine.match_status.replaceAll('_', ' ') }}
+            </p>
+          </div>
+
+          <div class="hero-actions" role="toolbar" aria-label="Wine actions">
             <Button
               v-if="cellar.wine.match_status !== 'matched'"
-              label="Find match"
               icon="pi pi-search"
+              severity="secondary"
+              text
+              rounded
+              aria-label="Find match"
+              v-tooltip.left="'Find match'"
               @click="openMatch"
             />
             <Button
-              label="Log tasting"
+              icon="pi pi-image"
+              severity="secondary"
+              text
+              rounded
+              aria-label="Change image"
+              v-tooltip.left="'Change image'"
+              @click="showImageUploader = true"
+            />
+            <Button
               icon="pi pi-pencil"
               severity="secondary"
+              text
+              rounded
+              aria-label="Log tasting"
+              v-tooltip.left="'Log tasting'"
               @click="showTasting = true"
             />
             <Button
               icon="pi pi-trash"
               severity="danger"
               text
+              rounded
               aria-label="Delete wine"
+              v-tooltip.left="'Delete'"
               @click="removeWine"
             />
           </div>
@@ -209,6 +249,16 @@ async function removeWine(): Promise<void> {
         <Button label="Save" :loading="cellar.saving" @click="saveTasting" />
       </template>
     </Dialog>
+
+    <NexusImageUploader
+      v-if="cellar.wine"
+      v-model:visible="showImageUploader"
+      :model-value="cellar.wine.media ?? null"
+      collection="cellar"
+      :attach-to="{ type: 'cellar_wine', id: cellar.wine.id }"
+      header="Wine image"
+      @update:model-value="onImageUploaded"
+    />
   </NexusPageWrapper>
 </template>
 
@@ -220,17 +270,42 @@ async function removeWine(): Promise<void> {
 }
 
 .hero {
-  display: flex;
-  gap: 1.25rem;
-  padding: 1.2rem;
-  border-radius: 1rem;
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  gap: 1.35rem;
+  padding: 1.15rem;
+  border-radius: 1.1rem;
   background: var(--wine-card-surface);
-  flex-wrap: wrap;
+  align-items: stretch;
 }
 
-.info {
-  flex: 1;
-  min-width: 220px;
+.hero-media {
+  min-height: 18rem;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--wine-accent) 18%, transparent);
+}
+
+.hero-media :deep(.nexus-image) {
+  width: 100%;
+  height: 100%;
+  min-height: 18rem;
+}
+
+.hero-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-top: 0.15rem;
+  min-width: 0;
 }
 
 .eyebrow {
@@ -242,20 +317,30 @@ async function removeWine(): Promise<void> {
 }
 
 h2 {
-  margin: 0.2rem 0;
-  font-size: 1.6rem;
+  margin: 0;
+  font-size: clamp(1.55rem, 2.6vw, 2rem);
+  line-height: 1.15;
+  font-weight: 700;
 }
 
 .meta {
-  margin: 0 0 0.6rem;
-  opacity: 0.7;
+  margin: 0;
+  opacity: 0.72;
+  font-size: 0.95rem;
 }
 
-.actions {
+.match {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+  opacity: 0.55;
+}
+
+.hero-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.85rem;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 0.1rem;
 }
 
 .panel {
@@ -293,9 +378,19 @@ h2 {
   margin-top: 0.3rem;
 }
 
-.band-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+@media (max-width: 720px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-media,
+  .hero-media :deep(.nexus-image) {
+    min-height: 14rem;
+    aspect-ratio: 4 / 3;
+  }
+
+  .hero-actions {
+    flex-direction: row;
+  }
 }
 </style>

@@ -50,15 +50,22 @@ async function save(): Promise<void> {
     >
       <template #actions>
         <Button
-          label="Save to my recipes"
           icon="pi pi-bookmark"
+          severity="secondary"
+          text
+          rounded
+          aria-label="Save to my recipes"
+          v-tooltip.left="'Save to my recipes'"
           :loading="kitchen.saving"
           @click="save"
         />
         <Button
-          label="Keep browsing"
+          icon="pi pi-compass"
           severity="secondary"
           text
+          rounded
+          aria-label="Keep browsing"
+          v-tooltip.left="'Keep browsing'"
           @click="router.push({ name: 'kitchen-discover' })"
         />
       </template>

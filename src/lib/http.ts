@@ -118,6 +118,12 @@ http.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   if (session?.token) {
     config.headers.Authorization = `Bearer ${session.token}`
   }
+
+  // Let the browser set multipart boundary.
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
+
   return config
 })
 
@@ -160,5 +166,23 @@ http.interceptors.response.use(
     return Promise.reject(error)
   },
 )
+
+/**
+ * Multipart POST with optional upload progress. Lets axios set Content-Type
+ * (including boundary) for FormData.
+ */
+export async function postMultipart<T>(
+  url: string,
+  formData: FormData,
+  onProgress?: (percent: number) => void,
+): Promise<T> {
+  const { data } = await http.post<T>(url, formData, {
+    onUploadProgress: (event) => {
+      if (!onProgress || !event.total) return
+      onProgress(Math.round((event.loaded / event.total) * 100))
+    },
+  })
+  return data
+}
 
 export default http

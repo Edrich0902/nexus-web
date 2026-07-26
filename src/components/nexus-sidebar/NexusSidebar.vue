@@ -48,6 +48,12 @@ const items = ref<SidebarMenuItem[]>([
         matchPrefix: true,
         accent: 'admin',
       },
+      {
+        label: 'Media',
+        to: '/media',
+        icon: 'pi pi-images',
+        matchPrefix: true,
+      },
     ],
   },
   {

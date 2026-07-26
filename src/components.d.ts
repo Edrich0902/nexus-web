@@ -67,6 +67,7 @@ declare module 'vue' {
     NexusTeamBadge: typeof import('./components/nexus-team-badge/NexusTeamBadge.vue')['default']
     Password: typeof import('primevue/password')['default']
     Popover: typeof import('primevue/popover')['default']
+    ProgressBar: typeof import('primevue/progressbar')['default']
     ProgressSpinner: typeof import('primevue/progressspinner')['default']
     Rating: typeof import('primevue/rating')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

@@ -26,6 +26,15 @@ const NexusPreset = definePreset(Aura, {
     // Severity accents used by Message, Tag, Badge, etc.
     blue: blueSlate,
     green: lightGreen,
+    // Match Nexus card language (~0.75–0.85rem) instead of Aura's tight 6px controls.
+    borderRadius: {
+      none: '0',
+      xs: '0.25rem',
+      sm: '0.5rem',
+      md: '0.65rem',
+      lg: '0.75rem',
+      xl: '0.85rem',
+    },
   },
   semantic: {
     primary: {
@@ -40,6 +49,14 @@ const NexusPreset = definePreset(Aura, {
       800: '{meadowGreen.800}',
       900: '{meadowGreen.900}',
       950: '{meadowGreen.950}',
+    },
+    formField: {
+      borderRadius: '{border.radius.md}',
+      // Drop the faint default inset shadow — reads noisy on coffee-bean surfaces.
+      shadow: 'none',
+    },
+    content: {
+      borderRadius: '{border.radius.xl}',
     },
     colorScheme: {
       light: {
@@ -85,6 +102,129 @@ const NexusPreset = definePreset(Aura, {
           hoverColor: '{primary.300}',
           activeColor: '{primary.200}',
         },
+        formField: {
+          borderColor: 'color-mix(in srgb, {surface.0}, transparent 82%)',
+          hoverBorderColor: 'color-mix(in srgb, {surface.0}, transparent 70%)',
+          focusBorderColor: '{primary.color}',
+          shadow: 'none',
+        },
+      },
+    },
+  },
+  components: {
+    button: {
+      root: {
+        borderRadius: '{border.radius.md}',
+        roundedBorderRadius: '9999px',
+        label: {
+          fontWeight: '600',
+        },
+      },
+      colorScheme: {
+        light: {
+          root: {
+            primary: {
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+            secondary: {
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+          },
+          outlined: {
+            primary: {
+              borderColor: 'color-mix(in srgb, {primary.color}, transparent 45%)',
+            },
+            secondary: {
+              borderColor: 'color-mix(in srgb, {surface.500}, transparent 55%)',
+            },
+          },
+        },
+        dark: {
+          root: {
+            primary: {
+              // Solid fill — no matching 1px edge ring fighting the soft radius.
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+            secondary: {
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+            success: {
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+            info: {
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+            warn: {
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+            danger: {
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+            help: {
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+            contrast: {
+              borderColor: 'transparent',
+              hoverBorderColor: 'transparent',
+              activeBorderColor: 'transparent',
+            },
+          },
+          outlined: {
+            primary: {
+              borderColor: 'color-mix(in srgb, {primary.color}, transparent 50%)',
+            },
+            secondary: {
+              borderColor: 'color-mix(in srgb, {surface.0}, transparent 82%)',
+            },
+            danger: {
+              borderColor: 'color-mix(in srgb, {red.400}, transparent 45%)',
+            },
+          },
+        },
+      },
+    },
+    inputtext: {
+      root: {
+        borderRadius: '{border.radius.md}',
+      },
+    },
+    textarea: {
+      root: {
+        borderRadius: '{border.radius.md}',
+      },
+    },
+    select: {
+      root: {
+        borderRadius: '{border.radius.md}',
+      },
+    },
+    dialog: {
+      root: {
+        borderRadius: '{border.radius.xl}',
+      },
+    },
+    tag: {
+      root: {
+        borderRadius: '{border.radius.sm}',
+        roundedBorderRadius: '{border.radius.xl}',
       },
     },
   },

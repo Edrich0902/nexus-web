@@ -35,6 +35,8 @@ export interface KitchenRecipe {
   cooked_count: number
   last_cooked_on: string | null
   is_favourite: boolean
+  media?: import('@/types/media/media').MediaImage | null
+  image_url?: string | null
   meal: MealDetail | null
   created_at?: string
   updated_at?: string

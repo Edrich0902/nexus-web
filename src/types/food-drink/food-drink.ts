@@ -1,3 +1,5 @@
+import type { MediaImage } from '@/types/media/media'
+
 export type PairingVerdict = 'great' | 'good' | 'poor'
 
 export interface WineApiQuota {
@@ -48,18 +50,24 @@ export interface FoodDrinkDashboard {
     vintage: number | null
     rating: number | null
     match_status: string
+    media?: MediaImage | null
+    image_url?: string | null
   }>
   recent_beers: Array<{
     id: number
     name: string
     rating: number | null
     brewery?: { id: number; name: string } | null
+    media?: MediaImage | null
+    image_url?: string | null
   }>
   top_recipes: Array<{
     id: number
     rating: number | null
     cooked_count: number
     meal?: { name: string; thumb_url: string | null } | null
+    media?: MediaImage | null
+    image_url?: string | null
   }>
   quota: WineApiQuota
   suggestions: FoodDrinkSuggestion[]

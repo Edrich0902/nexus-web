@@ -2,11 +2,18 @@
 import { computed } from 'vue'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
 import type { MealDetail } from '@/types/food-drink/kitchen'
+import type { MediaImage } from '@/types/media/media'
 
 const props = defineProps<{
   meal: MealDetail
   eyebrow?: string
+  media?: MediaImage | null
+  imageUrl?: string | null
 }>()
+
+const heroSrc = computed(
+  () => props.imageUrl ?? props.meal.thumb_url ?? null,
+)
 
 const steps = computed(() => {
   const raw = (props.meal.instructions ?? '').trim()
@@ -20,7 +27,6 @@ const steps = computed(() => {
 
   if (byBreak.length > 1) return byBreak
 
-  // Single blob — split on sentence boundaries that look like step starts.
   const sentenceSplit = raw
     .split(/(?<=[.!?])\s+(?=[A-Z])/)
     .map((s) => s.trim())
@@ -37,29 +43,38 @@ const tags = computed(() => props.meal.tags?.filter(Boolean) ?? [])
     <header class="hero">
       <div class="hero-media">
         <NexusImage
-          :src="meal.thumb_url"
+          :media="media"
+          :src="heroSrc"
           :alt="meal.name"
+          variant="hero"
           size="fill"
           fit="cover"
+          previewable
         />
-        <div class="hero-shade" aria-hidden="true" />
       </div>
 
-      <div class="hero-copy">
-        <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
-        <div class="chips">
-          <span v-if="meal.category" class="chip">{{ meal.category }}</span>
-          <span v-if="meal.area" class="chip">{{ meal.area }}</span>
-          <span v-for="tag in tags.slice(0, 3)" :key="tag" class="chip chip-muted">
-            {{ tag }}
-          </span>
+      <div class="hero-body">
+        <div class="hero-info">
+          <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
+          <h2>{{ meal.name }}</h2>
+          <div class="chips">
+            <span v-if="meal.category" class="chip">{{ meal.category }}</span>
+            <span v-if="meal.area" class="chip">{{ meal.area }}</span>
+            <span
+              v-for="tag in tags.slice(0, 3)"
+              :key="tag"
+              class="chip chip-muted"
+            >
+              {{ tag }}
+            </span>
+          </div>
+          <div v-if="$slots.meta" class="meta-slot">
+            <slot name="meta" />
+          </div>
         </div>
-        <h2>{{ meal.name }}</h2>
-        <div v-if="$slots.actions" class="actions">
+
+        <div v-if="$slots.actions" class="hero-actions">
           <slot name="actions" />
-        </div>
-        <div v-if="$slots.meta" class="meta-slot">
-          <slot name="meta" />
         </div>
       </div>
     </header>
@@ -106,37 +121,43 @@ const tags = computed(() => props.meal.tags?.filter(Boolean) ?? [])
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  gap: 0;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  gap: 1.35rem;
+  padding: 1.15rem;
   overflow: hidden;
   border-radius: 1.1rem;
   background: var(--kitchen-card-surface);
   border: 1px solid color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-  min-height: 280px;
+  align-items: stretch;
 }
 
 .hero-media {
-  position: relative;
-  min-height: 280px;
+  min-height: 18rem;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--kitchen-accent) 18%, transparent);
 }
 
-.hero-shade {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 55%,
-    color-mix(in srgb, var(--coffee-bean) 35%, transparent)
-  );
-  pointer-events: none;
+.hero-media :deep(.nexus-image) {
+  width: 100%;
+  height: 100%;
+  min-height: 18rem;
 }
 
-.hero-copy {
+.hero-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.hero-info {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 0.65rem;
-  padding: 1.4rem 1.5rem;
+  gap: 0.55rem;
+  padding-top: 0.15rem;
+  min-width: 0;
 }
 
 .eyebrow {
@@ -170,20 +191,20 @@ const tags = computed(() => props.meal.tags?.filter(Boolean) ?? [])
 
 h2 {
   margin: 0;
-  font-size: clamp(1.45rem, 2.4vw, 1.9rem);
-  line-height: 1.2;
-  font-weight: 650;
+  font-size: clamp(1.55rem, 2.6vw, 2rem);
+  line-height: 1.15;
+  font-weight: 700;
 }
 
-.actions {
+.hero-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 0.1rem;
 }
 
 .meta-slot {
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
 }
 
 .layout {
@@ -297,17 +318,14 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .hero-media {
-    min-height: 220px;
-    aspect-ratio: 16 / 10;
+  .hero-media,
+  .hero-media :deep(.nexus-image) {
+    min-height: 14rem;
+    aspect-ratio: 4 / 3;
   }
 
-  .hero-shade {
-    background: linear-gradient(
-      to top,
-      color-mix(in srgb, var(--coffee-bean) 55%, transparent),
-      transparent 55%
-    );
+  .hero-actions {
+    flex-direction: row;
   }
 
   .layout {

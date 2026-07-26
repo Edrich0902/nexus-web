@@ -29,17 +29,19 @@ const label = computed(() =>
 .nexus-rating-display {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.85rem;
+  gap: 0.35rem;
+  font-size: 0.95rem;
 }
 
 .nexus-rating-display .pi {
-  font-size: 0.9rem;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .score {
-  font-weight: 600;
-  color: color-mix(in srgb, var(--lavender-blush) 80%, transparent);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--lavender-blush) 88%, transparent);
 }
 
 .nexus-rating-display.empty .score {

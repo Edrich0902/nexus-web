@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import NexusAvatar from '@components/nexus-avatar/NexusAvatar.vue'
+import NexusImageUploader from '@components/nexus-image-uploader/NexusImageUploader.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 import { useUsersStore } from '@stores/users/users.store'
 import { Status } from '@/types/status'
+import type { MediaImage } from '@/types/media/media'
 
 const auth = useAuthStore()
 const users = useUsersStore()
 
 const name = ref(auth.user?.name ?? '')
+const uploaderOpen = ref(false)
 
 watch(
   () => auth.user?.name,
@@ -22,6 +25,14 @@ async function onSave(): Promise<void> {
   if (!trimmed) return
   await users.updateProfile({ name: trimmed })
 }
+
+function onAvatarModel(image: MediaImage | null): void {
+  if (!auth.user || !image) return
+  auth.setUser({
+    ...auth.user,
+    media: image,
+  })
+}
 </script>
 
 <template>
@@ -30,18 +41,27 @@ async function onSave(): Promise<void> {
       <NexusAvatar :user="auth.user" size="xlarge" />
       <div class="flex flex-col gap-2 min-w-0">
         <p class="m-0 text-sm text-surface-400">
-          Profile photo upload will arrive with Cloudinary.
+          Profile photo is stored in Cloudinary under your avatar collection.
         </p>
         <Button
           label="Upload photo"
           icon="pi pi-camera"
           severity="secondary"
           outlined
-          disabled
           size="small"
+          @click="uploaderOpen = true"
         />
       </div>
     </section>
+
+    <NexusImageUploader
+      v-model:visible="uploaderOpen"
+      :model-value="auth.user?.media ?? null"
+      collection="avatar"
+      :attach-to="auth.user ? { type: 'user', id: auth.user.id } : null"
+      header="Profile photo"
+      @update:model-value="onAvatarModel"
+    />
 
     <form class="flex flex-col gap-4" @submit.prevent="onSave">
       <div class="flex flex-col gap-2">

@@ -85,7 +85,7 @@ Photo / camera intake belongs to the **mobile app** later. Image uploads deferre
 
 ## Milestone 4 — Media vaults
 
-Browse and manage personal media vaults once storage and API shape are defined.
+Cloudinary media platform: vault UI, generic uploader (device / camera / Unsplash / vault reuse), cover images on profile + Food & Drink collections.
 
 ---
 

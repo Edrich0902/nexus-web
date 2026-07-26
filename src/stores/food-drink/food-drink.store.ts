@@ -71,6 +71,7 @@ export const useFoodDrinkStore = defineStore('food-drink', () => {
   async function removePairing(id: number): Promise<void> {
     await foodDrinkService.deletePairing(id)
     await loadPairings()
+    await loadDashboard()
   }
 
   return {

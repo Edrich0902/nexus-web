@@ -35,6 +35,8 @@ export interface BeerBeer {
   format: string | null
   rating: number | null
   notes: string | null
+  media?: import('@/types/media/media').MediaImage | null
+  image_url?: string | null
   brewery: BeerBrewery | null
   style: BeerStyle | null
   created_at?: string

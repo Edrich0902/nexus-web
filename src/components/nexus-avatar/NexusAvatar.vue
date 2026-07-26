@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 import { useRouter } from 'vue-router'
+import NexusImage from '@components/nexus-image/NexusImage.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 import type { User } from '@/types/user/user'
 
@@ -35,8 +36,7 @@ const initials = computed(() => {
   return name.slice(0, 2).toUpperCase()
 })
 
-/** Reserved for future NexusImage / Cloudinary when profile_public_id is live */
-const hasImage = computed(() => false)
+const hasImage = computed(() => Boolean(props.user?.media?.public_id))
 
 const menuItems = ref<MenuItem[]>([
   {
@@ -101,8 +101,14 @@ async function handleSignOut(event: { originalEvent?: Event }): Promise<void> {
       :class="{ 'nexus-avatar__face--clickable': menu }"
       @click="onAvatarClick"
     >
-      <!-- Future: <NexusImage v-if="user?.profile_public_id" :public-id="user.profile_public_id" /> -->
-      <slot v-if="hasImage" name="image" />
+      <NexusImage
+        v-if="hasImage && user?.media"
+        :media="user.media"
+        variant="avatar"
+        size="fill"
+        fit="cover"
+        :alt="user.name"
+      />
     </Avatar>
 
     <Menu
@@ -131,9 +137,9 @@ async function handleSignOut(event: { originalEvent?: Event }): Promise<void> {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--meadow-green) 45%, transparent);
 }
 
-.nexus-avatar__img {
+.nexus-avatar :deep(.nexus-image) {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  border-radius: 999px;
 }
 </style>

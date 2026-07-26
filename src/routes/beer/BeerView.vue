@@ -219,7 +219,7 @@ async function submit(): Promise<void> {
 h2 { margin: 0.15rem 0; }
 .muted { margin: 0; opacity: 0.7; }
 .grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.85rem;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr)); gap: 1rem;
 }
 .empty { opacity: 0.7; }
 .form { display: flex; flex-direction: column; gap: 0.4rem; }

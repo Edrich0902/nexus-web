@@ -34,6 +34,7 @@ export interface WineCatalogSummary {
   acidity: string | null
   description: string | null
   image_url: string | null
+  media?: import('@/types/media/media').MediaImage | null
   average_rating: number | null
   enrichment_status: EnrichmentStatus
   enriched_at: string | null
@@ -70,6 +71,8 @@ export interface CellarWine {
   rating: number | null
   notes: string | null
   match_status: WineMatchStatus
+  media?: import('@/types/media/media').MediaImage | null
+  image_url?: string | null
   tastings_count?: number
   catalog?: WineCatalogSummary | null
   tastings?: CellarWineTasting[]
