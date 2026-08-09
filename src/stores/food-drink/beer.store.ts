@@ -20,6 +20,7 @@ export const useBeerStore = defineStore('beer', () => {
   const breweryResults = ref<BrewerySearchResult[]>([])
   const brewery = ref<BeerBrewery | null>(null)
   const saving = ref(false)
+  const analysing = ref(false)
 
   function toastError(error: unknown, fallback: string): void {
     toast.add({
@@ -43,15 +44,21 @@ export const useBeerStore = defineStore('beer', () => {
     }
   }
 
-  async function loadBeer(id: number): Promise<void> {
-    beerLoading.value = true
+  async function loadBeer(id: number, options?: { silent?: boolean }): Promise<void> {
+    if (!options?.silent) {
+      beerLoading.value = true
+    }
     try {
       beer.value = await beerService.getBeer(id)
     } catch (error) {
-      beer.value = null
+      if (!options?.silent) {
+        beer.value = null
+      }
       toastError(error, 'Could not load beer.')
     } finally {
-      beerLoading.value = false
+      if (!options?.silent) {
+        beerLoading.value = false
+      }
     }
   }
 
@@ -132,6 +139,26 @@ export const useBeerStore = defineStore('beer', () => {
     }
   }
 
+  async function analyseBeer(beerId: number, force = false): Promise<void> {
+    analysing.value = true
+    try {
+      beer.value = await beerService.analyseBeer(beerId, { force })
+      toast.add({
+        severity: beer.value.analysis_status === 'complete' ? 'success' : 'info',
+        summary: 'Beer',
+        detail:
+          beer.value.analysis_status === 'complete'
+            ? 'Analysis complete.'
+            : 'Analysis queued.',
+        life: 2500,
+      })
+    } catch (error) {
+      toastError(error, 'Could not analyse beer.')
+    } finally {
+      analysing.value = false
+    }
+  }
+
   async function loadBrewery(id: number): Promise<void> {
     brewery.value = await beerService.getBrewery(id)
   }
@@ -145,6 +172,7 @@ export const useBeerStore = defineStore('beer', () => {
     breweryResults,
     brewery,
     saving,
+    analysing,
     loadBeers,
     loadBeer,
     loadStyles,
@@ -154,6 +182,7 @@ export const useBeerStore = defineStore('beer', () => {
     createManualBrewery,
     createBeer,
     removeBeer,
+    analyseBeer,
     loadBrewery,
   }
 })

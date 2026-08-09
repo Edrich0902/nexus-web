@@ -4,20 +4,16 @@ import { RouterLink } from 'vue-router'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
 import NexusImageViewer from '@components/nexus-image-viewer/NexusImageViewer.vue'
 import NexusRatingDisplay from '@components/nexus-rating-display/NexusRatingDisplay.vue'
-import type { CellarWine } from '@/types/food-drink/cellar'
+import type { SpiritSpirit } from '@/types/food-drink/spirits'
 
-const props = defineProps<{
-  wine: CellarWine
-}>()
+const props = defineProps<{ spirit: SpiritSpirit }>()
 
 const previewOpen = ref(false)
 
-const coverMedia = computed(() => props.wine.media ?? null)
-const coverSrc = computed(() => props.wine.image_url ?? null)
-const canPreview = computed(() => Boolean(coverMedia.value || coverSrc.value))
+const canPreview = computed(() => Boolean(props.spirit.media || props.spirit.image_url))
 
 function statusLabel(): string {
-  const status = props.wine.analysis_status ?? 'none'
+  const status = props.spirit.analysis_status ?? 'none'
   if (status === 'complete') return 'Analysed'
   if (status === 'pending') return 'Analysing'
   if (status === 'failed') return 'Failed'
@@ -30,18 +26,30 @@ function openPreview(event: Event): void {
   if (!canPreview.value) return
   previewOpen.value = true
 }
+
+const metaLine = computed(() => {
+  const parts: string[] = []
+  if (props.spirit.producer) parts.push(props.spirit.producer)
+  if (props.spirit.abv != null) parts.push(`${props.spirit.abv}% ABV`)
+  return parts.join(' · ')
+})
+
+const subLine = computed(() => {
+  const parts = [props.spirit.category, props.spirit.age_statement].filter(Boolean)
+  return parts.join(' · ') || 'Spirit'
+})
 </script>
 
 <template>
   <RouterLink
-    :to="{ name: 'cellar-wine', params: { wineId: wine.id } }"
-    class="wine-card"
+    :to="{ name: 'spirit-detail', params: { spiritId: spirit.id } }"
+    class="spirit-card"
   >
     <div class="cover">
       <NexusImage
-        :media="coverMedia"
-        :src="coverSrc"
-        :alt="wine.name"
+        :media="spirit.media"
+        :src="spirit.image_url"
+        :alt="spirit.name"
         variant="card"
         size="fill"
         fit="cover"
@@ -56,19 +64,17 @@ function openPreview(event: Event): void {
         <i class="pi pi-search-plus" />
       </button>
       <div class="scrim">
-        <h3>{{ wine.name }}</h3>
-        <p class="meta">
-          <span v-if="wine.producer_name">{{ wine.producer_name }}</span>
-          <span v-if="wine.vintage"> · {{ wine.vintage }}</span>
-        </p>
+        <h3>{{ spirit.name }}</h3>
+        <p v-if="metaLine" class="meta">{{ metaLine }}</p>
       </div>
     </div>
     <div class="body">
-      <p class="region">
-        {{ [wine.region_name, wine.country].filter(Boolean).join(' · ') || '—' }}
-      </p>
+      <p class="style">{{ subLine }}</p>
       <div class="foot">
-        <NexusRatingDisplay :model-value="wine.rating" />
+        <NexusRatingDisplay
+          :model-value="spirit.rating"
+          accent="var(--spirit-accent, #c47a3a)"
+        />
         <span class="status">{{ statusLabel() }}</span>
       </div>
     </div>
@@ -76,20 +82,20 @@ function openPreview(event: Event): void {
 
   <NexusImageViewer
     v-model:visible="previewOpen"
-    :media="coverMedia"
-    :src="coverSrc"
-    :alt="wine.name"
+    :media="spirit.media"
+    :src="spirit.image_url"
+    :alt="spirit.name"
     variant="hero"
   />
 </template>
 
 <style scoped>
-.wine-card {
+.spirit-card {
   display: flex;
   flex-direction: column;
   overflow: hidden;
   border-radius: 0.9rem;
-  background: var(--wine-card-surface);
+  background: var(--spirit-card-surface);
   text-decoration: none;
   color: inherit;
   transition:
@@ -97,7 +103,7 @@ function openPreview(event: Event): void {
     box-shadow 0.22s ease;
 }
 
-.wine-card:hover {
+.spirit-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 12px 28px color-mix(in srgb, #000 35%, transparent);
 }
@@ -106,7 +112,7 @@ function openPreview(event: Event): void {
   position: relative;
   aspect-ratio: 4 / 5;
   overflow: hidden;
-  background: color-mix(in srgb, var(--wine-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--spirit-accent) 18%, transparent);
 }
 
 .cover :deep(.nexus-image) {
@@ -118,7 +124,7 @@ function openPreview(event: Event): void {
   transition: transform 0.35s ease;
 }
 
-.wine-card:hover .cover :deep(img) {
+.spirit-card:hover .cover :deep(img) {
   transform: scale(1.04);
 }
 
@@ -128,35 +134,28 @@ function openPreview(event: Event): void {
   padding: 1.4rem 0.85rem 0.75rem;
   background: linear-gradient(
     transparent,
-    color-mix(in srgb, #12080a 92%, transparent)
+    color-mix(in srgb, #120c04 92%, transparent)
   );
 }
 
-h3 {
+.scrim h3 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 650;
   line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .meta {
   margin: 0.2rem 0 0;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   opacity: 0.78;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .expand {
   position: absolute;
-  top: 0.55rem;
-  right: 0.55rem;
-  z-index: 2;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
   width: 2rem;
   height: 2rem;
   border: 0;
@@ -164,14 +163,13 @@ h3 {
   display: grid;
   place-items: center;
   cursor: pointer;
-  color: #fff;
+  color: var(--lavender-blush);
   background: color-mix(in srgb, #000 45%, transparent);
-  backdrop-filter: blur(6px);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
-.wine-card:hover .expand,
+.spirit-card:hover .expand,
 .expand:focus-visible {
   opacity: 1;
 }
@@ -180,16 +178,13 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  padding: 0.75rem 0.85rem 0.9rem;
+  padding: 0.7rem 0.8rem 0.85rem;
 }
 
-.region {
+.style {
   margin: 0;
-  font-size: 0.78rem;
-  opacity: 0.65;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.8rem;
+  opacity: 0.7;
 }
 
 .foot {
@@ -200,9 +195,9 @@ h3 {
 }
 
 .status {
-  font-size: 0.7rem;
-  text-transform: capitalize;
-  opacity: 0.6;
-  white-space: nowrap;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.55;
 }
 </style>

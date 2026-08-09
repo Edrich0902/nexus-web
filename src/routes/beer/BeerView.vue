@@ -12,6 +12,7 @@ import type { BeerBrewery } from '@/types/food-drink/beer'
 const beer = useBeerStore()
 const router = useRouter()
 const showCreate = ref(false)
+const filter = ref('')
 const breweryQuery = ref('')
 const selectedBrewery = ref<BeerBrewery | null>(null)
 const form = reactive({
@@ -30,6 +31,10 @@ onMounted(async () => {
   await beer.loadBeers()
   await beer.loadStyles()
 })
+
+async function search(): Promise<void> {
+  await beer.loadBeers(filter.value || undefined)
+}
 
 function resetCreateForm(): void {
   form.name = ''
@@ -126,6 +131,16 @@ async function submit(): Promise<void> {
         </div>
       </header>
 
+      <div class="filters">
+        <InputText
+          v-model="filter"
+          placeholder="Filter beers…"
+          class="grow"
+          @keyup.enter="search"
+        />
+        <Button label="Search" icon="pi pi-search" severity="secondary" @click="search" />
+      </div>
+
       <NexusSkeletonCards v-if="beer.beersLoading" :cards="4" />
       <div v-else-if="beer.beers.length" class="grid">
         <NexusBeerCard v-for="b in beer.beers" :key="b.id" :beer="b" />
@@ -218,6 +233,11 @@ async function submit(): Promise<void> {
 .eyebrow { margin: 0; font-size: 0.75rem; text-transform: uppercase; opacity: 0.65; }
 h2 { margin: 0.15rem 0; }
 .muted { margin: 0; opacity: 0.7; }
+.filters {
+  display: flex;
+  gap: 0.5rem;
+}
+.grow { flex: 1; }
 .grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr)); gap: 1rem;
 }

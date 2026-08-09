@@ -8,8 +8,10 @@ import NexusQuotaBadge from '@components/nexus-quota-badge/NexusQuotaBadge.vue'
 import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
 import { useCellarStore } from '@stores/food-drink/cellar.store'
+import { useAnalysisStore } from '@stores/analysis/analysis.store'
 
 const cellar = useCellarStore()
+const analysis = useAnalysisStore()
 const router = useRouter()
 
 const showCreate = ref(false)
@@ -27,7 +29,7 @@ const form = reactive({
 
 onMounted(() => {
   void cellar.loadWines()
-  void cellar.loadQuota()
+  void analysis.loadQuota()
 })
 
 async function search(): Promise<void> {
@@ -64,7 +66,7 @@ async function submitCreate(): Promise<void> {
 <template>
   <NexusPageWrapper show-toolbar title="Wine">
     <template #toolbar>
-      <NexusQuotaBadge :quota="cellar.quota" />
+      <NexusQuotaBadge :quota="analysis.quota" />
       <Button
         label="Add wine"
         icon="pi pi-plus"
@@ -83,8 +85,8 @@ async function submitCreate(): Promise<void> {
             <p class="eyebrow">Cellar & Kitchen</p>
             <h2>Wine journal</h2>
             <p class="muted">
-              Capture what you drink, match to WineAPI when you want enrichment,
-              and build tasting history over time.
+              Capture what you drink, upload a label photo, and run AI analysis for
+              structured tasting notes.
             </p>
           </div>
         </div>
@@ -94,8 +96,8 @@ async function submitCreate(): Promise<void> {
             <span>Wines</span>
           </div>
           <div class="stat">
-            <strong>{{ cellar.quota?.remaining ?? '—' }}</strong>
-            <span>API left</span>
+            <strong>{{ analysis.quota?.models.filter((m) => m.available).length ?? '—' }}</strong>
+            <span>AI models</span>
           </div>
         </div>
       </header>

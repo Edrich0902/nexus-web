@@ -57,6 +57,17 @@ export async function deleteBeer(id: number): Promise<void> {
   await http.delete(`${BASE}/beers/${id}`)
 }
 
+export async function analyseBeer(
+  beerId: number,
+  payload?: { force?: boolean; extra_context?: string | null },
+): Promise<BeerBeer> {
+  const { data } = await http.post<BeerBeer>(
+    `${BASE}/beers/${beerId}/analyse`,
+    payload ?? {},
+  )
+  return data
+}
+
 export async function listStyles(): Promise<BeerStyle[]> {
   const { data } = await http.get<{ styles: BeerStyle[] }>(`${BASE}/styles`)
   return data.styles

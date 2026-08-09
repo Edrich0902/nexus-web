@@ -208,6 +208,18 @@ const routes: RouteRecordRaw[] = [
         meta: handleMeta(true, true, 'Brewery'),
       },
       {
+        path: '/spirits',
+        name: 'spirits',
+        component: () => import('@routes/spirits/SpiritsView.vue'),
+        meta: handleMeta(true, true, 'Spirits'),
+      },
+      {
+        path: '/spirits/:spiritId',
+        name: 'spirit-detail',
+        component: () => import('@routes/spirits/SpiritDetailView.vue'),
+        meta: handleMeta(true, true, 'Spirit detail'),
+      },
+      {
         path: '/library',
         name: 'library',
         component: () => import('@routes/library/LibraryView.vue'),

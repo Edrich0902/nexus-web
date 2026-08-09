@@ -39,6 +39,12 @@ export interface BeerBeer {
   image_url?: string | null
   brewery: BeerBrewery | null
   style: BeerStyle | null
+  analysis_status?: import('@/types/analysis/drink-analysis').AnalysisStatus
+  analysed_at?: string | null
+  analysis_model?: string | null
+  analysis_prompt_version?: string | null
+  analysis_error?: string | null
+  ai_analysis?: import('@/types/analysis/drink-analysis').DrinkAnalysis | null
   created_at?: string
   updated_at?: string
 }

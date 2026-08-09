@@ -13,6 +13,7 @@ import NexusF1Icon from '@components/nexus-f1-icon/NexusF1Icon.vue'
 import NexusFoodDrinkIcon from '@components/nexus-food-drink-icon/NexusFoodDrinkIcon.vue'
 import NexusWineIcon from '@components/nexus-wine-icon/NexusWineIcon.vue'
 import NexusBeerIcon from '@components/nexus-beer-icon/NexusBeerIcon.vue'
+import NexusSpiritIcon from '@components/nexus-spirit-icon/NexusSpiritIcon.vue'
 import NexusRecipeIcon from '@components/nexus-recipe-icon/NexusRecipeIcon.vue'
 import NexusLibraryIcon from '@components/nexus-library-icon/NexusLibraryIcon.vue'
 import type { SportsSlug } from '@/types/sports/sports'
@@ -30,6 +31,7 @@ type SidebarMenuItem = MenuItem & {
     | 'cellar'
     | 'kitchen'
     | 'beer'
+    | 'spirits'
     | 'library'
   sport?: SportsSlug
 }
@@ -108,6 +110,13 @@ const items = ref<SidebarMenuItem[]>([
         iconComponent: NexusBeerIcon,
         matchPrefix: true,
         accent: 'beer',
+      },
+      {
+        label: 'Spirits',
+        to: '/spirits',
+        iconComponent: NexusSpiritIcon,
+        matchPrefix: true,
+        accent: 'spirits',
       },
       {
         label: 'Recipes',
@@ -280,6 +289,8 @@ const handleSignOut = (event: Event) => {
                     (item as SidebarMenuItem).accent === 'kitchen',
                   'nav-icon--beer':
                     (item as SidebarMenuItem).accent === 'beer',
+                  'nav-icon--spirits':
+                    (item as SidebarMenuItem).accent === 'spirits',
                   'nav-icon--library':
                     (item as SidebarMenuItem).accent === 'library',
                 }"
@@ -457,6 +468,11 @@ const handleSignOut = (event: Event) => {
 .nav-icon--beer,
 .nav-item--active .nav-icon--beer {
   color: var(--beer-accent);
+}
+
+.nav-icon--spirits,
+.nav-item--active .nav-icon--spirits {
+  color: var(--spirit-accent);
 }
 
 .nav-icon--library,

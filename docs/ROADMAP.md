@@ -57,12 +57,13 @@ Application skeleton and dashboard shell.
 **Intent:** Wine journal, recipe library, beer log, pairings hub.
 
 - [x] **Food & Drink hub** — `/food-drink`, pairings, home pulse card
-- [x] **Cellar** — journal list/detail, WineAPI match dialog, tastings, quota badge
+- [x] **Cellar** — journal list/detail, Gemini AI analysis, tastings, multi-model quota
+- [x] **Beer** — log beers, OBDB / manual brewery + Gemini AI analysis
+- [x] **Spirits** — journal + Gemini AI analysis
 - [x] **Kitchen** — saved recipes + TheMealDB discover
-- [x] **Beer** — log beers, OBDB / manual brewery link
-- Sidebar: Modules → Food & Drink; Cellar & Kitchen → Wine / Beer / Recipes
+- Sidebar: Modules → Food & Drink; Cellar & Kitchen → Wine / Beer / Spirits / Recipes
 
-Photo / camera intake belongs to the **mobile app** later. Image uploads deferred (external URLs only for now).
+Photo capture for labels is available via Media uploader on detail pages (device/camera). Mobile client remains later.
 
 ---
 

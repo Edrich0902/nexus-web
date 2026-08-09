@@ -5,8 +5,6 @@ import type {
   Paginated,
   StoreCellarWinePayload,
   StoreTastingPayload,
-  WineApiQuota,
-  WineCandidatesResponse,
 } from '@/types/food-drink/cellar'
 
 const BASE = '/api/v1/cellar'
@@ -47,36 +45,14 @@ export async function deleteWine(id: number): Promise<void> {
   await http.delete(`${BASE}/wines/${id}`)
 }
 
-export async function getCandidates(
+export async function analyseWine(
   wineId: number,
-  q?: string,
-): Promise<WineCandidatesResponse> {
-  const { data } = await http.get<WineCandidatesResponse>(
-    `${BASE}/wines/${wineId}/candidates`,
-    { params: q ? { q } : undefined },
-  )
-  return data
-}
-
-export async function confirmMatch(
-  wineId: number,
-  wineapiId: string,
+  payload?: { force?: boolean; extra_context?: string | null },
 ): Promise<CellarWine> {
-  const { data } = await http.post<CellarWine>(`${BASE}/wines/${wineId}/match`, {
-    wineapi_id: wineapiId,
-  })
-  return data
-}
-
-export async function markNoMatch(wineId: number): Promise<CellarWine> {
   const { data } = await http.post<CellarWine>(
-    `${BASE}/wines/${wineId}/no-match`,
+    `${BASE}/wines/${wineId}/analyse`,
+    payload ?? {},
   )
-  return data
-}
-
-export async function clearMatch(wineId: number): Promise<CellarWine> {
-  const { data } = await http.delete<CellarWine>(`${BASE}/wines/${wineId}/match`)
   return data
 }
 
@@ -104,9 +80,4 @@ export async function updateTasting(
 
 export async function deleteTasting(tastingId: number): Promise<void> {
   await http.delete(`${BASE}/tastings/${tastingId}`)
-}
-
-export async function getQuota(): Promise<WineApiQuota> {
-  const { data } = await http.get<WineApiQuota>(`${BASE}/quota`)
-  return data
 }

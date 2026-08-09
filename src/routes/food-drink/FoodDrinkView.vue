@@ -93,11 +93,12 @@ const mixChartData = computed(() => {
   const items = [
     { label: 'Wines', count: counts.wines },
     { label: 'Beers', count: counts.beers },
+    { label: 'Spirits', count: counts.spirits ?? 0 },
     { label: 'Recipes', count: counts.recipes },
   ].filter((item) => item.count > 0)
 
   const base = toDoughnutChartData(items, 'Collection')
-  const colors = ['#c45c6a', '#d4a017', '#6a9e6e']
+  const colors = ['#c45c6a', '#d4a017', '#8b6914', '#6a9e6e']
 
   return {
     ...base,
@@ -111,7 +112,7 @@ const mixChartData = computed(() => {
 const hasMix = computed(() => {
   const counts = store.dashboard?.counts
   if (!counts) return false
-  return counts.wines + counts.beers + counts.recipes > 0
+  return counts.wines + counts.beers + (counts.spirits ?? 0) + counts.recipes > 0
 })
 
 function openSuggestion(suggestion: {

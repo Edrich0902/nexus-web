@@ -8,15 +8,15 @@ import NexusRatingDisplay from '@components/nexus-rating-display/NexusRatingDisp
 import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
 import NexusDrinkAnalysisPanel from '@components/nexus-drink-analysis-panel/NexusDrinkAnalysisPanel.vue'
 import NexusQuotaBadge from '@components/nexus-quota-badge/NexusQuotaBadge.vue'
-import { useBeerStore } from '@stores/food-drink/beer.store'
+import { useSpiritsStore } from '@stores/food-drink/spirits.store'
 import { useAnalysisStore } from '@stores/analysis/analysis.store'
 import type { MediaImage } from '@/types/media/media'
 
-const beer = useBeerStore()
+const spirits = useSpiritsStore()
 const analysis = useAnalysisStore()
 const route = useRoute()
 const router = useRouter()
-const beerId = computed(() => Number(route.params.beerId))
+const spiritId = computed(() => Number(route.params.spiritId))
 const showImageUploader = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -29,58 +29,58 @@ function stopPoll(): void {
 
 function startPollIfPending(): void {
   stopPoll()
-  if (beer.beer?.analysis_status !== 'pending') return
+  if (spirits.spirit?.analysis_status !== 'pending') return
   pollTimer = setInterval(() => {
-    void beer.loadBeer(beerId.value, { silent: true }).then(() => {
-      if (beer.beer?.analysis_status !== 'pending') stopPoll()
+    void spirits.loadSpirit(spiritId.value, { silent: true }).then(() => {
+      if (spirits.spirit?.analysis_status !== 'pending') stopPoll()
     })
   }, 2500)
 }
 
 async function load(): Promise<void> {
-  if (!Number.isFinite(beerId.value)) return
-  await Promise.all([beer.loadBeer(beerId.value), analysis.loadQuota()])
+  if (!Number.isFinite(spiritId.value)) return
+  await Promise.all([spirits.loadSpirit(spiritId.value), analysis.loadQuota()])
   startPollIfPending()
 }
 
 onMounted(load)
 onUnmounted(stopPoll)
-watch(beerId, load)
+watch(spiritId, load)
 
 async function onAnalyse(force?: boolean): Promise<void> {
-  await beer.analyseBeer(beerId.value, Boolean(force))
+  await spirits.analyseSpirit(spiritId.value, Boolean(force))
   await analysis.loadQuota()
   startPollIfPending()
 }
 
 async function remove(): Promise<void> {
-  if (await beer.removeBeer(beerId.value)) {
-    await router.push({ name: 'beer' })
+  if (await spirits.removeSpirit(spiritId.value)) {
+    await router.push({ name: 'spirits' })
   }
 }
 
 function onImageUploaded(image: MediaImage | null): void {
-  if (!beer.beer || !image) return
-  beer.beer.media = image
-  beer.beer.image_url = image.url
+  if (!spirits.spirit || !image) return
+  spirits.spirit.media = image
+  spirits.spirit.image_url = image.url
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Beer detail">
+  <NexusPageWrapper show-toolbar title="Spirit detail">
     <template #toolbar>
       <NexusQuotaBadge :quota="analysis.quota" />
-      <Button label="Back" icon="pi pi-arrow-left" text @click="router.push({ name: 'beer' })" />
+      <Button label="Back" icon="pi pi-arrow-left" text @click="router.push({ name: 'spirits' })" />
     </template>
 
-    <NexusSkeletonMedia v-if="beer.beerLoading" />
-    <div v-else-if="beer.beer" class="detail">
+    <NexusSkeletonMedia v-if="spirits.spiritLoading" />
+    <div v-else-if="spirits.spirit" class="detail">
       <header class="hero">
         <div class="hero-media">
           <NexusImage
-            :media="beer.beer.media"
-            :src="beer.beer.image_url"
-            :alt="beer.beer.name"
+            :media="spirits.spirit.media"
+            :src="spirits.spirit.image_url"
+            :alt="spirits.spirit.name"
             variant="hero"
             size="fill"
             fit="cover"
@@ -89,30 +89,24 @@ function onImageUploaded(image: MediaImage | null): void {
         </div>
         <div class="hero-body">
           <div class="hero-info">
-            <p class="eyebrow">{{ beer.beer.style?.name || 'Beer' }}</p>
-            <h2>{{ beer.beer.name }}</h2>
+            <p class="eyebrow">{{ spirits.spirit.category || 'Spirit' }}</p>
+            <h2>{{ spirits.spirit.name }}</h2>
             <p class="meta">
-              <RouterLink
-                v-if="beer.beer.brewery"
-                :to="{ name: 'beer-brewery', params: { breweryId: beer.beer.brewery.id } }"
-              >
-                {{ beer.beer.brewery.name }}
-              </RouterLink>
-              <span v-if="beer.beer.abv != null"> · {{ beer.beer.abv }}% ABV</span>
-              <span v-if="beer.beer.ibu != null"> · {{ beer.beer.ibu }} IBU</span>
+              <span v-if="spirits.spirit.producer">{{ spirits.spirit.producer }}</span>
+              <span v-if="spirits.spirit.age_statement"> · {{ spirits.spirit.age_statement }}</span>
+              <span v-if="spirits.spirit.abv != null"> · {{ spirits.spirit.abv }}% ABV</span>
             </p>
             <NexusRatingDisplay
-              :model-value="beer.beer.rating"
-              accent="var(--beer-accent, #d8a13a)"
+              :model-value="spirits.spirit.rating"
+              accent="var(--spirit-accent, #c47a3a)"
             />
           </div>
-          <div class="hero-actions" role="toolbar" aria-label="Beer actions">
+          <div class="hero-actions">
             <Button
               icon="pi pi-image"
               severity="secondary"
               text
               rounded
-              aria-label="Change image"
               v-tooltip.left="'Label photo'"
               @click="showImageUploader = true"
             />
@@ -121,7 +115,6 @@ function onImageUploaded(image: MediaImage | null): void {
               severity="danger"
               text
               rounded
-              aria-label="Delete beer"
               v-tooltip.left="'Delete'"
               @click="remove"
             />
@@ -130,26 +123,26 @@ function onImageUploaded(image: MediaImage | null): void {
       </header>
 
       <NexusDrinkAnalysisPanel
-        :status="beer.beer.analysis_status"
-        :analysis="beer.beer.ai_analysis"
-        :error="beer.beer.analysis_error"
-        :analysing="beer.analysing"
+        :status="spirits.spirit.analysis_status"
+        :analysis="spirits.spirit.ai_analysis"
+        :error="spirits.spirit.analysis_error"
+        :analysing="spirits.analysing"
         @analyse="onAnalyse"
       />
 
-      <section v-if="beer.beer.notes" class="panel">
+      <section v-if="spirits.spirit.notes" class="panel">
         <h3>Notes</h3>
-        <p>{{ beer.beer.notes }}</p>
+        <p>{{ spirits.spirit.notes }}</p>
       </section>
     </div>
 
     <NexusImageUploader
-      v-if="beer.beer"
+      v-if="spirits.spirit"
       v-model:visible="showImageUploader"
-      :model-value="beer.beer.media ?? null"
-      collection="beer"
-      :attach-to="{ type: 'beer_beer', id: beer.beer.id }"
-      header="Beer label photo"
+      :model-value="spirits.spirit.media ?? null"
+      collection="spirits"
+      :attach-to="{ type: 'spirit_spirit', id: spirits.spirit.id }"
+      header="Bottle label photo"
       @update:model-value="onImageUploaded"
     />
   </NexusPageWrapper>
@@ -168,13 +161,15 @@ function onImageUploaded(image: MediaImage | null): void {
   gap: 1.35rem;
   padding: 1.15rem;
   border-radius: 1.1rem;
-  background: color-mix(in srgb, var(--beer-accent, #d8a13a) 12%, transparent);
+  background: var(--spirit-card-surface);
+  align-items: stretch;
 }
 
 .hero-media {
   min-height: 18rem;
   border-radius: 0.85rem;
   overflow: hidden;
+  background: color-mix(in srgb, var(--spirit-accent) 18%, transparent);
 }
 
 .hero-media :deep(.nexus-image) {
@@ -198,9 +193,8 @@ function onImageUploaded(image: MediaImage | null): void {
 }
 
 h2 {
-  margin: 0;
+  margin: 0.2rem 0;
   font-size: clamp(1.55rem, 2.6vw, 2rem);
-  font-weight: 700;
 }
 
 .meta {

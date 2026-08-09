@@ -1,20 +1,12 @@
 import type { MediaImage } from '@/types/media/media'
+import type { AnalysisQuota } from '@/types/analysis/drink-analysis'
 
 export type PairingVerdict = 'great' | 'good' | 'poor'
-
-export interface WineApiQuota {
-  provider: string
-  used: number
-  daily_limit: number
-  remaining: number
-  search_remaining: number
-  resets_in_seconds: number
-  usage_date: string
-}
 
 export interface FoodDrinkCounts {
   wines: number
   beers: number
+  spirits: number
   recipes: number
   pairings: number
 }
@@ -49,7 +41,8 @@ export interface FoodDrinkDashboard {
     producer_name: string | null
     vintage: number | null
     rating: number | null
-    match_status: string
+    match_status?: string
+    analysis_status?: string
     media?: MediaImage | null
     image_url?: string | null
   }>
@@ -57,7 +50,18 @@ export interface FoodDrinkDashboard {
     id: number
     name: string
     rating: number | null
+    analysis_status?: string
     brewery?: { id: number; name: string } | null
+    media?: MediaImage | null
+    image_url?: string | null
+  }>
+  recent_spirits?: Array<{
+    id: number
+    name: string
+    producer: string | null
+    category: string | null
+    rating: number | null
+    analysis_status?: string
     media?: MediaImage | null
     image_url?: string | null
   }>
@@ -69,7 +73,7 @@ export interface FoodDrinkDashboard {
     media?: MediaImage | null
     image_url?: string | null
   }>
-  quota: WineApiQuota
+  quota: AnalysisQuota
   suggestions: FoodDrinkSuggestion[]
   recent_pairings: FoodDrinkPairing[]
 }

@@ -67,6 +67,14 @@
       transparent 55%
     ),
     var(--coffee-bean-panel);
+  --spirit-accent: #c47a3a;
+  --spirit-card-surface:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--spirit-accent) 22%, transparent),
+      transparent 55%
+    ),
+    var(--coffee-bean-panel);
   --library-accent: #7a8fbf;
   --library-card-surface:
     radial-gradient(

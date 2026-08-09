@@ -56,7 +56,7 @@ type SpotlightItem = {
   routeParams: Record<string, number>
 }
 
-const spotlight = computed<SpotlightItem | null>(() => {
+const spotlight = computed((): SpotlightItem | null => {
   const wine = latestWine.value
   if (wine) {
     return {
@@ -65,10 +65,10 @@ const spotlight = computed<SpotlightItem | null>(() => {
       title: wine.name,
       subtitle: [wine.producer_name, wine.vintage].filter(Boolean).join(' · ') || 'Wine journal',
       rating: wine.rating,
-      media: wine.media,
-      imageUrl: wine.image_url,
+      media: wine.media ?? null,
+      imageUrl: wine.image_url ?? null,
       routeName: 'cellar-wine',
-      routeParams: { wineId: wine.id },
+      routeParams: { wineId: wine.id } as Record<string, number>,
     }
   }
 
@@ -80,10 +80,10 @@ const spotlight = computed<SpotlightItem | null>(() => {
       title: beer.name,
       subtitle: beer.brewery?.name || 'Beer log',
       rating: beer.rating,
-      media: beer.media,
-      imageUrl: beer.image_url,
+      media: beer.media ?? null,
+      imageUrl: beer.image_url ?? null,
       routeName: 'beer-detail',
-      routeParams: { beerId: beer.id },
+      routeParams: { beerId: beer.id } as Record<string, number>,
     }
   }
 
@@ -98,10 +98,10 @@ const spotlight = computed<SpotlightItem | null>(() => {
           ? `Cooked ${recipe.cooked_count}×`
           : 'Kitchen favourite',
       rating: recipe.rating,
-      media: recipe.media,
-      imageUrl: recipe.image_url ?? recipe.meal?.thumb_url,
+      media: recipe.media ?? null,
+      imageUrl: recipe.image_url ?? recipe.meal?.thumb_url ?? null,
       routeName: 'kitchen-recipe',
-      routeParams: { recipeId: recipe.id },
+      routeParams: { recipeId: recipe.id } as Record<string, number>,
     }
   }
 

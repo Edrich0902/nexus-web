@@ -7,8 +7,6 @@ import type {
   CellarWine,
   StoreCellarWinePayload,
   StoreTastingPayload,
-  WineApiQuota,
-  WineCandidatesResponse,
 } from '@/types/food-drink/cellar'
 
 export const useCellarStore = defineStore('cellar', () => {
@@ -19,9 +17,7 @@ export const useCellarStore = defineStore('cellar', () => {
   const winesTotal = ref(0)
   const wine = ref<CellarWine | null>(null)
   const wineLoading = ref(false)
-  const quota = ref<WineApiQuota | null>(null)
-  const candidates = ref<WineCandidatesResponse | null>(null)
-  const candidatesLoading = ref(false)
+  const analysing = ref(false)
   const saving = ref(false)
 
   function toastError(error: unknown, fallback: string): void {
@@ -54,23 +50,21 @@ export const useCellarStore = defineStore('cellar', () => {
     }
   }
 
-  async function loadWine(id: number): Promise<void> {
-    wineLoading.value = true
+  async function loadWine(id: number, options?: { silent?: boolean }): Promise<void> {
+    if (!options?.silent) {
+      wineLoading.value = true
+    }
     try {
       wine.value = await cellarService.getWine(id)
     } catch (error) {
-      wine.value = null
+      if (!options?.silent) {
+        wine.value = null
+      }
       toastError(error, 'Could not load wine.')
     } finally {
-      wineLoading.value = false
-    }
-  }
-
-  async function loadQuota(): Promise<void> {
-    try {
-      quota.value = await cellarService.getQuota()
-    } catch {
-      quota.value = null
+      if (!options?.silent) {
+        wineLoading.value = false
+      }
     }
   }
 
@@ -132,44 +126,30 @@ export const useCellarStore = defineStore('cellar', () => {
     }
   }
 
-  async function fetchCandidates(wineId: number, q?: string): Promise<void> {
-    candidatesLoading.value = true
+  async function analyseWine(wineId: number, force = false): Promise<void> {
+    analysing.value = true
     try {
-      candidates.value = await cellarService.getCandidates(wineId, q)
-      if (candidates.value.quota) {
-        quota.value = candidates.value.quota
+      wine.value = await cellarService.analyseWine(wineId, { force })
+      if (wine.value.analysis_status === 'complete') {
+        toast.add({
+          severity: 'success',
+          summary: 'Cellar',
+          detail: 'Analysis complete.',
+          life: 2500,
+        })
+      } else {
+        toast.add({
+          severity: 'info',
+          summary: 'Cellar',
+          detail: 'Analysis queued.',
+          life: 2500,
+        })
       }
     } catch (error) {
-      candidates.value = null
-      toastError(error, 'Could not search WineAPI.')
+      toastError(error, 'Could not analyse wine.')
     } finally {
-      candidatesLoading.value = false
+      analysing.value = false
     }
-  }
-
-  async function confirmMatch(
-    wineId: number,
-    wineapiId: string,
-  ): Promise<void> {
-    saving.value = true
-    try {
-      wine.value = await cellarService.confirmMatch(wineId, wineapiId)
-      toast.add({
-        severity: 'success',
-        summary: 'Cellar',
-        detail: 'Wine matched — enrichment queued.',
-        life: 3000,
-      })
-      await loadQuota()
-    } catch (error) {
-      toastError(error, 'Could not confirm match.')
-    } finally {
-      saving.value = false
-    }
-  }
-
-  async function markNoMatch(wineId: number): Promise<void> {
-    wine.value = await cellarService.markNoMatch(wineId)
   }
 
   async function addTasting(
@@ -208,19 +188,14 @@ export const useCellarStore = defineStore('cellar', () => {
     winesTotal,
     wine,
     wineLoading,
-    quota,
-    candidates,
-    candidatesLoading,
+    analysing,
     saving,
     loadWines,
     loadWine,
-    loadQuota,
     createWine,
     updateWine,
     removeWine,
-    fetchCandidates,
-    confirmMatch,
-    markNoMatch,
+    analyseWine,
     addTasting,
     removeTasting,
   }
