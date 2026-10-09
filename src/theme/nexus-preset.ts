@@ -1,112 +1,179 @@
-import { definePreset, palette } from '@primeuix/themes'
+import { definePreset } from '@primeuix/themes'
 import Aura from '@primeuix/themes/aura'
 
 /**
- * Nexus brand palette
- * Coffee Bean       #1a090d — app background
- * Coffee Bean Panel #261318 — elevated panels / sidebar (coffee bean family)
- * Lavender Blush    #f6e8ea — light text & contrast on dark
- * Meadow Green      #5ecf8a — primary accent
- * Blue Slate        #3d5a6c — informational accent
- * Light Green       #ace894 — success / soft positive accent
+ * PrimeVue preset driven by the ambient CSS variables in src/design/theme.css.
+ * Primary follows `--acc` and surfaces are mixed from `--ink` over `--amb`, so
+ * every PrimeVue control re-tints with the section or moment automatically.
  */
-const coffeeBean = palette('#1a090d')
-const lavenderBlush = palette('#f6e8ea')
-const meadowGreen = palette('#5ecf8a')
-const blueSlate = palette('#3d5a6c')
-const lightGreen = palette('#ace894')
+
+const ink = (pct: number) => `color-mix(in srgb, var(--ink) ${pct}%, var(--amb))`
+const acc = (pct: number, toward: 'ink' | 'amb') =>
+  `color-mix(in srgb, var(--acc) ${pct}%, var(--${toward}))`
+
+const transparentBorders = {
+  borderColor: 'transparent',
+  hoverBorderColor: 'transparent',
+  activeBorderColor: 'transparent',
+}
 
 const NexusPreset = definePreset(Aura, {
   primitive: {
-    coffeeBean,
-    lavenderBlush,
-    meadowGreen,
-    blueSlate,
-    lightGreen,
-    // Severity accents used by Message, Tag, Badge, etc.
-    blue: blueSlate,
-    green: lightGreen,
-    // Match Nexus card language (~0.75–0.85rem) instead of Aura's tight 6px controls.
     borderRadius: {
       none: '0',
-      xs: '0.25rem',
-      sm: '0.5rem',
-      md: '0.65rem',
-      lg: '0.75rem',
-      xl: '0.85rem',
+      xs: '6px',
+      sm: '10px',
+      md: '14px',
+      lg: '18px',
+      xl: '22px',
     },
   },
   semantic: {
     primary: {
-      50: '{meadowGreen.50}',
-      100: '{meadowGreen.100}',
-      200: '{meadowGreen.200}',
-      300: '{meadowGreen.300}',
-      400: '{meadowGreen.400}',
-      500: '{meadowGreen.500}',
-      600: '{meadowGreen.600}',
-      700: '{meadowGreen.700}',
-      800: '{meadowGreen.800}',
-      900: '{meadowGreen.900}',
-      950: '{meadowGreen.950}',
+      50: acc(12, 'ink'),
+      100: acc(25, 'ink'),
+      200: acc(45, 'ink'),
+      300: acc(65, 'ink'),
+      400: acc(85, 'ink'),
+      500: 'var(--acc)',
+      600: acc(85, 'amb'),
+      700: acc(70, 'amb'),
+      800: acc(55, 'amb'),
+      900: acc(40, 'amb'),
+      950: acc(25, 'amb'),
     },
     formField: {
       borderRadius: '{border.radius.md}',
-      // Drop the faint default inset shadow — reads noisy on coffee-bean surfaces.
+      paddingX: '0.9rem',
+      paddingY: '0.6rem',
       shadow: 'none',
     },
     content: {
-      borderRadius: '{border.radius.xl}',
+      borderRadius: '{border.radius.lg}',
+    },
+    overlay: {
+      popover: { borderRadius: '{border.radius.md}' },
+      modal: { borderRadius: '{border.radius.xl}' },
     },
     colorScheme: {
       light: {
         surface: {
           0: '#ffffff',
-          50: '{lavenderBlush.50}',
-          100: '{lavenderBlush.100}',
-          200: '{lavenderBlush.200}',
-          300: '{lavenderBlush.300}',
-          400: '{lavenderBlush.400}',
-          500: '{lavenderBlush.500}',
-          600: '{blueSlate.600}',
-          700: '{blueSlate.700}',
-          800: '{coffeeBean.800}',
-          900: '{coffeeBean.900}',
-          950: '{coffeeBean.950}',
+          50: '#fbf5f6',
+          100: '#f6e8ea',
+          200: '#e9d3d7',
+          300: '#d5b8be',
+          400: '#b0959b',
+          500: '#8a7176',
+          600: '#5f4a4f',
+          700: '#3f2c31',
+          800: '#2b181d',
+          900: '#1f0e13',
+          950: '#1a090d',
         },
         primary: {
-          color: '{primary.500}',
-          contrastColor: '#ffffff',
-          hoverColor: '{primary.600}',
-          activeColor: '{primary.700}',
+          color: 'var(--acc)',
+          contrastColor: 'var(--amb)',
+          hoverColor: acc(85, 'ink'),
+          activeColor: acc(70, 'ink'),
         },
       },
       dark: {
         surface: {
-          0: '{lavenderBlush.50}',
-          50: '{lavenderBlush.100}',
-          100: '{lavenderBlush.200}',
-          200: '{lavenderBlush.300}',
-          300: '{lavenderBlush.400}',
-          400: '{lavenderBlush.500}',
-          500: '{blueSlate.400}',
-          600: '{blueSlate.500}',
-          700: '{coffeeBean.300}',
-          800: '{coffeeBean.400}',
-          900: '{coffeeBean.500}',
-          950: '#1a090d',
+          0: 'var(--ink)',
+          50: ink(92),
+          100: ink(84),
+          200: ink(72),
+          300: ink(60),
+          400: ink(48),
+          500: ink(36),
+          600: ink(26),
+          700: ink(18),
+          800: ink(11),
+          900: ink(6),
+          950: 'var(--amb)',
         },
         primary: {
-          color: '{primary.400}',
-          contrastColor: '{surface.950}',
-          hoverColor: '{primary.300}',
-          activeColor: '{primary.200}',
+          color: 'var(--acc)',
+          contrastColor: 'var(--amb)',
+          hoverColor: acc(85, 'ink'),
+          activeColor: acc(70, 'ink'),
+        },
+        highlight: {
+          background: 'color-mix(in srgb, var(--acc) 18%, transparent)',
+          focusBackground: 'color-mix(in srgb, var(--acc) 26%, transparent)',
+          color: 'var(--ink)',
+          focusColor: 'var(--ink)',
         },
         formField: {
-          borderColor: 'color-mix(in srgb, {surface.0}, transparent 82%)',
-          hoverBorderColor: 'color-mix(in srgb, {surface.0}, transparent 70%)',
-          focusBorderColor: '{primary.color}',
+          background: 'var(--tint)',
+          disabledBackground: 'color-mix(in srgb, var(--ink) 3%, transparent)',
+          filledBackground: 'var(--tint)',
+          filledHoverBackground: 'var(--tint-2)',
+          filledFocusBackground: 'var(--tint-2)',
+          borderColor: 'var(--line)',
+          hoverBorderColor: 'var(--line-strong)',
+          focusBorderColor: 'var(--acc)',
+          color: 'var(--ink)',
+          placeholderColor: 'var(--ink-3)',
+          floatLabelColor: 'var(--ink-3)',
+          floatLabelFocusColor: 'var(--acc)',
+          iconColor: 'var(--ink-3)',
           shadow: 'none',
+        },
+        content: {
+          background: 'var(--surface)',
+          hoverBackground: 'var(--surface-2)',
+          borderColor: 'var(--line)',
+          color: 'var(--ink)',
+          hoverColor: 'var(--ink)',
+        },
+        overlay: {
+          select: {
+            background: 'var(--overlay)',
+            borderColor: 'var(--line)',
+            color: 'var(--ink)',
+          },
+          popover: {
+            background: 'var(--overlay)',
+            borderColor: 'var(--line)',
+            color: 'var(--ink)',
+          },
+          modal: {
+            background: 'var(--overlay)',
+            borderColor: 'var(--line)',
+            color: 'var(--ink)',
+          },
+        },
+        list: {
+          option: {
+            focusBackground: 'var(--tint-2)',
+            selectedBackground: 'color-mix(in srgb, var(--acc) 18%, transparent)',
+            selectedFocusBackground: 'color-mix(in srgb, var(--acc) 26%, transparent)',
+            color: 'var(--ink)',
+            focusColor: 'var(--ink)',
+            selectedColor: 'var(--ink)',
+            selectedFocusColor: 'var(--ink)',
+          },
+        },
+        navigation: {
+          item: {
+            focusBackground: 'var(--tint-2)',
+            activeBackground: 'var(--tint-2)',
+            color: 'var(--ink-2)',
+            focusColor: 'var(--ink)',
+            activeColor: 'var(--ink)',
+          },
+        },
+        text: {
+          color: 'var(--ink)',
+          hoverColor: 'var(--ink)',
+          mutedColor: 'var(--ink-3)',
+          hoverMutedColor: 'var(--ink-2)',
+        },
+        mask: {
+          background: 'rgba(0, 0, 0, 0.5)',
+          color: 'var(--ink)',
         },
       },
     },
@@ -114,118 +181,85 @@ const NexusPreset = definePreset(Aura, {
   components: {
     button: {
       root: {
-        borderRadius: '{border.radius.md}',
-        roundedBorderRadius: '9999px',
-        label: {
-          fontWeight: '600',
-        },
+        borderRadius: '999px',
+        roundedBorderRadius: '999px',
+        paddingX: '1.15rem',
+        paddingY: '0.6rem',
+        label: { fontWeight: '600' },
       },
       colorScheme: {
-        light: {
-          root: {
-            primary: {
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
-            },
-            secondary: {
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
-            },
-          },
-          outlined: {
-            primary: {
-              borderColor: 'color-mix(in srgb, {primary.color}, transparent 45%)',
-            },
-            secondary: {
-              borderColor: 'color-mix(in srgb, {surface.500}, transparent 55%)',
-            },
-          },
-        },
         dark: {
           root: {
-            primary: {
-              // Solid fill — no matching 1px edge ring fighting the soft radius.
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
-            },
+            primary: transparentBorders,
             secondary: {
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
+              ...transparentBorders,
+              background: 'var(--tint-2)',
+              hoverBackground: 'color-mix(in srgb, var(--ink) 15%, transparent)',
+              activeBackground: 'color-mix(in srgb, var(--ink) 20%, transparent)',
+              color: 'var(--ink)',
+              hoverColor: 'var(--ink)',
+              activeColor: 'var(--ink)',
             },
-            success: {
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
-            },
-            info: {
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
-            },
-            warn: {
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
-            },
-            danger: {
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
-            },
-            help: {
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
-            },
+            success: transparentBorders,
+            info: transparentBorders,
+            warn: transparentBorders,
+            danger: transparentBorders,
+            help: transparentBorders,
             contrast: {
-              borderColor: 'transparent',
-              hoverBorderColor: 'transparent',
-              activeBorderColor: 'transparent',
+              ...transparentBorders,
+              background: 'var(--ink)',
+              hoverBackground: 'color-mix(in srgb, var(--ink) 88%, var(--amb))',
+              activeBackground: 'color-mix(in srgb, var(--ink) 78%, var(--amb))',
+              color: 'var(--amb)',
+              hoverColor: 'var(--amb)',
+              activeColor: 'var(--amb)',
             },
           },
           outlined: {
-            primary: {
-              borderColor: 'color-mix(in srgb, {primary.color}, transparent 50%)',
-            },
+            primary: { borderColor: 'color-mix(in srgb, var(--acc) 50%, transparent)' },
+            secondary: { borderColor: 'var(--line-strong)', color: 'var(--ink)' },
+            danger: { borderColor: 'color-mix(in srgb, {red.400}, transparent 45%)' },
+          },
+          text: {
             secondary: {
-              borderColor: 'color-mix(in srgb, {surface.0}, transparent 82%)',
-            },
-            danger: {
-              borderColor: 'color-mix(in srgb, {red.400}, transparent 45%)',
+              color: 'var(--ink-2)',
+              hoverBackground: 'var(--tint-2)',
+              activeBackground: 'var(--tint-2)',
             },
           },
         },
       },
     },
-    inputtext: {
-      root: {
-        borderRadius: '{border.radius.md}',
-      },
-    },
-    textarea: {
-      root: {
-        borderRadius: '{border.radius.md}',
-      },
-    },
-    select: {
-      root: {
-        borderRadius: '{border.radius.md}',
-      },
-    },
+    inputtext: { root: { borderRadius: '{border.radius.md}' } },
+    textarea: { root: { borderRadius: '{border.radius.md}' } },
+    select: { root: { borderRadius: '{border.radius.md}' } },
     dialog: {
-      root: {
-        borderRadius: '{border.radius.xl}',
-      },
+      root: { borderRadius: '{border.radius.xl}' },
     },
     tag: {
       root: {
-        borderRadius: '{border.radius.sm}',
-        roundedBorderRadius: '{border.radius.xl}',
+        borderRadius: '999px',
+        roundedBorderRadius: '999px',
+        fontWeight: '600',
       },
+    },
+    toast: {
+      root: { borderRadius: '{border.radius.md}' },
+    },
+    skeleton: {
+      colorScheme: {
+        dark: {
+          root: {
+            background: 'var(--tint)',
+            animationBackground: 'var(--tint-2)',
+          },
+        },
+      },
+    },
+    datatable: {
+      headerCell: { background: 'transparent', color: 'var(--ink-3)', borderColor: 'var(--line)' },
+      row: { background: 'transparent', hoverBackground: 'var(--tint)', color: 'var(--ink)' },
+      bodyCell: { borderColor: 'var(--line)' },
     },
   },
 })

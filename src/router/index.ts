@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@stores/auth/auth.store'
+import { useAmbientStore } from '@design/ambient'
+import type { SectionKey } from '@design/tokens'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -7,6 +9,7 @@ declare module 'vue-router' {
     authed: boolean
     guest?: boolean
     title: string
+    section?: SectionKey
   }
 }
 
@@ -274,6 +277,16 @@ const routes: RouteRecordRaw[] = [
       },
     ],
   },
+  ...(import.meta.env.MODE === 'development'
+    ? [
+        {
+          path: '/design',
+          name: 'design',
+          component: () => import('@routes/design/DesignView.vue'),
+          meta: { ...handleMeta(true, true, 'Design system'), section: 'home' as const },
+        },
+      ]
+    : []),
   {
     path: '/',
     redirect: { name: 'home' },
@@ -308,6 +321,10 @@ router.beforeEach((to) => {
     }
     return { name: 'home' }
   }
+})
+
+router.afterEach((to) => {
+  useAmbientStore().setSection(to.meta.section)
 })
 
 /** `vite build --watch` rewrites hashed chunks; tab may still point at an old file. */

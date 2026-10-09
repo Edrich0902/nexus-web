@@ -17,6 +17,7 @@ const aliases = {
   '@assets': path.resolve(rootDir, 'src/assets'),
   '@services': path.resolve(rootDir, 'src/services'),
   '@lib': path.resolve(rootDir, 'src/lib'),
+  '@design': path.resolve(rootDir, 'src/design'),
 }
 
 const plugins = [

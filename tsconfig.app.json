@@ -10,7 +10,8 @@
       "@stores/*": ["./src/stores/*"],
       "@assets/*": ["./src/assets/*"],
       "@services/*": ["./src/services/*"],
-      "@lib/*": ["./src/lib/*"]
+      "@lib/*": ["./src/lib/*"],
+      "@design/*": ["./src/design/*"]
     },
     "types": ["vite/client"]
   },
