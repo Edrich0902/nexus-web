@@ -7,6 +7,7 @@ import NxCommandPalette from '@design/components/shell/NxCommandPalette.vue'
 import NexusSpotifyPlayerPanel from '@components/nexus-spotify-player-panel/NexusSpotifyPlayerPanel.vue'
 import { useCommandStore } from '@design/command/command.store'
 import { createNavigationSource } from '@design/command/navigation-source'
+import { createSearchSource } from '@design/command/search-source'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 
 const route = useRoute()
@@ -36,6 +37,7 @@ const unregisterNavigation = command.register(
         : [],
   }),
 )
+const unregisterSearch = command.register(createSearchSource(router))
 
 function onKeydown(event: KeyboardEvent): void {
   if (!route.meta.shell) return
@@ -49,6 +51,7 @@ onMounted(() => document.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
   unregisterNavigation()
+  unregisterSearch()
 })
 </script>
 

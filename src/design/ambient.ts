@@ -8,6 +8,7 @@ import {
   watch,
   type MaybeRefOrGetter,
 } from 'vue'
+import { contrastRatio, shade } from './color'
 import { sections, type Ambient, type SectionKey } from './tokens'
 
 const VARS: Record<keyof Ambient, string> = {
@@ -97,4 +98,23 @@ export function useAmbient(source: MaybeRefOrGetter<Partial<Ambient> | null | un
       if (id !== null) store.removeOverride(id)
     })
   }
+}
+
+/**
+ * Derive a legible dark ambient from artwork colours: the background is the
+ * dominant colour pushed toward black, the accent is the most vibrant colour
+ * lifted until it reads on that background.
+ */
+export function ambientFromPalette(palette: { dominant: string; vibrant: string; light: string }): Ambient {
+  const amb = shade(palette.dominant, -0.82)
+  const amb2 = shade(palette.dominant, -0.7)
+
+  let acc = palette.vibrant
+  for (let step = 0; step < 6 && (contrastRatio(acc, amb) ?? 0) < 4.5; step++) {
+    acc = shade(acc, 0.2)
+  }
+
+  const ink = shade(palette.light, 0.85)
+
+  return { amb, amb2, acc, ink: (contrastRatio(ink, amb) ?? 0) >= 10 ? ink : '#f6efe9' }
 }
