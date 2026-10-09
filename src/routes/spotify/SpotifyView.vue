@@ -1,696 +1,456 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxIconButton from '@design/components/NxIconButton.vue'
+import NxSectionHeader from '@design/components/NxSectionHeader.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxChips from '@design/components/NxChips.vue'
+import NxPanel from '@design/components/NxPanel.vue'
+import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
+import { usePaletteAmbient } from '@design/usePaletteAmbient'
 import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
-import NexusSpotifyPlayer from '@components/nexus-spotify-player/NexusSpotifyPlayer.vue'
-import NexusSpotifyTrackMetrics from '@components/nexus-spotify-track-metrics/NexusSpotifyTrackMetrics.vue'
-import NexusSpotifySimilarRecs from '@components/nexus-spotify-similar-recs/NexusSpotifySimilarRecs.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
-import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
+import NexusSpotifySimilarRecs from '@components/nexus-spotify-similar-recs/NexusSpotifySimilarRecs.vue'
+import NexusSpotifyTrackMetrics from '@components/nexus-spotify-track-metrics/NexusSpotifyTrackMetrics.vue'
+import CollectionFields from '@routes/collections/CollectionFields.vue'
+import { plural, type CollectionField } from '@routes/collections/collectionFields'
+import { useSpotifyProgress } from '@/composables/useSpotifyProgress'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
+import ListeningNav from './ListeningNav.vue'
+import { capitalise, linkedArtists, relativeTime, splitTitle } from './listening'
 
 const spotify = useSpotifyStore()
 const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()
+const { progressMs, durationMs } = useSpotifyProgress()
 
 const createOpen = ref(false)
-const newPlaylistName = ref('')
-const newPlaylistDescription = ref('')
+const newPlaylist = ref({ name: '', description: '' })
 const creating = ref(false)
 
 onMounted(async () => {
+  spotify.startPlayerPolling()
   const connected = typeof route.query.connected === 'string' ? route.query.connected : null
   const error = typeof route.query.error === 'string' ? route.query.error : null
-
   if (connected !== null) {
     await spotify.handleOAuthReturn(connected, error)
     await router.replace({ name: 'spotify', query: {} })
     return
   }
-
   await spotify.loadHub()
 })
 
+onUnmounted(() => spotify.stopPlayerPolling())
+
 watch(
   () => spotify.connected,
-  (isConnected) => {
-    if (isConnected) void spotify.loadHub()
+  (isConnected, was) => {
+    if (isConnected && was === false) void spotify.loadHub()
   },
 )
 
-const genres = computed(() => spotify.taste?.genres?.slice(0, 10) ?? [])
-const suggestionTracks = computed(() => spotify.suggestions.slice(0, 8))
-const onRepeat = computed(() => spotify.taste?.on_repeat?.slice(0, 8) ?? [])
-const peakListening = computed(() => spotify.taste?.time_of_day?.peak_bucket ?? null)
+const state = computed<ViewState>(() => (spotify.statusLoading ? 'loading' : 'ready'))
+
+const isPlaying = computed(() => spotify.player?.is_playing === true)
+
+/** What the stage is about: the live track, or failing that the last one played. */
+const hero = computed(() => {
+  const item = spotify.player?.item
+  if (item?.name) {
+    return {
+      live: true,
+      name: item.name,
+      uri: item.uri ?? null,
+      art: item.album?.images?.[0]?.url ?? null,
+      album: item.album?.name ?? null,
+      artists: linkedArtists(item.artists),
+      when: null as string | null,
+    }
+  }
+  const last = spotify.recentlyPlayed.find((r) => r.track)
+  if (!last?.track) return null
+  return {
+    live: false,
+    name: last.track.name,
+    uri: last.track.uri,
+    art: last.track.album_image_url,
+    album: last.track.album_name,
+    artists: linkedArtists(last.track.artists),
+    when: last.played_at,
+  }
+})
+
+usePaletteAmbient(() => hero.value?.art)
+
+const heading = computed(() => (hero.value ? splitTitle(hero.value.name) : { title: 'Your', accent: 'listening' }))
+
+const eyebrow = computed(() => {
+  if (!hero.value) return 'Listening'
+  if (!hero.value.live) return `Last played · ${relativeTime(hero.value.when)}`
+  const device = spotify.player?.device?.name
+  return `${isPlaying.value ? 'Now playing' : 'Paused'}${device ? ` · ${device}` : ''}`
+})
+
+const progress = computed(() =>
+  hero.value?.live && durationMs.value > 0 ? progressMs.value / durationMs.value : null,
+)
+
+const summary = computed(() => spotify.taste?.summary ?? null)
+const ownPlaylists = computed(() => spotify.playlists.filter((p) => p.is_owner).length)
+
+const fields = computed<CollectionField[]>(() => {
+  const s = summary.value
+  return [
+    {
+      key: 'plays',
+      label: 'Plays this week',
+      value: s ? s.plays_last_7d.toLocaleString() : '—',
+      sub: s ? plural(s.unique_tracks_last_7d, 'different track') : 'Sync to count your plays',
+      variant: 'solid',
+      span: 4,
+    },
+    s?.top_genre
+      ? { key: 'genre', label: 'Top genre', title: capitalise(s.top_genre), variant: 'tint', span: 3, to: { name: 'spotify-stats' } }
+      : { key: 'genre', label: 'Top genre', title: 'Appears after a sync', variant: 'outline', span: 3 },
+    s?.peak_bucket
+      ? { key: 'peak', label: 'You listen most', title: capitalise(s.peak_bucket), variant: 'tint', span: 2 }
+      : { key: 'peak', label: 'You listen most', title: '—', variant: 'outline', span: 2 },
+    {
+      key: 'playlists',
+      label: 'Playlists',
+      value: spotify.playlists.length,
+      sub: ownPlaylists.value ? `${ownPlaylists.value} made by you` : undefined,
+      variant: 'outline',
+      span: 3,
+    },
+  ]
+})
+
+const recent = computed(() => spotify.recentlyPlayed.filter((r) => r.track).slice(0, 8))
+const onRepeat = computed(() => spotify.taste?.on_repeat?.slice(0, 6) ?? [])
+const suggestions = computed(() => spotify.suggestions.slice(0, 6))
+const genres = computed(() => (spotify.taste?.genres ?? []).slice(0, 8).map((g) => capitalise(g.genre)))
 
 watch(
   () => [
-    ...spotify.recentlyPlayed.map((r) => r.track?.uri).filter(Boolean),
-    ...spotify.suggestions.map((s) => s.track.uri),
+    ...recent.value.map((r) => r.track!.uri),
+    ...suggestions.value.map((s) => s.track.uri),
     ...onRepeat.value.map((r) => r.track.uri),
   ],
-  (uris) => {
-    void spotify.refreshLikedUris(uris as string[])
-  },
+  (uris) => void spotify.refreshLikedUris(uris),
 )
 
-function disconnectConfirm(event: Event): void {
+function playHero(): void {
+  if (hero.value?.live) void spotify.togglePlayPause()
+  else if (hero.value?.uri) void spotify.playTrackUri(hero.value.uri)
+}
+
+function confirmDisconnect(event: Event): void {
   confirm.require({
     target: event.currentTarget as HTMLElement,
     message: 'Disconnect Spotify from Nexus?',
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: {
-      label: 'Cancel',
-      severity: 'secondary',
-      outlined: true,
-    },
-    acceptProps: {
-      label: 'Disconnect',
-      severity: 'danger',
-    },
-    accept: () => {
-      void spotify.disconnect()
-    },
+    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
+    acceptProps: { label: 'Disconnect', severity: 'danger' },
+    accept: () => void spotify.disconnect(),
   })
 }
 
 async function submitCreatePlaylist(): Promise<void> {
-  if (!newPlaylistName.value.trim()) return
+  const name = newPlaylist.value.name.trim()
+  if (!name) return
   creating.value = true
   const playlist = await spotify.createPlaylist({
-    name: newPlaylistName.value.trim(),
-    description: newPlaylistDescription.value.trim() || undefined,
+    name,
+    description: newPlaylist.value.description.trim() || undefined,
   })
   creating.value = false
-  if (playlist) {
-    createOpen.value = false
-    newPlaylistName.value = ''
-    newPlaylistDescription.value = ''
-    await router.push({
-      name: 'spotify-playlist',
-      params: { playlistId: playlist.id },
-    })
-  }
+  if (!playlist) return
+  createOpen.value = false
+  newPlaylist.value = { name: '', description: '' }
+  await router.push({ name: 'spotify-playlist', params: { playlistId: playlist.id } })
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Spotify">
-    <template #toolbar>
-      <div class="toolbar-actions">
-        <template v-if="spotify.connected">
+  <IndexTemplate :state="state">
+    <template #stage>
+      <NxStage
+        v-if="!spotify.connected"
+        eyebrow="Listening"
+        title="Bring your"
+        accent="music in"
+        lede="Connect Spotify to control playback from anywhere in Nexus, see what you have been playing and keep your playlists close. Audio stays on Spotify."
+      >
+        <template #visual>
+          <div class="mark"><NexusSpotifyIcon :size="72" /></div>
+        </template>
+        <template #actions>
+          <Button rounded label="Connect Spotify" @click="spotify.connect()" />
+        </template>
+      </NxStage>
+
+      <NxStage
+        v-else
+        :live="hero?.live && isPlaying"
+        :eyebrow="eyebrow"
+        :title="heading.title"
+        :accent="heading.accent"
+        :progress="progress"
+      >
+        <template #visual>
+          <img v-if="hero?.art" :src="hero.art" alt="" />
+          <NxIcon v-else name="headphones" :size="48" />
+        </template>
+        <template v-if="hero" #lede>
+          <template v-for="(a, i) in hero.artists" :key="a.id">
+            <RouterLink :to="{ name: 'spotify-artist', params: { artistId: a.id } }" class="lede-link">{{
+              a.name
+            }}</RouterLink
+            ><template v-if="i < hero.artists.length - 1">, </template>
+          </template>
+          <template v-if="hero.album"> · {{ hero.album }}</template>
+        </template>
+        <template v-else #lede>
+          Nothing has played yet. Start something on Spotify and it shows up here.
+        </template>
+        <template v-if="hero" #actions>
           <Button
-            label="Sync"
-            icon="pi pi-sync"
-            severity="secondary"
-            text
-            :loading="spotify.syncPending"
-            @click="spotify.syncNow()"
-          />
-          <Button
-            label="Disconnect"
-            icon="pi pi-times"
-            severity="danger"
-            text
-            @click="disconnectConfirm"
+            rounded
+            severity="contrast"
+            :label="hero.live ? (isPlaying ? 'Pause' : 'Resume') : 'Play again'"
+            :disabled="spotify.controlBusy"
+            @click="playHero"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon :name="hero.live && isPlaying ? 'pause' : 'play'" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <Button rounded severity="secondary" label="Queue" @click="spotify.openQueuePanel()">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="queue" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <NxIconButton
+            v-if="hero.uri"
+            icon="plus"
+            variant="tint"
+            label="Add to playlist"
+            @click="spotify.openAddToPlaylist(hero.uri)"
           />
         </template>
-      </div>
+      </NxStage>
     </template>
 
-    <div class="spotify-page">
-      <NexusSpotifyChrome>
-      <Message
-        v-if="spotify.needsReauth"
-        severity="warn"
-        :closable="false"
-        class="reauth-banner"
-      >
-        Spotify needs re-authorization
-        <span v-if="spotify.status?.missing_scopes?.length">
-          (missing: {{ spotify.status.missing_scopes.join(', ') }})
-        </span>.
-        <Button
-          label="Reconnect"
-          size="small"
-          class="ml-2"
-          @click="spotify.connect()"
+    <template v-if="spotify.connected" #fields>
+      <CollectionFields section="listening" :fields="fields" />
+    </template>
+
+    <template v-if="spotify.connected" #toolbar>
+      <ListeningNav>
+        <span class="spacer" />
+        <NxIconButton
+          icon="refresh"
+          label="Sync with Spotify"
+          :disabled="spotify.syncPending"
+          :class="{ spinning: spotify.syncPending }"
+          @click="spotify.syncNow()"
         />
+        <Button rounded text severity="secondary" label="Disconnect" @click="confirmDisconnect" />
+      </ListeningNav>
+    </template>
+
+    <div v-if="spotify.connected" class="blocks">
+      <Message v-if="spotify.needsReauth" severity="warn" :closable="false" class="reauth">
+        Spotify needs re-authorising<template v-if="spotify.status?.missing_scopes?.length">
+          (missing {{ spotify.status.missing_scopes.join(', ') }})</template
+        >.
+        <Button size="small" rounded label="Reconnect" @click="spotify.connect()" />
       </Message>
 
-      <section v-if="!spotify.connected && !spotify.statusLoading" class="connect-hero">
-        <div class="connect-mark">
-          <NexusSpotifyIcon :size="36" />
-        </div>
-        <div class="connect-copy">
-          <h2>Link Spotify</h2>
-          <p>
-            Control playback on your devices, browse recent listens, and manage
-            playlists from Nexus — audio stays on Spotify.
-          </p>
-          <Button
-            label="Connect Spotify"
-            icon="pi pi-link"
-            @click="spotify.connect()"
-          />
-        </div>
-      </section>
-
-      <div v-else-if="spotify.statusLoading" class="loading-block">
-        <Skeleton width="100%" height="4.5rem" border-radius="1rem" />
-        <div class="loading-bands">
-          <Skeleton width="9rem" height="1.05rem" class="mb-3" />
-          <NexusSkeletonList :rows="4" variant="track" />
-        </div>
-      </div>
-
-      <template v-else>
-        <div class="player-metrics-row">
-          <NexusSpotifyPlayer />
-          <NexusSpotifyTrackMetrics />
-        </div>
-
-        <NexusSpotifySimilarRecs />
-
-        <section class="band">
-          <div class="band-head">
-            <h3>Recently played</h3>
-          </div>
-          <NexusSkeletonList
-            v-if="spotify.recentlyLoading"
-            :rows="6"
-            variant="track"
-          />
-          <p v-else-if="spotify.recentlyPlayed.length === 0" class="empty">
-            No recent plays yet. Hit Sync after listening on Spotify.
-          </p>
-          <div v-else class="recent-grid">
+      <div class="two">
+        <section>
+          <NxSectionHeader title="Recently played" action-label="Your stats" :to="{ name: 'spotify-stats' }" />
+          <NxSkeletonRows v-if="spotify.recentlyLoading && !recent.length" :rows="6" />
+          <p v-else-if="!recent.length" class="empty">No recent plays yet. Listen on Spotify, then sync.</p>
+          <div v-else>
             <NexusSpotifyTrackRow
-              v-for="row in spotify.recentlyPlayed.slice(0, 12)"
-              :key="`${row.played_at}-${row.track?.id}`"
-              v-show="row.track"
+              v-for="row in recent"
+              :key="`${row.played_at}-${row.track!.id}`"
               :track="row.track!"
-              @play="row.track?.uri && spotify.playTrackUri(row.track.uri)"
+              :meta="relativeTime(row.played_at)"
+              @play="spotify.playTrackUri(row.track!.uri)"
             />
           </div>
         </section>
+        <div class="stack">
+          <NxPanel v-if="spotify.player?.item"><NexusSpotifyTrackMetrics /></NxPanel>
+          <NexusSpotifySimilarRecs />
+        </div>
+      </div>
 
-        <section v-if="onRepeat.length" class="band">
-          <div class="band-head">
-            <h3>On repeat</h3>
-            <span v-if="peakListening" class="peak-note">
-              Peak listening: {{ peakListening }}
-            </span>
-          </div>
-          <div class="suggestion-list">
+      <section>
+        <NxSectionHeader title="Playlists" action-label="New playlist" @action="createOpen = true" />
+        <NxSkeletonRows v-if="spotify.playlistsLoading && !spotify.playlists.length" :rows="3" />
+        <p v-else-if="!spotify.playlists.length" class="empty">No playlists synced yet.</p>
+        <NxCoverGrid v-else :min="168">
+          <NxCoverCard
+            v-for="p in spotify.playlists"
+            :key="p.id"
+            :to="{ name: 'spotify-playlist', params: { playlistId: p.id } }"
+            :title="p.name"
+            :sub="plural(p.item_count, 'track')"
+            :src="p.image_url"
+            aspect="square"
+            icon="queue"
+          />
+        </NxCoverGrid>
+      </section>
+
+      <div class="two">
+        <section>
+          <NxSectionHeader title="On repeat" />
+          <p v-if="!onRepeat.length" class="empty">Play a track a few times this week and it lands here.</p>
+          <div v-else>
             <NexusSpotifyTrackRow
-              v-for="item in onRepeat"
+              v-for="(item, i) in onRepeat"
               :key="item.track.id"
               :track="item.track"
-              :subtitle="`${item.play_count} plays · last ${item.window_days}d`"
+              :index="i + 1"
+              :meta="plural(item.play_count, 'play')"
               @play="spotify.playTrackUri(item.track.uri)"
             />
           </div>
         </section>
-        <section class="band">
-          <div class="band-head">
-            <h3>Playlists</h3>
-            <div class="band-actions">
-              <Button
-                label="New playlist"
-                icon="pi pi-plus"
-                size="small"
-                text
-                @click="createOpen = true"
-              />
-            </div>
-          </div>
-          <NexusSkeletonCards
-            v-if="spotify.playlistsLoading"
-            :cards="6"
-          />
-          <p v-else-if="spotify.playlists.length === 0" class="empty">
-            No playlists synced yet.
-          </p>
-          <div v-else class="playlist-row">
-            <article
-              v-for="playlist in spotify.playlists"
-              :key="playlist.id"
-              class="playlist-card"
-            >
-              <router-link
-                :to="{
-                  name: 'spotify-playlist',
-                  params: { playlistId: playlist.id },
-                }"
-                class="playlist-link"
-              >
-                <div class="playlist-art">
-                  <img
-                    v-if="playlist.image_url"
-                    :src="playlist.image_url"
-                    :alt="playlist.name"
-                  />
-                  <span v-else class="pi pi-list" />
-                </div>
-                <div class="playlist-meta">
-                  <span class="playlist-name">{{ playlist.name }}</span>
-                  <span class="playlist-count">
-                    {{ playlist.item_count }} tracks
-                  </span>
-                </div>
-              </router-link>
-              <button
-                v-tooltip.top="'Play playlist'"
-                type="button"
-                class="playlist-play"
-                :disabled="spotify.controlBusy"
-                @click="spotify.playPlaylist(playlist.uri)"
-              >
-                <span class="pi pi-play" />
-              </button>
-            </article>
+        <section>
+          <NxSectionHeader title="For you" />
+          <NxChips v-if="genres.length" :items="genres" label="Your genres" class="genres" />
+          <NxSkeletonRows v-if="spotify.tasteLoading && !suggestions.length" :rows="4" />
+          <p v-else-if="!suggestions.length" class="empty">Suggestions appear once recent and top tracks sync.</p>
+          <div v-else>
+            <NexusSpotifyTrackRow
+              v-for="item in suggestions"
+              :key="item.track.id"
+              :track="item.track"
+              :subtitle="item.reason"
+              @play="spotify.playTrackUri(item.track.uri)"
+            />
           </div>
         </section>
-
-        <section class="band taste-band">
-          <div class="band-head">
-            <h3>Taste & suggestions</h3>
-          </div>
-          <div v-if="spotify.tasteLoading" class="taste-skel">
-            <div class="genre-skel">
-              <Skeleton
-                v-for="n in 5"
-                :key="n"
-                width="5.5rem"
-                height="1.75rem"
-                border-radius="999px"
-              />
-            </div>
-            <NexusSkeletonList :rows="4" variant="track" />
-          </div>
-          <template v-else>
-            <div v-if="genres.length" class="genre-chips">
-              <span v-for="g in genres" :key="g.genre" class="genre-chip">
-                {{ g.genre }}
-                <em>{{ g.count }}</em>
-              </span>
-            </div>
-            <p v-else class="empty subtle">
-              Genre profile fills in after top artists sync.
-            </p>
-
-            <div v-if="suggestionTracks.length" class="suggestion-list">
-              <NexusSpotifyTrackRow
-                v-for="item in suggestionTracks"
-                :key="item.track.id"
-                :track="item.track"
-                :subtitle="item.reason"
-                @play="spotify.playTrackUri(item.track.uri)"
-              />
-            </div>
-            <p v-else class="empty subtle">
-              Suggestions appear once recent and top tracks are available.
-            </p>
-          </template>
-        </section>
-      </template>
-      </NexusSpotifyChrome>
-    </div>
-
-    <Dialog
-      v-model:visible="createOpen"
-      modal
-      header="New playlist"
-      :style="{ width: 'min(28rem, 92vw)' }"
-    >
-      <div class="create-form">
-        <label class="field">
-          <span>Name</span>
-          <InputText v-model="newPlaylistName" autofocus class="w-full" />
-        </label>
-        <label class="field">
-          <span>Description</span>
-          <Textarea
-            v-model="newPlaylistDescription"
-            rows="3"
-            class="w-full"
-            auto-resize
-          />
-        </label>
       </div>
-      <template #footer>
-        <Button
-          label="Cancel"
-          severity="secondary"
-          text
-          @click="createOpen = false"
-        />
-        <Button
-          label="Create"
-          :loading="creating"
-          :disabled="!newPlaylistName.trim()"
-          @click="submitCreatePlaylist"
-        />
-      </template>
-    </Dialog>
-  </NexusPageWrapper>
+    </div>
+  </IndexTemplate>
+
+  <Dialog v-model:visible="createOpen" modal header="New playlist" :style="{ width: 'min(30rem, 94vw)' }">
+    <form id="new-playlist" class="nx-form" @submit.prevent="submitCreatePlaylist">
+      <label class="f">
+        <span>Name</span>
+        <InputText v-model="newPlaylist.name" autofocus />
+      </label>
+      <label class="f">
+        <span>Description</span>
+        <Textarea v-model="newPlaylist.description" rows="3" auto-resize />
+      </label>
+    </form>
+    <template #footer>
+      <Button label="Cancel" text severity="secondary" @click="createOpen = false" />
+      <Button
+        type="submit"
+        form="new-playlist"
+        rounded
+        label="Create playlist"
+        :loading="creating"
+        :disabled="!newPlaylist.name.trim()"
+      />
+    </template>
+  </Dialog>
 </template>
 
 <style scoped>
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.spotify-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding-top: 0.5rem;
-  padding-bottom: 2rem;
-}
-
-.player-metrics-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.85fr);
-  gap: 1rem;
-  align-items: stretch;
-}
-
-@media (max-width: 980px) {
-  .player-metrics-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-.reauth-banner {
-  align-items: center;
-}
-
-.connect-hero {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1.25rem;
-  align-items: center;
-  padding: 1.5rem;
-  border-radius: 1rem;
-  background: var(--spotify-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-}
-
-@media (max-width: 640px) {
-  .connect-hero {
-    grid-template-columns: 1fr;
-  }
-}
-
-.connect-mark {
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 1rem;
+.mark {
+  width: 100%;
+  height: 100%;
   display: grid;
   place-items: center;
-  color: var(--spotify-green);
-  background: color-mix(in srgb, var(--spotify-green) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--spotify-green) 35%, transparent);
+  color: #1ed760;
+  background: radial-gradient(circle at 30% 25%, rgb(30 215 96 / 0.22), transparent 70%);
 }
 
-.connect-copy h2 {
-  margin: 0 0 0.35rem;
-  font-size: 1.45rem;
+.lede-link:hover {
+  color: var(--ink);
+  text-decoration: underline;
 }
 
-.connect-copy p {
-  margin: 0 0 1rem;
-  max-width: 36rem;
-  color: color-mix(in srgb, var(--lavender-blush) 65%, transparent);
-  line-height: 1.45;
+.spacer {
+  flex: 1;
 }
 
-.loading-block {
+.spinning :deep(svg) {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.blocks {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 48px;
 }
 
-.loading-bands {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.taste-skel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.genre-skel {
+.reauth :deep(.p-message-text) {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 10px;
 }
 
-.band {
+.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px;
+}
+
+.stack {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 28px;
+  min-width: 0;
 }
 
-.band-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+section {
+  min-width: 0;
 }
 
-.band-head h3 {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+.genres {
+  margin-bottom: 14px;
 }
 
 .empty {
   margin: 0;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
-  font-size: 0.9rem;
+  font-size: 14px;
+  color: var(--ink-3);
 }
 
-.empty.subtle {
-  font-size: 0.85rem;
+@media (max-width: 960px) {
+  .two {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
 }
 
-.recent-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.peak-note {
-  font-size: 0.8rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
-  text-transform: capitalize;
-}
-
-.recent-card {
-  display: none;
-}
-
-.recent-card:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.recent-art {
-  position: relative;
-  aspect-ratio: 1;
-  border-radius: 0.75rem;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-  display: grid;
-  place-items: center;
-  color: color-mix(in srgb, var(--lavender-blush) 40%, transparent);
-}
-
-.recent-art img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.recent-play {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--coffee-bean) 50%, transparent);
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  color: var(--lavender-blush);
-}
-
-.recent-card:hover .recent-play {
-  opacity: 1;
-}
-
-.recent-title,
-.recent-artist {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recent-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.recent-artist {
-  font-size: 0.75rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
-}
-
-.playlist-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: 0.75rem;
-}
-
-.playlist-card {
-  position: relative;
-  border-radius: 0.85rem;
-  overflow: hidden;
-  background: var(--spotify-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-}
-
-.playlist-link {
-  display: grid;
-  grid-template-columns: 4.5rem 1fr;
-  gap: 0.75rem;
-  padding: 0.65rem;
-  align-items: center;
-  min-height: 5.5rem;
-}
-
-.playlist-art {
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 0.55rem;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-  display: grid;
-  place-items: center;
-  color: color-mix(in srgb, var(--lavender-blush) 40%, transparent);
-}
-
-.playlist-art img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.playlist-meta {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding-right: 2.5rem;
-}
-
-.playlist-name {
-  font-weight: 650;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.playlist-count {
-  font-size: 0.78rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
-}
-
-.playlist-play {
-  position: absolute;
-  right: 0.7rem;
-  bottom: 0.7rem;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 0;
-  border-radius: 999px;
-  background: var(--meadow-green);
-  color: var(--coffee-bean);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: transform 0.15s ease;
-}
-
-.playlist-play:hover:not(:disabled) {
-  transform: scale(1.06);
-}
-
-.playlist-play:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.taste-band {
-  padding: 1rem;
-  border-radius: 1rem;
-  background: var(--spotify-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-}
-
-.genre-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.genre-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  background: color-mix(in srgb, var(--coffee-bean) 45%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 12%, transparent);
-}
-
-.genre-chip em {
-  font-style: normal;
-  color: var(--meadow-green);
-  font-weight: 700;
-}
-
-.suggestion-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  margin-top: 0.35rem;
-}
-
-.create-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 70%, transparent);
+@media (max-width: 640px) {
+  .blocks {
+    gap: 36px;
+  }
 }
 </style>

@@ -1,327 +1,212 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import NxStage from '@design/components/NxStage.vue'
+import NxPillGroup from '@design/components/NxPillGroup.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
-import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 import * as spotifyService from '@services/spotify.service'
-import type {
-  SpotifyAlbumSnippet,
-  SpotifyArtist,
-  SpotifyTrack,
-} from '@/types/spotify/spotify'
+import type { SpotifyAlbumSnippet, SpotifyArtist, SpotifyTrack } from '@/types/spotify/spotify'
+import ListeningNav from './ListeningNav.vue'
+import { artistNames, capitalise, releaseYear } from './listening'
+
+type Tab = 'tracks' | 'albums' | 'artists'
 
 const spotify = useSpotifyStore()
-const router = useRouter()
 
-const tab = ref<'tracks' | 'albums' | 'artists'>('tracks')
+const tab = ref<Tab>('tracks')
 const loading = ref(false)
-const errorMessage = ref<string | null>(null)
+const failed = ref(false)
 
 const tracks = ref<SpotifyTrack[]>([])
 const albums = ref<SpotifyAlbumSnippet[]>([])
 const artists = ref<SpotifyArtist[]>([])
-const tracksOffset = ref(0)
-const albumsOffset = ref(0)
-const tracksTotal = ref(0)
-const albumsTotal = ref(0)
+const tracksTotal = ref<number | null>(null)
+const albumsTotal = ref<number | null>(null)
 const artistsCursor = ref<string | undefined>(undefined)
 const artistsHasNext = ref(false)
+let requestId = 0
 
-const missingFollowScope = computed(() =>
-  (spotify.status?.missing_scopes ?? []).includes('user-follow-read'),
-)
+const missingFollowScope = computed(() => (spotify.status?.missing_scopes ?? []).includes('user-follow-read'))
 
 onMounted(async () => {
   await spotify.loadHub()
-  spotify.startPlayerPolling()
   await loadTab(true)
 })
 
-onUnmounted(() => {
-  spotify.stopPlayerPolling()
-})
+watch(tab, () => void loadTab(true))
 
-watch(tab, () => {
-  void loadTab(true)
-})
-
-watch(
-  tracks,
-  (list) => {
-    void spotify.refreshLikedUris(list.map((t) => t.uri))
-  },
-  { deep: true },
-)
+watch(tracks, (list) => void spotify.refreshLikedUris(list.map((t) => t.uri)))
 
 async function loadTab(reset: boolean): Promise<void> {
+  const current = ++requestId
+  const which = tab.value
   loading.value = true
-  errorMessage.value = null
+  failed.value = false
   try {
-    if (tab.value === 'tracks') {
-      if (reset) {
-        tracksOffset.value = 0
-        tracks.value = []
-      }
-      const data = await spotifyService.listLibraryTracks(20, tracksOffset.value)
-      tracks.value = reset
-        ? data.items.map((i) => i.track)
-        : [...tracks.value, ...data.items.map((i) => i.track)]
+    if (which === 'tracks') {
+      const data = await spotifyService.listLibraryTracks(30, reset ? 0 : tracks.value.length)
+      if (current !== requestId) return
+      const page = data.items.map((i) => i.track)
+      tracks.value = reset ? page : [...tracks.value, ...page]
       tracksTotal.value = data.total
-      tracksOffset.value = data.offset + data.items.length
-    } else if (tab.value === 'albums') {
-      if (reset) {
-        albumsOffset.value = 0
-        albums.value = []
-      }
-      const data = await spotifyService.listLibraryAlbums(20, albumsOffset.value)
-      albums.value = reset
-        ? data.items.map((i) => i.album)
-        : [...albums.value, ...data.items.map((i) => i.album)]
+    } else if (which === 'albums') {
+      const data = await spotifyService.listLibraryAlbums(30, reset ? 0 : albums.value.length)
+      if (current !== requestId) return
+      const page = data.items.map((i) => i.album)
+      albums.value = reset ? page : [...albums.value, ...page]
       albumsTotal.value = data.total
-      albumsOffset.value = data.offset + data.items.length
-    } else {
-      if (missingFollowScope.value) {
-        artists.value = []
-        return
-      }
-      if (reset) {
-        artistsCursor.value = undefined
-        artists.value = []
-      }
-      const data = await spotifyService.listLibraryArtists(
-        20,
-        artistsCursor.value,
-      )
+    } else if (!missingFollowScope.value) {
+      const data = await spotifyService.listLibraryArtists(30, reset ? undefined : artistsCursor.value)
+      if (current !== requestId) return
       artists.value = reset ? data.artists : [...artists.value, ...data.artists]
       artistsHasNext.value = data.next
       artistsCursor.value = data.cursors?.after
     }
   } catch {
-    errorMessage.value = 'Unable to load library. Try reconnecting Spotify.'
+    if (current === requestId) failed.value = true
   } finally {
-    loading.value = false
+    if (current === requestId) loading.value = false
   }
 }
 
+const tabs = computed(() => [
+  { value: 'tracks' as const, label: tracksTotal.value != null ? `Liked songs · ${tracksTotal.value}` : 'Liked songs' },
+  { value: 'albums' as const, label: albumsTotal.value != null ? `Albums · ${albumsTotal.value}` : 'Albums' },
+  { value: 'artists' as const, label: 'Artists' },
+])
+
+const count = computed(() =>
+  tab.value === 'tracks' ? tracks.value.length : tab.value === 'albums' ? albums.value.length : artists.value.length,
+)
+
 const canLoadMore = computed(() => {
-  if (tab.value === 'tracks') return tracks.value.length < tracksTotal.value
-  if (tab.value === 'albums') return albums.value.length < albumsTotal.value
-  return artistsHasNext.value
+  if (tab.value === 'tracks') return tracks.value.length < (tracksTotal.value ?? 0)
+  if (tab.value === 'albums') return albums.value.length < (albumsTotal.value ?? 0)
+  return artistsHasNext.value && !missingFollowScope.value
 })
+
+const lede = computed(() =>
+  tracksTotal.value != null
+    ? `${tracksTotal.value.toLocaleString()} liked songs, the albums you saved and the artists you follow.`
+    : 'Liked songs, the albums you saved and the artists you follow.',
+)
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Library">
-    <NexusSpotifyChrome>
-      <div class="library-page">
-        <Message
-          v-if="spotify.needsReauth"
-          severity="warn"
-          :closable="false"
-          class="mb-3"
-        >
-          Reconnect Spotify to unlock full library scopes.
-          <Button label="Reconnect" size="small" class="ml-2" @click="spotify.connect()" />
-        </Message>
+  <IndexTemplate>
+    <template #stage>
+      <NxStage size="compact" eyebrow="Listening" title="Your" accent="library" :lede="lede" />
+    </template>
 
-        <div class="tabs">
-          <button
-            v-for="item in [
-              ['tracks', 'Liked songs'],
-              ['albums', 'Albums'],
-              ['artists', 'Artists'],
-            ] as const"
-            :key="item[0]"
-            type="button"
-            class="tab"
-            :class="{ active: tab === item[0] }"
-            @click="tab = item[0]"
-          >
-            {{ item[1] }}
-          </button>
-        </div>
+    <template #toolbar>
+      <ListeningNav />
+    </template>
 
-        <div
-          v-if="loading && !tracks.length && !albums.length && !artists.length"
-          class="loading"
-        >
-          <NexusSkeletonList
-            v-if="tab === 'tracks'"
-            :rows="8"
-            variant="track"
+    <div class="library">
+      <NxPillGroup v-model="tab" :options="tabs" label="Library section" size="sm" />
+
+      <Message v-if="spotify.needsReauth" severity="warn" :closable="false">
+        Reconnect Spotify to unlock your full library.
+        <Button size="small" rounded label="Reconnect" class="ml" @click="spotify.connect()" />
+      </Message>
+
+      <NxSkeletonRows v-if="loading && count === 0" :rows="8" :thumb="true" />
+      <NxEmptyState
+        v-else-if="failed"
+        tone="error"
+        icon="close"
+        title="Could not load your library"
+        body="Try again, or reconnect Spotify if this keeps happening."
+      />
+
+      <template v-else-if="tab === 'tracks'">
+        <NxEmptyState v-if="!tracks.length" icon="heart" title="No liked songs yet" body="Tap the heart on any track to save it here." />
+        <div v-else>
+          <NexusSpotifyTrackRow
+            v-for="(track, i) in tracks"
+            :key="track.id"
+            :track="track"
+            :index="i + 1"
+            @play="spotify.playTrackUri(track.uri)"
           />
-          <NexusSkeletonCards v-else :cards="8" />
         </div>
-        <Message v-else-if="errorMessage" severity="error" :closable="false">
-          {{ errorMessage }}
-        </Message>
+      </template>
 
-        <template v-else-if="tab === 'tracks'">
-          <p v-if="tracks.length === 0" class="empty">No liked songs yet.</p>
-          <div v-else class="list">
-            <NexusSpotifyTrackRow
-              v-for="track in tracks"
-              :key="track.id"
-              :track="track"
-              @play="spotify.playTrackUri(track.uri)"
-            />
-          </div>
-        </template>
+      <template v-else-if="tab === 'albums'">
+        <NxEmptyState v-if="!albums.length" icon="music" title="No saved albums" body="Albums you save on Spotify show up here." />
+        <NxCoverGrid v-else :min="160">
+          <NxCoverCard
+            v-for="al in albums"
+            :key="al.id"
+            :to="{ name: 'spotify-album', params: { albumId: al.id } }"
+            :title="al.name"
+            :sub="artistNames(al.artists)"
+            :meta="releaseYear(al.release_date)"
+            :src="al.image_url"
+            aspect="square"
+            icon="music"
+          />
+        </NxCoverGrid>
+      </template>
 
-        <template v-else-if="tab === 'albums'">
-          <p v-if="albums.length === 0" class="empty">No saved albums yet.</p>
-          <div v-else class="grid">
-            <button
-              v-for="album in albums"
-              :key="album.id"
-              type="button"
-              class="card"
-              @click="
-                router.push({
-                  name: 'spotify-album',
-                  params: { albumId: album.id },
-                })
-              "
-            >
-              <img v-if="album.image_url" :src="album.image_url" :alt="album.name" />
-              <span v-else class="pi pi-disc fallback" />
-              <span class="name">{{ album.name }}</span>
-            </button>
-          </div>
-        </template>
+      <template v-else>
+        <NxEmptyState
+          v-if="missingFollowScope"
+          icon="profile"
+          title="Followed artists need permission"
+          body="Reconnect Spotify so Nexus can read who you follow."
+        >
+          <Button rounded label="Reconnect" @click="spotify.connect()" />
+        </NxEmptyState>
+        <NxEmptyState v-else-if="!artists.length" icon="profile" title="Not following anyone yet" />
+        <NxCoverGrid v-else :min="150">
+          <NxCoverCard
+            v-for="a in artists"
+            :key="a.id"
+            :to="{ name: 'spotify-artist', params: { artistId: a.id } }"
+            :title="a.name"
+            :sub="a.genres[0] ? capitalise(a.genres[0]) : 'Artist'"
+            :src="a.images[0]?.url"
+            aspect="circle"
+            icon="profile"
+          />
+        </NxCoverGrid>
+      </template>
 
-        <template v-else>
-          <Message
-            v-if="missingFollowScope"
-            severity="warn"
-            :closable="false"
-          >
-            Followed artists need the <code>user-follow-read</code> scope.
-            <Button label="Reconnect" size="small" class="ml-2" @click="spotify.connect()" />
-          </Message>
-          <p v-else-if="artists.length === 0" class="empty">No followed artists yet.</p>
-          <div v-else class="grid">
-            <button
-              v-for="artist in artists"
-              :key="artist.id"
-              type="button"
-              class="card"
-              @click="
-                router.push({
-                  name: 'spotify-artist',
-                  params: { artistId: artist.id },
-                })
-              "
-            >
-              <img
-                v-if="artist.images[0]?.url"
-                :src="artist.images[0].url"
-                :alt="artist.name"
-              />
-              <span v-else class="pi pi-user fallback" />
-              <span class="name">{{ artist.name }}</span>
-            </button>
-          </div>
-        </template>
-
-        <Button
-          v-if="canLoadMore && !missingFollowScope"
-          label="Load more"
-          text
-          :loading="loading"
-          class="mt-2"
-          @click="loadTab(false)"
-        />
-      </div>
-    </NexusSpotifyChrome>
-  </NexusPageWrapper>
+      <Button
+        v-if="canLoadMore && !failed && count > 0"
+        class="more"
+        rounded
+        severity="secondary"
+        label="Load more"
+        :loading="loading"
+        @click="loadTab(false)"
+      />
+    </div>
+  </IndexTemplate>
 </template>
 
 <style scoped>
-.library-page {
+.library {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 24px;
 }
 
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+.library > .nx-pills {
+  align-self: flex-start;
 }
 
-.tab {
-  border: 0;
-  border-radius: 999px;
-  padding: 0.4rem 0.9rem;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-  color: color-mix(in srgb, var(--lavender-blush) 70%, transparent);
-  cursor: pointer;
-  font-weight: 600;
+.more {
+  align-self: center;
 }
 
-.tab.active {
-  background: color-mix(in srgb, var(--spotify-green, #1db954) 22%, transparent);
-  color: var(--lavender-blush);
-}
-
-.loading {
-  min-height: 6rem;
-}
-
-.empty {
-  display: grid;
-  place-items: center;
-  min-height: 6rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-  gap: 0.85rem;
-}
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.65rem;
-  border: 0;
-  border-radius: 0.85rem;
-  background: var(--spotify-card-surface);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.card img,
-.fallback {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 0.55rem;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-}
-
-.fallback {
-  display: grid;
-  place-items: center;
-  font-size: 1.5rem;
-}
-
-.name {
-  font-weight: 600;
-  color: var(--lavender-blush);
+.ml {
+  margin-left: 10px;
 }
 </style>

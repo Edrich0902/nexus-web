@@ -22,7 +22,8 @@ const props = withDefaults(
     /** Small label pinned to the artwork (status, format). */
     badge?: string | null
     favourite?: boolean
-    aspect?: 'portrait' | 'square' | 'landscape'
+    /** `circle` is a square crop with round corners all the way (artists, people). */
+    aspect?: 'portrait' | 'square' | 'landscape' | 'circle'
     /** Shown when there is no artwork. */
     icon?: IconName
   }>(),
@@ -119,6 +120,16 @@ const hasArt = computed(() => Boolean(props.media || props.src))
 
 .a-landscape {
   aspect-ratio: 4 / 3;
+}
+
+.a-circle {
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.nx-cover:has(.a-circle) .copy {
+  align-items: center;
+  text-align: center;
 }
 
 .art :deep(.nexus-image) {

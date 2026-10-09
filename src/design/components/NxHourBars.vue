@@ -31,7 +31,7 @@ const peak = computed(() => props.values.indexOf(Math.max(...props.values)))
         :title="String(v)"
       />
     </div>
-    <figcaption v-if="ticks.length" class="ax">
+    <figcaption v-if="ticks.length" class="ax" :class="{ aligned: ticks.length === values.length }">
       <span v-for="t in ticks" :key="t">{{ t }}</span>
     </figcaption>
   </figure>
@@ -66,5 +66,17 @@ const peak = computed(() => props.values.indexOf(Math.max(...props.values)))
   font-size: 11px;
   color: var(--ink-3);
   margin-top: 8px;
+}
+
+.ax.aligned {
+  gap: 4px;
+}
+
+.ax.aligned span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

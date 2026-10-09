@@ -89,6 +89,11 @@ function openHub(): void {
   void router.push({ name: 'spotify' })
 }
 
+function openQueue(): void {
+  close()
+  spotify.openQueuePanel()
+}
+
 function openArtist(artistId: string): void {
   close()
   void router.push({ name: 'spotify-artist', params: { artistId } })
@@ -242,6 +247,7 @@ const sliderDt = {
               :disabled="!device || spotify.controlBusy"
               @click="volumeMenu?.toggle($event)"
             />
+            <NxIconButton icon="queue" label="Queue" size="sm" @click="openQueue" />
             <NxIconButton icon="external-link" label="Open Listening" size="sm" @click="openHub" />
           </div>
         </div>

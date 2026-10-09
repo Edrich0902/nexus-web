@@ -11,8 +11,9 @@ const props = withDefaults(
     placeholder?: string
     label?: string
     debounce?: number
+    autofocus?: boolean
   }>(),
-  { placeholder: 'Search…', label: undefined, debounce: 0 },
+  { placeholder: 'Search…', label: undefined, debounce: 0, autofocus: false },
 )
 
 const model = defineModel<string>({ default: '' })
@@ -47,6 +48,7 @@ function clear(): void {
       type="search"
       :placeholder="placeholder"
       :aria-label="label ?? placeholder"
+      :autofocus="autofocus"
       enterkeyhint="search"
       @keydown.enter.prevent="submit"
     />

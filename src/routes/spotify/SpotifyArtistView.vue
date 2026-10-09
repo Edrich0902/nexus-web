@@ -1,295 +1,191 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
+import DetailTemplate from '@design/templates/DetailTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxSectionHeader from '@design/components/NxSectionHeader.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxChips from '@design/components/NxChips.vue'
+import { usePaletteAmbient } from '@design/usePaletteAmbient'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
-import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
-import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 import * as spotifyService from '@services/spotify.service'
-import type {
-  SpotifyAlbumSnippet,
-  SpotifyArtistDetail,
-  SpotifyTrack,
-} from '@/types/spotify/spotify'
+import type { SpotifyAlbumSnippet, SpotifyArtistDetail, SpotifyTrack } from '@/types/spotify/spotify'
+import { capitalise, releaseYear } from './listening'
 
 const spotify = useSpotifyStore()
 const route = useRoute()
 
-const loading = ref(true)
+const state = ref<ViewState>('loading')
 const artist = ref<SpotifyArtistDetail | null>(null)
 const topTracks = ref<SpotifyTrack[]>([])
 const albums = ref<SpotifyAlbumSnippet[]>([])
-const catalogNote = ref<string | null>(null)
+const note = ref<string | null>(null)
+let requestId = 0
 
 const artistId = computed(() => String(route.params.artistId ?? ''))
+const image = computed(() => artist.value?.images?.[0]?.url ?? null)
 
-const imageUrl = computed(
-  () => artist.value?.images?.[0]?.url ?? null,
-)
+usePaletteAmbient(image)
 
-onMounted(() => {
-  spotify.startPlayerPolling()
-  void load()
-})
-
-onUnmounted(() => {
-  spotify.stopPlayerPolling()
-})
-
-watch(artistId, () => {
-  void load()
-})
-
-watch(topTracks, (list) => {
-  void spotify.refreshLikedUris(list.map((t) => t.uri))
-})
+watch(artistId, () => void load(), { immediate: true })
+watch(topTracks, (list) => void spotify.refreshLikedUris(list.map((t) => t.uri)))
 
 async function load(): Promise<void> {
   if (!artistId.value) return
-  loading.value = true
-  catalogNote.value = null
+  const current = ++requestId
+  state.value = 'loading'
   try {
     const [detail, tops, albumPage] = await Promise.all([
       spotifyService.getArtist(artistId.value),
       spotifyService.getArtistTopTracks(artistId.value),
       spotifyService.getArtistAlbums(artistId.value),
     ])
+    if (current !== requestId) return
     artist.value = detail
     topTracks.value = tops.tracks
     albums.value = albumPage.albums
-    catalogNote.value =
-      detail.message ??
-      tops.message ??
-      albumPage.message ??
-      null
+    note.value = detail.message ?? tops.message ?? albumPage.message ?? null
+    state.value = 'ready'
   } catch {
-    artist.value = {
-      available: false,
-      id: artistId.value,
-      name: 'Artist unavailable',
-      genres: [],
-      images: [],
-      external_url: null,
-      message: 'Unable to load artist details.',
-    }
-    topTracks.value = []
-    albums.value = []
-  } finally {
-    loading.value = false
+    if (current === requestId) state.value = 'error'
   }
 }
 
-async function playTop(): Promise<void> {
+const eyebrow = computed(() => {
+  const followers = artist.value?.followers
+  return followers ? `Artist · ${followers.toLocaleString()} followers` : 'Artist'
+})
+
+const genres = computed(() => (artist.value?.genres ?? []).slice(0, 6).map(capitalise))
+
+const albumGroups = computed(() => {
+  const main = albums.value.filter((a) => a.album_type !== 'single' && a.album_type !== 'compilation')
+  const singles = albums.value.filter((a) => a.album_type === 'single')
+  return [
+    { key: 'albums', title: 'Albums', items: main },
+    { key: 'singles', title: 'Singles & EPs', items: singles },
+  ].filter((g) => g.items.length)
+})
+
+function playTop(): void {
   const first = topTracks.value[0]
-  if (first) await spotify.playTrackUri(first.uri)
+  if (first) void spotify.playTrackUri(first.uri)
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar :title="artist?.name ?? 'Artist'">
-    <NexusSpotifyChrome>
-      <div v-if="loading" class="loading">
-        <NexusSkeletonMedia :rows="5" />
-        <div class="albums-skel">
-          <Skeleton width="5rem" height="1rem" class="mb-2" />
-          <NexusSkeletonCards :cards="4" />
-        </div>
-      </div>
-      <div v-else class="artist-page">
-        <header class="hero">
-          <div class="art">
-            <img v-if="imageUrl" :src="imageUrl" :alt="artist?.name ?? 'Artist'" />
-            <span v-else class="pi pi-user fallback" />
+  <DetailTemplate
+    :state="state"
+    :back-to="{ name: 'spotify' }"
+    back-label="Listening"
+    error-title="Could not load this artist"
+  >
+    <template #stage>
+      <NxStage :eyebrow="eyebrow" :title="artist?.name ?? 'Artist'">
+        <template #visual>
+          <div class="portrait">
+            <img v-if="image" :src="image" alt="" />
+            <NxIcon v-else name="profile" :size="48" />
           </div>
-          <div class="copy">
-            <p class="eyebrow">Artist</p>
-            <h2>{{ artist?.name ?? 'Unknown' }}</h2>
-            <p v-if="artist?.genres?.length" class="genres">
-              {{ artist.genres.slice(0, 6).join(' · ') }}
-            </p>
-            <Message
-              v-if="catalogNote"
-              severity="info"
-              :closable="false"
-              class="note"
-            >
-              {{ catalogNote }}
-            </Message>
-            <div class="actions">
-              <Button
-                label="Play top track"
-                icon="pi pi-play"
-                :disabled="!topTracks.length || spotify.controlBusy"
-                @click="playTop"
-              />
-            </div>
-          </div>
-        </header>
+        </template>
+        <template #lede>
+          <NxChips v-if="genres.length" :items="genres" label="Genres" />
+          <span v-else>{{ note ?? 'On Spotify' }}</span>
+        </template>
+        <template #actions>
+          <Button
+            rounded
+            severity="contrast"
+            label="Play top track"
+            :disabled="!topTracks.length || spotify.controlBusy"
+            @click="playTop"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="play" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <Button
+            v-if="artist?.external_url"
+            as="a"
+            :href="artist.external_url"
+            target="_blank"
+            rel="noopener"
+            rounded
+            severity="secondary"
+            label="Open in Spotify"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="external-link" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
+    </template>
 
-        <section class="band">
-          <h3>Popular</h3>
-          <p v-if="topTracks.length === 0" class="empty">
-            No top tracks available.
-          </p>
-          <div v-else class="list">
-            <NexusSpotifyTrackRow
-              v-for="track in topTracks"
-              :key="track.id"
-              :track="track"
-              @play="spotify.playTrackUri(track.uri)"
-            />
-          </div>
-        </section>
+    <Message v-if="note && genres.length" severity="info" :closable="false">{{ note }}</Message>
 
-        <section class="band">
-          <h3>Albums</h3>
-          <p v-if="albums.length === 0" class="empty">No albums available.</p>
-          <div v-else class="grid">
-            <router-link
-              v-for="album in albums"
-              :key="album.id"
-              :to="{ name: 'spotify-album', params: { albumId: album.id } }"
-              class="card"
-            >
-              <img v-if="album.image_url" :src="album.image_url" :alt="album.name" />
-              <span v-else class="pi pi-disc fallback-sm" />
-              <span class="name">{{ album.name }}</span>
-            </router-link>
-          </div>
-        </section>
+    <section>
+      <NxSectionHeader title="Popular" />
+      <p v-if="!topTracks.length" class="empty">Spotify has no top tracks for this artist right now.</p>
+      <div v-else>
+        <NexusSpotifyTrackRow
+          v-for="(track, i) in topTracks"
+          :key="track.id"
+          :track="track"
+          :index="i + 1"
+          @play="spotify.playTrackUri(track.uri)"
+        />
       </div>
-    </NexusSpotifyChrome>
-  </NexusPageWrapper>
+    </section>
+
+    <section v-for="group in albumGroups" :key="group.key">
+      <NxSectionHeader :title="group.title" />
+      <NxCoverGrid :min="160">
+        <NxCoverCard
+          v-for="al in group.items"
+          :key="al.id"
+          :to="{ name: 'spotify-album', params: { albumId: al.id } }"
+          :title="al.name"
+          :sub="releaseYear(al.release_date)"
+          :meta="al.total_tracks ? `${al.total_tracks} tracks` : null"
+          :src="al.image_url"
+          aspect="square"
+          icon="music"
+        />
+      </NxCoverGrid>
+    </section>
+  </DetailTemplate>
 </template>
 
 <style scoped>
-.loading {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.albums-skel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.artist-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.hero {
-  display: grid;
-  grid-template-columns: minmax(8rem, 12rem) 1fr;
-  gap: 1.25rem;
-  padding: 1rem;
-  border-radius: 1rem;
-  background: var(--spotify-card-surface);
-}
-
-@media (max-width: 720px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
-}
-
-.art {
-  aspect-ratio: 1;
-  border-radius: 0.85rem;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
+.portrait {
+  width: 100%;
+  height: 100%;
   display: grid;
   place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--amb-2);
+  color: var(--ink-3);
 }
 
-.art img {
+.portrait img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.fallback {
-  font-size: 2.5rem;
-  color: color-mix(in srgb, var(--lavender-blush) 45%, transparent);
-}
-
-.copy h2 {
-  margin: 0.2rem 0 0.5rem;
-  color: var(--lavender-blush);
-}
-
-.eyebrow {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.75rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-}
-
-.genres {
-  margin: 0 0 0.75rem;
-  color: color-mix(in srgb, var(--lavender-blush) 65%, transparent);
-}
-
-.note {
-  margin-bottom: 0.75rem;
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.band h3 {
-  margin: 0 0 0.75rem;
-  color: var(--lavender-blush);
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
-  gap: 0.75rem;
-}
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  text-decoration: none;
-  color: inherit;
-}
-
-.card img,
-.fallback-sm {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 0.55rem;
-  object-fit: cover;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-}
-
-.fallback-sm {
-  display: grid;
-  place-items: center;
-}
-
-.name {
-  font-weight: 600;
-  color: var(--lavender-blush);
+.nx-stage :deep(.visual) {
+  border-radius: 50%;
 }
 
 .empty {
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-3);
 }
 </style>

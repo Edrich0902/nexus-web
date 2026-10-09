@@ -1,54 +1,50 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
+import NxSectionHeader from '@design/components/NxSectionHeader.vue'
+import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 
 const spotify = useSpotifyStore()
 
-const items = computed(() => spotify.similarRecommendations.slice(0, 8))
+const items = computed(() => spotify.similarRecommendations.slice(0, 6))
 const currentSeed = computed(() => {
   const item = spotify.player?.item
   if (!item || item.type === 'episode') return null
   return item.id ?? null
 })
+// A new seed keeps the list loading until that seed's results land.
 const loading = computed(() => {
   if (spotify.similarLoading) return true
-  const seed = currentSeed.value
-  if (!seed) return false
-  // Track changed / first load — keep the panel in loading until this seed finishes.
-  return spotify.similarReadySeed !== seed
+  return currentSeed.value !== null && spotify.similarReadySeed !== currentSeed.value
 })
-const showEmpty = computed(
-  () => !loading.value && items.value.length === 0,
-)
+
+const autoQueue = computed({
+  get: () => spotify.listeningSettings?.auto_queue_enabled === true,
+  set: (value: boolean) => void spotify.setAutoQueueEnabled(value),
+})
 </script>
 
 <template>
-  <section
-    class="recs-panel"
-    aria-label="Similar recommendations"
-    :aria-busy="loading"
-  >
-    <div class="recs-head">
-      <div>
-        <h3>More like this</h3>
-        <p class="sub">Ranked for this sitting — seeds, skips, and acoustic fit</p>
-      </div>
-    </div>
-
-    <NexusSkeletonList v-if="loading" :rows="5" variant="track" />
-
-    <p v-else-if="showEmpty" class="empty">
-      <template v-if="!currentSeed">
-        Play a track to get similar recommendations.
+  <section class="recs" aria-label="More like this" :aria-busy="loading">
+    <NxSectionHeader title="More like this">
+      <template #action>
+        <label class="auto">
+          <span>Auto-queue</span>
+          <ToggleSwitch v-model="autoQueue" aria-label="Auto-queue similar tracks" />
+        </label>
       </template>
-      <template v-else>
-        No close matches for this track yet — try another song in the same lane.
-      </template>
+    </NxSectionHeader>
+
+    <NxSkeletonRows v-if="loading" :rows="5" />
+    <p v-else-if="!items.length" class="empty">
+      {{
+        currentSeed
+          ? 'No close matches for this track yet. Try another song in the same lane.'
+          : 'Play something and similar tracks will line up here.'
+      }}
     </p>
-
-    <div v-else class="recs-list">
+    <div v-else>
       <NexusSpotifyTrackRow
         v-for="item in items"
         :key="item.track.id"
@@ -61,40 +57,18 @@ const showEmpty = computed(
 </template>
 
 <style scoped>
-.recs-panel {
-  background: var(--spotify-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 12%, transparent);
-  border-radius: 1rem;
-  padding: 1rem 1.15rem 1.15rem;
-}
-
-.recs-head {
-  margin-bottom: 0.85rem;
-}
-
-.recs-head h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--light-green);
-}
-
-.sub {
-  margin: 0.25rem 0 0;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 60%, transparent);
-}
-
-.recs-list {
-  display: grid;
-  gap: 0.35rem;
+.auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  cursor: pointer;
 }
 
 .empty {
   margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+  font-size: 14px;
+  color: var(--ink-3);
 }
 </style>

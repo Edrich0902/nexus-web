@@ -1,471 +1,234 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
+import StatsTemplate from '@design/templates/StatsTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPanel from '@design/components/NxPanel.vue'
+import NxPillGroup from '@design/components/NxPillGroup.vue'
+import NxRankList, { type RankItem } from '@design/components/NxRankList.vue'
+import NxHourBars from '@design/components/NxHourBars.vue'
+import NxMeters, { type MeterItem } from '@design/components/NxMeters.vue'
+import NxSerifSummary from '@design/components/NxSerifSummary.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
-import NexusChart from '@components/nexus-chart/NexusChart.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import CollectionFields from '@routes/collections/CollectionFields.vue'
+import { plural, type CollectionField } from '@routes/collections/collectionFields'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
-import {
-  formatBucketLabel,
-  toBarChartData,
-  toDoughnutChartData,
-  toRadarChartData,
-} from '@lib/charts'
 import type { SpotifyTimeRange } from '@/types/spotify/spotify'
+import ListeningNav from './ListeningNav.vue'
+import { artistNames, audioMeters, capitalise } from './listening'
 
 const spotify = useSpotifyStore()
-const router = useRouter()
 
-const timeRange = ref<SpotifyTimeRange>('short_term')
-
+const range = ref<SpotifyTimeRange>('short_term')
 const rangeOptions = [
-  { label: '4 weeks', value: 'short_term' as const },
-  { label: '6 months', value: 'medium_term' as const },
-  { label: 'All time', value: 'long_term' as const },
+  { value: 'short_term' as const, label: '4 weeks' },
+  { value: 'medium_term' as const, label: '6 months' },
+  { value: 'long_term' as const, label: 'All time' },
 ]
 
-onMounted(() => {
-  void spotify.loadHub()
+const DAYPARTS = ['morning', 'afternoon', 'evening', 'night'] as const
+const DAYPART_HOURS: Record<(typeof DAYPARTS)[number], string> = {
+  morning: '05:00 to 12:00',
+  afternoon: '12:00 to 17:00',
+  evening: '17:00 to 22:00',
+  night: '22:00 to 05:00',
+}
+
+onMounted(() => void spotify.loadHub())
+
+const taste = computed(() => spotify.taste)
+const summary = computed(() => taste.value?.summary ?? null)
+
+const state = computed<ViewState>(() => {
+  if (spotify.statusLoading || (spotify.connected && spotify.tasteLoading && !taste.value)) return 'loading'
+  if (!spotify.connected || !taste.value) return 'empty'
+  return 'ready'
 })
 
-watch(
-  () => spotify.connected,
-  (connected) => {
-    if (connected) void spotify.loadHub()
-  },
-)
+const lede = computed(() => {
+  const s = summary.value
+  if (!s) return 'What you play, when you play it and what keeps coming back.'
+  const parts = [`${plural(s.plays_last_7d, 'play')} this week across ${plural(s.unique_tracks_last_7d, 'track')}.`]
+  if (s.top_genre) parts.push(`Mostly ${s.top_genre}${s.peak_bucket ? `, mostly in the ${s.peak_bucket}` : ''}.`)
+  return parts.join(' ')
+})
 
-const loading = computed(
-  () => spotify.statusLoading || (spotify.connected && spotify.tasteLoading),
-)
-
-const summary = computed(() => spotify.taste?.summary ?? null)
-
-const timeOfDayData = computed(() =>
-  toBarChartData(
-    (spotify.taste?.time_of_day?.buckets ?? []).map((b) => ({
-      label: formatBucketLabel(b.bucket),
-      count: b.count,
-    })),
-    'Plays',
-    '#1db954',
-  ),
-)
-
-const weekdayData = computed(() =>
-  toBarChartData(
-    (spotify.taste?.time_of_day?.weekday ?? []).map((d) => ({
-      label: d.day,
-      count: d.count,
-    })),
-    'Plays',
-    '#5ecf8a',
-  ),
-)
-
-const genreData = computed(() =>
-  toDoughnutChartData(
-    (spotify.taste?.genres ?? []).slice(0, 10).map((g) => ({
-      label: g.genre,
-      count: g.count,
-    })),
-    'Genres',
-  ),
-)
-
-const topArtists = computed(
-  () => spotify.taste?.top_artists?.[timeRange.value] ?? [],
-)
-
-const topTracks = computed(
-  () => spotify.taste?.top_tracks?.[timeRange.value] ?? [],
-)
-
-const onRepeat = computed(() => spotify.taste?.on_repeat?.slice(0, 10) ?? [])
-
-const listeningRadarData = computed(() => {
-  const averages = spotify.taste?.audio_metrics?.['7d']?.averages
-  if (!averages) return { labels: [], datasets: [] }
-  const keys: Array<{ key: string; label: string }> = [
-    { key: 'energy', label: 'Energy' },
-    { key: 'danceability', label: 'Dance' },
-    { key: 'valence', label: 'Mood' },
-    { key: 'acousticness', label: 'Acoustic' },
-    { key: 'instrumentalness', label: 'Instrumental' },
-    { key: 'speechiness', label: 'Speech' },
+const fields = computed<CollectionField[]>(() => {
+  const s = summary.value
+  return [
+    { key: 'plays', label: 'Plays · 7 days', value: s ? s.plays_last_7d.toLocaleString() : '—', variant: 'solid', span: 4 },
+    { key: 'unique', label: 'Different tracks', value: s ? s.unique_tracks_last_7d.toLocaleString() : '—', variant: 'tint', span: 3 },
+    s?.top_genre
+      ? { key: 'genre', label: 'Top genre', title: capitalise(s.top_genre), variant: 'tint', span: 3 }
+      : { key: 'genre', label: 'Top genre', title: '—', variant: 'outline', span: 3 },
+    s?.peak_bucket
+      ? { key: 'peak', label: 'Peak', title: capitalise(s.peak_bucket), variant: 'outline', span: 2 }
+      : { key: 'peak', label: 'Peak', title: '—', variant: 'outline', span: 2 },
   ]
-  const items = keys
-    .map(({ key, label }) => ({
-      label,
-      count: typeof averages[key] === 'number' ? (averages[key] as number) : null,
-    }))
-    .filter((i): i is { label: string; count: number } => i.count !== null)
-  if (items.length === 0) return { labels: [], datasets: [] }
-  return toRadarChartData(items, 'Last 7 days', '#5ecf8a')
 })
 
-const hasListeningRadar = computed(
-  () => (listeningRadarData.value.labels?.length ?? 0) > 0,
+const topArtists = computed<RankItem[]>(() =>
+  (taste.value?.top_artists?.[range.value] ?? []).slice(0, 10).map((row) => ({
+    id: row.artist.id,
+    title: row.artist.name,
+    sub: row.artist.genres?.[0] ? capitalise(row.artist.genres[0]) : undefined,
+    image: row.artist.images?.[0]?.url ?? null,
+    to: { name: 'spotify-artist', params: { artistId: row.artist.id } },
+  })),
 )
 
-const hasCharts = computed(
-  () =>
-    (spotify.taste?.time_of_day?.buckets?.some((b) => b.count > 0) ?? false) ||
-    (spotify.taste?.genres?.length ?? 0) > 0,
+const topTracks = computed<RankItem[]>(() =>
+  (taste.value?.top_tracks?.[range.value] ?? []).slice(0, 10).map((row) => ({
+    id: row.track.id,
+    title: row.track.name,
+    sub: artistNames(row.track.artists),
+    image: row.track.album_image_url ?? null,
+    to: row.track.album_id ? { name: 'spotify-album', params: { albumId: row.track.album_id } } : undefined,
+  })),
 )
+
+const onRepeat = computed(() => taste.value?.on_repeat?.slice(0, 8) ?? [])
 
 watch(
   () => onRepeat.value.map((r) => r.track.uri),
-  (uris) => {
-    void spotify.refreshLikedUris(uris)
-  },
+  (uris) => void spotify.refreshLikedUris(uris),
 )
+
+const dayparts = computed(() => {
+  const buckets = taste.value?.time_of_day?.buckets ?? []
+  const counts = DAYPARTS.map((d) => buckets.find((b) => b.bucket === d)?.count ?? 0)
+  const total = counts.reduce((a, b) => a + b, 0)
+  const peakIndex = counts.indexOf(Math.max(...counts))
+  return { counts, total, peak: total ? DAYPARTS[peakIndex]! : null, share: total ? counts[peakIndex]! / total : 0 }
+})
+
+const weekdays = computed(() => taste.value?.time_of_day?.weekday ?? [])
+
+const genres = computed<MeterItem[]>(() => {
+  const list = (taste.value?.genres ?? []).slice(0, 8)
+  const max = Math.max(1, ...list.map((g) => g.count))
+  return list.map((g) => ({ key: g.genre, label: capitalise(g.genre), value: g.count / max, display: String(g.count) }))
+})
+
+const dna = computed(() => audioMeters(taste.value?.audio_metrics?.['7d']?.averages))
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Spotify Stats">
-    <NexusSpotifyChrome>
-      <div class="stats-page">
-        <header class="head">
-          <div>
-            <p class="eyebrow">Listening</p>
-            <h2>Stats</h2>
-          </div>
-          <Button
-            v-if="spotify.connected"
-            label="Sync"
-            size="small"
-            outlined
-            :loading="spotify.syncPending"
-            @click="spotify.syncNow()"
-          />
-        </header>
+  <StatsTemplate :state="state">
+    <template #stage>
+      <NxStage size="compact" eyebrow="Listening" title="How you" accent="listen" :lede="lede" />
+    </template>
 
-        <Message
-          v-if="!spotify.connected && !spotify.statusLoading"
-          severity="warn"
-          :closable="false"
-        >
-          Connect Spotify to see listening stats.
-          <Button
-            class="ml-2"
-            label="Connect"
-            size="small"
-            @click="spotify.connect()"
-          />
-        </Message>
-
-        <template v-else-if="loading">
-          <div class="summary-grid">
-            <Skeleton v-for="n in 4" :key="n" height="4.5rem" />
-          </div>
-          <Skeleton height="16rem" class="chart-skel" />
-          <NexusSkeletonList :rows="5" />
-        </template>
-
-        <template v-else-if="spotify.taste">
-          <section v-if="summary" class="summary-grid" aria-label="Summary">
-            <div class="metric">
-              <span class="metric-label">Plays (7d)</span>
-              <strong>{{ summary.plays_last_7d }}</strong>
-            </div>
-            <div class="metric">
-              <span class="metric-label">Unique tracks</span>
-              <strong>{{ summary.unique_tracks_last_7d }}</strong>
-            </div>
-            <div class="metric">
-              <span class="metric-label">Peak window</span>
-              <strong>
-                {{
-                  summary.peak_bucket
-                    ? formatBucketLabel(summary.peak_bucket)
-                    : '—'
-                }}
-              </strong>
-            </div>
-            <div class="metric">
-              <span class="metric-label">Top genre</span>
-              <strong>{{ summary.top_genre ?? '—' }}</strong>
-            </div>
-          </section>
-
-          <div v-if="hasCharts" class="charts">
-            <section class="chart-card">
-              <h3>Time of day</h3>
-              <NexusChart type="bar" :data="timeOfDayData" height="14rem" />
-            </section>
-            <section class="chart-card">
-              <h3>Weekday</h3>
-              <NexusChart type="bar" :data="weekdayData" height="14rem" />
-            </section>
-            <section class="chart-card chart-card--wide">
-              <h3>Genres</h3>
-              <NexusChart type="doughnut" :data="genreData" height="16rem" />
-            </section>
-            <section v-if="hasListeningRadar" class="chart-card">
-              <h3>Listening DNA (7d)</h3>
-              <NexusChart type="radar" :data="listeningRadarData" height="14rem" />
-            </section>
-          </div>
-
-          <section class="tops">
-            <div class="tops-head">
-              <h3>Top artists & tracks</h3>
-              <Select
-                v-model="timeRange"
-                :options="rangeOptions"
-                option-label="label"
-                option-value="value"
-                size="small"
-              />
-            </div>
-            <div class="tops-grid">
-              <div>
-                <h4>Artists</h4>
-                <ol v-if="topArtists.length" class="rank-list">
-                  <li v-for="row in topArtists" :key="row.artist.id">
-                    <button
-                      type="button"
-                      class="rank-btn"
-                      @click="
-                        router.push({
-                          name: 'spotify-artist',
-                          params: { artistId: row.artist.id },
-                        })
-                      "
-                    >
-                      <span class="rank">{{ row.rank }}</span>
-                      <span class="name">{{ row.artist.name }}</span>
-                    </button>
-                  </li>
-                </ol>
-                <p v-else class="empty">No top artists yet.</p>
-              </div>
-              <div>
-                <h4>Tracks</h4>
-                <ol v-if="topTracks.length" class="rank-list">
-                  <li v-for="row in topTracks" :key="row.track.id">
-                    <span class="rank">{{ row.rank }}</span>
-                    <span class="name">{{ row.track.name }}</span>
-                  </li>
-                </ol>
-                <p v-else class="empty">No top tracks yet.</p>
-              </div>
-            </div>
-          </section>
-
-          <section class="on-repeat">
-            <h3>On repeat</h3>
-            <div v-if="onRepeat.length" class="track-list">
-              <NexusSpotifyTrackRow
-                v-for="item in onRepeat"
-                :key="item.track.id"
-                :track="item.track"
-                :subtitle="`${item.play_count} plays · ${item.window_days}d`"
-              />
-            </div>
-            <p v-else class="empty">Play the same track twice in a week to see it here.</p>
-          </section>
-        </template>
+    <template #range>
+      <div class="range">
+        <ListeningNav />
+        <span class="spacer" />
+        <NxPillGroup v-model="range" :options="rangeOptions" label="Time range" size="sm" />
       </div>
-    </NexusSpotifyChrome>
-  </NexusPageWrapper>
+    </template>
+
+    <template #empty>
+      <NxEmptyState
+        v-if="!spotify.connected"
+        icon="listening"
+        title="Connect Spotify first"
+        body="Stats build up from what you play once Spotify is linked."
+      >
+        <Button rounded label="Connect Spotify" @click="spotify.connect()" />
+      </NxEmptyState>
+      <NxEmptyState v-else icon="listening" title="Not enough listening yet" body="Play some music, sync, and check back.">
+        <Button rounded label="Sync now" :loading="spotify.syncPending" @click="spotify.syncNow()" />
+      </NxEmptyState>
+    </template>
+
+    <template #fields>
+      <CollectionFields section="listening" :fields="fields" />
+    </template>
+
+    <NxPanel title="Top artists" variant="flush" class="wide">
+      <NxRankList v-if="topArtists.length" :items="topArtists" variant="circles" />
+      <p v-else class="empty">No top artists for this range yet.</p>
+    </NxPanel>
+
+    <NxPanel title="When you listen">
+      <template v-if="dayparts.total">
+        <NxHourBars
+          :values="dayparts.counts"
+          :ticks="DAYPARTS.map(capitalise)"
+          :height="140"
+          label="Plays by time of day"
+        />
+        <NxSerifSummary v-if="dayparts.peak" size="md" class="say">
+          Your <b>{{ dayparts.peak }}s</b> are the loudest:
+          <em>{{ Math.round(dayparts.share * 100) }}%</em> of everything you play lands between
+          {{ DAYPART_HOURS[dayparts.peak] }}.
+        </NxSerifSummary>
+      </template>
+      <p v-else class="empty">Not enough plays to see a pattern yet.</p>
+    </NxPanel>
+
+    <NxPanel title="By weekday">
+      <template v-if="weekdays.some((d) => d.count > 0)">
+        <NxHourBars
+          :values="weekdays.map((d) => d.count)"
+          :ticks="weekdays.map((d) => d.day.slice(0, 3))"
+          :height="140"
+          label="Plays by weekday"
+        />
+      </template>
+      <p v-else class="empty">Not enough plays to see a pattern yet.</p>
+    </NxPanel>
+
+    <NxPanel title="Top tracks">
+      <NxRankList v-if="topTracks.length" :items="topTracks" shape="square" />
+      <p v-else class="empty">No top tracks for this range yet.</p>
+    </NxPanel>
+
+    <NxPanel title="On repeat">
+      <div v-if="onRepeat.length">
+        <NexusSpotifyTrackRow
+          v-for="item in onRepeat"
+          :key="item.track.id"
+          :track="item.track"
+          :meta="`${item.play_count}×`"
+          @play="spotify.playTrackUri(item.track.uri)"
+        />
+      </div>
+      <p v-else class="empty">Play the same track twice in a week to see it here.</p>
+    </NxPanel>
+
+    <NxPanel title="Genres">
+      <NxMeters v-if="genres.length" :items="genres" :cols="1" />
+      <p v-else class="empty">Genres appear once your top artists sync.</p>
+    </NxPanel>
+
+    <NxPanel title="Sound of your week">
+      <NxMeters v-if="dna.length" :items="dna" />
+      <p v-else class="empty">An acoustic profile builds as you listen to full tracks.</p>
+    </NxPanel>
+  </StatsTemplate>
 </template>
 
 <style scoped>
-.stats-page {
+.range {
   display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  padding-bottom: 2rem;
-}
-
-.head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--spotify-green);
-}
-
-.head h2 {
-  margin: 0.15rem 0 0;
-  font-size: 1.6rem;
-  font-weight: 700;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.9rem 1rem;
-  border-radius: 0.85rem;
-  background: var(--spotify-card-surface);
-  border: 1px solid color-mix(in srgb, var(--spotify-green) 16%, transparent);
-}
-
-.metric-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-}
-
-.metric strong {
-  font-size: 1.25rem;
-  font-weight: 700;
-  text-transform: capitalize;
-}
-
-.charts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-}
-
-.chart-card {
-  padding: 1rem;
-  border-radius: 0.85rem;
-  background: var(--spotify-card-surface);
-  border: 1px solid color-mix(in srgb, var(--spotify-green) 14%, transparent);
-}
-
-.chart-card--wide {
-  grid-column: 1 / -1;
-}
-
-.chart-card h3,
-.tops h3,
-.on-repeat h3 {
-  margin: 0 0 0.75rem;
-  font-size: 1rem;
-}
-
-.tops,
-.on-repeat {
-  padding: 1rem;
-  border-radius: 0.85rem;
-  background: var(--spotify-card-surface);
-  border: 1px solid color-mix(in srgb, var(--spotify-green) 14%, transparent);
-}
-
-.tops-head {
-  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.85rem;
+  gap: 10px;
 }
 
-.tops-head h3 {
-  margin: 0;
+.spacer {
+  flex: 1;
 }
 
-.tops-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.tops-grid h4 {
-  margin: 0 0 0.5rem;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: color-mix(in srgb, var(--lavender-blush) 60%, transparent);
-}
-
-.rank-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.rank-list li,
-.rank-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
-}
-
-.rank-btn {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  padding: 0.35rem 0.4rem;
-  border-radius: 0.5rem;
-}
-
-.rank-btn:hover {
-  background: color-mix(in srgb, var(--spotify-green) 10%, transparent);
-}
-
-.rank {
-  flex: 0 0 1.5rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--spotify-green);
-}
-
-.name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.track-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+.say {
+  margin-top: 22px;
 }
 
 .empty {
   margin: 0;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-  font-size: 0.9rem;
-}
-
-.chart-skel {
-  border-radius: 0.85rem;
-}
-
-.ml-2 {
-  margin-left: 0.5rem;
-}
-
-@media (max-width: 900px) {
-  .summary-grid,
-  .charts,
-  .tops-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .chart-card--wide {
-    grid-column: auto;
-  }
+  font-size: 14px;
+  color: var(--ink-3);
 }
 </style>

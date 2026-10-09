@@ -5,6 +5,8 @@ import NxTopBar from '@design/components/shell/NxTopBar.vue'
 import NxDock from '@design/components/shell/NxDock.vue'
 import NxCommandPalette from '@design/components/shell/NxCommandPalette.vue'
 import NexusSpotifyPlayerPanel from '@components/nexus-spotify-player-panel/NexusSpotifyPlayerPanel.vue'
+import NexusSpotifyQueuePanel from '@components/nexus-spotify-queue-panel/NexusSpotifyQueuePanel.vue'
+import NexusSpotifyAddToPlaylist from '@components/nexus-spotify-add-to-playlist/NexusSpotifyAddToPlaylist.vue'
 import { useCommandStore } from '@design/command/command.store'
 import { createNavigationSource } from '@design/command/navigation-source'
 import { createSearchSource } from '@design/command/search-source'
@@ -90,6 +92,8 @@ onBeforeUnmount(() => {
   <template v-if="route.meta.shell">
     <NxDock />
     <NexusSpotifyPlayerPanel />
+    <NexusSpotifyQueuePanel />
+    <NexusSpotifyAddToPlaylist />
     <NxCommandPalette />
   </template>
 </template>

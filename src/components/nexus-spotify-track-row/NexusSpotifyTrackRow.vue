@@ -2,230 +2,217 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { MenuItem } from 'primevue/menuitem'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxIconButton from '@design/components/NxIconButton.vue'
 import type { SpotifyTrack } from '@/types/spotify/spotify'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 
 const props = withDefaults(
   defineProps<{
     track: SpotifyTrack
+    /** Replaces the artist line (recommendation reason, play count). */
     subtitle?: string
-    playing?: boolean
+    /** Quiet right-aligned note before the duration. */
+    meta?: string
+    /** Leading number (album track number, playlist position, rank). */
+    index?: number
+    /** Hide artwork when every row shares it (album pages). */
+    art?: boolean
     showActions?: boolean
   }>(),
-  {
-    showActions: true,
-  },
+  { subtitle: undefined, meta: undefined, index: undefined, art: true, showActions: true },
 )
 
-const emit = defineEmits<{
-  play: []
-}>()
+const emit = defineEmits<{ play: [] }>()
 
 const spotify = useSpotifyStore()
 const router = useRouter()
 const menu = ref<{ toggle: (event: Event) => void } | null>(null)
 
 const liked = computed(() => spotify.isUriLiked(props.track.uri))
-const busy = computed(() => spotify.controlBusy)
-const showQuickActions = computed(() => props.showActions)
+const playing = computed(() => Boolean(props.track.uri) && spotify.player?.item?.uri === props.track.uri)
+const isPlaying = computed(() => playing.value && spotify.player?.is_playing === true)
+const artists = computed(() => props.track.artists.filter((a) => a.id && a.name))
+const artistLine = computed(() => props.track.artists.map((a) => a.name).join(', ') || 'Unknown artist')
 
 const menuItems = computed<MenuItem[]>(() => [
-  ...(props.track.artists[0]?.id
-    ? [
-        {
-          label: 'Open artist',
-          icon: 'pi pi-user',
-          command: () => {
-            void router.push({
-              name: 'spotify-artist',
-              params: { artistId: props.track.artists[0]!.id },
-            })
-          },
-        } satisfies MenuItem,
-      ]
-    : []),
+  {
+    label: liked.value ? 'Remove from Liked Songs' : 'Save to Liked Songs',
+    disabled: !props.track.uri,
+    command: () => void spotify.toggleLikeUri(props.track.uri),
+  },
+  { label: 'Add to queue', disabled: !props.track.uri, command: () => void spotify.queueTrack(props.track.uri) },
+  { label: 'Add to playlist…', disabled: !props.track.uri, command: () => spotify.openAddToPlaylist(props.track.uri) },
+  ...(props.track.album_id || artists.value.length ? [{ separator: true }] : []),
   ...(props.track.album_id
     ? [
         {
-          label: 'Open album',
-          icon: 'pi pi-disc',
-          command: () => {
-            void router.push({
-              name: 'spotify-album',
-              params: { albumId: props.track.album_id! },
-            })
-          },
-        } satisfies MenuItem,
+          label: 'Go to album',
+          command: () => void router.push({ name: 'spotify-album', params: { albumId: props.track.album_id! } }),
+        },
       ]
     : []),
+  ...artists.value.slice(0, 3).map((a) => ({
+    label: artists.value.length > 1 ? `Go to ${a.name}` : 'Go to artist',
+    command: () => void router.push({ name: 'spotify-artist', params: { artistId: a.id } }),
+  })),
 ])
-
-const hasMore = computed(() => menuItems.value.length > 0)
 
 function formatDuration(ms: number): string {
   const total = Math.floor(ms / 1000)
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-function openMenu(event: Event): void {
-  event.preventDefault()
-  event.stopPropagation()
-  menu.value?.toggle(event)
-}
-
-function onLike(): void {
-  void spotify.toggleLikeUri(props.track.uri)
-}
-
-function onQueue(): void {
-  void spotify.queueTrack(props.track.uri)
-}
-
-function onAddToPlaylist(): void {
-  spotify.openAddToPlaylist(props.track.uri)
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
 }
 </script>
 
 <template>
-  <div
-    class="track-row"
-    :class="{ playing, 'has-more': showQuickActions && hasMore }"
-  >    <button type="button" class="play-hit" @click="emit('play')">
-      <div class="art">
-        <img
-          v-if="track.album_image_url"
-          :src="track.album_image_url"
-          :alt="track.album_name ?? track.name"
-        />
-        <span v-else class="pi pi-microphone art-fallback" />
-        <span class="play-overlay">
-          <span class="pi" :class="playing ? 'pi-pause' : 'pi-play'" />
-        </span>
-      </div>
-      <div class="meta">
-        <span class="title">{{ track.name }}</span>
-        <span class="artists">
-          {{
-            subtitle ??
-            (track.artists.map((a) => a.name).join(', ') || 'Unknown artist')
-          }}
-        </span>
-      </div>
+  <div class="nx-track" :class="{ playing, 'no-art': !art }">
+    <button
+      v-if="index !== undefined && !art"
+      type="button"
+      class="ix num"
+      :aria-label="`Play ${track.name}`"
+      @click="emit('play')"
+    >
+      <span class="ix-n">{{ index }}</span>
+      <NxIcon class="ix-play" :name="isPlaying ? 'pause' : 'play'" :size="14" />
+    </button>
+    <span v-else-if="index !== undefined" class="ix num">{{ index }}</span>
+
+    <button v-if="art" type="button" class="art" :aria-label="`Play ${track.name}`" @click="emit('play')">
+      <img v-if="track.album_image_url" :src="track.album_image_url" alt="" loading="lazy" />
+      <NxIcon v-else name="music" :size="16" />
+      <span class="overlay"><NxIcon :name="isPlaying ? 'pause' : 'play'" :size="16" /></span>
     </button>
 
-    <div v-if="showQuickActions" class="actions" @click.stop>
-      <Button
-        v-tooltip.top="liked ? 'Remove from Liked Songs' : 'Add to Liked Songs'"
-        type="button"
-        text
-        rounded
-        severity="secondary"
-        class="action-btn"
+    <div class="txt">
+      <button type="button" class="title" tabindex="-1" @click="emit('play')">{{ track.name }}</button>
+      <span class="sub">
+        <template v-if="subtitle">{{ subtitle }}</template>
+        <template v-else-if="artists.length">
+          <template v-for="(a, i) in artists" :key="a.id">
+            <RouterLink :to="{ name: 'spotify-artist', params: { artistId: a.id } }" class="artist">{{
+              a.name
+            }}</RouterLink
+            ><template v-if="i < artists.length - 1">, </template>
+          </template>
+        </template>
+        <template v-else>{{ artistLine }}</template>
+      </span>
+    </div>
+
+    <div v-if="showActions" class="actions">
+      <NxIconButton
+        icon="heart"
+        class="like"
         :class="{ liked }"
-        :icon="liked ? 'pi pi-heart-fill' : 'pi pi-heart'"
-        :disabled="busy || !track.uri"
-        aria-label="Toggle like"
-        @click="onLike"
+        :label="liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'"
+        size="sm"
+        :disabled="spotify.controlBusy || !track.uri"
+        @click="spotify.toggleLikeUri(track.uri)"
       />
-      <Button
-        v-tooltip.top="'Add to queue'"
-        type="button"
-        text
-        rounded
-        severity="secondary"
-        class="action-btn"
-        icon="pi pi-list"
-        :disabled="busy || !track.uri"
-        aria-label="Add to queue"
-        @click="onQueue"
+      <NxIconButton
+        icon="list-plus"
+        class="hover-only"
+        label="Add to queue"
+        size="sm"
+        :disabled="spotify.controlBusy || !track.uri"
+        @click="spotify.queueTrack(track.uri)"
       />
-      <Button
-        v-tooltip.top="'Add to playlist'"
-        type="button"
-        text
-        rounded
-        severity="secondary"
-        class="action-btn"
-        icon="pi pi-plus"
-        :disabled="busy || !track.uri"
-        aria-label="Add to playlist"
-        @click="onAddToPlaylist"
+      <NxIconButton
+        icon="plus"
+        class="hover-only"
+        label="Add to playlist"
+        size="sm"
+        :disabled="!track.uri"
+        @click="spotify.openAddToPlaylist(track.uri)"
       />
     </div>
 
-    <span class="duration">{{ formatDuration(track.duration_ms) }}</span>
+    <span v-if="meta" class="meta">{{ meta }}</span>
+    <span class="dur num">{{ formatDuration(track.duration_ms) }}</span>
 
-    <div v-if="showQuickActions && hasMore" class="more-wrap" @click.stop>
-      <Button
-        v-tooltip.top="'More'"
-        type="button"
-        text
-        rounded
-        severity="secondary"
-        class="action-btn"
-        icon="pi pi-ellipsis-v"
-        aria-label="More actions"
-        @click="openMenu"
-      />
-      <Menu ref="menu" :model="menuItems" popup />
-    </div>
+    <span v-if="showActions || $slots.trailing" class="more">
+      <slot name="trailing" />
+      <template v-if="showActions">
+        <NxIconButton icon="more" label="More" size="sm" :tooltip="false" @click="menu?.toggle($event)" />
+        <Menu ref="menu" :model="menuItems" popup />
+      </template>
+    </span>
   </div>
 </template>
 
 <style scoped>
-.track-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 0.2rem;
-  width: 100%;
-  padding: 0.35rem 0.35rem 0.35rem 0.35rem;
-  border-radius: 0.75rem;
-  transition: background-color 0.15s ease;
-}
-
-.track-row.has-more {
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-}
-
-.track-row:hover {
-  background: color-mix(in srgb, var(--lavender-blush) 6%, transparent);
-}
-
-.track-row.playing {
-  background: color-mix(in srgb, var(--light-green) 8%, transparent);
-}
-
-.track-row.playing .title {
-  color: var(--light-green);
-}
-
-.play-hit {
+.nx-track {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 14px;
   min-width: 0;
-  padding: 0.2rem;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  transition: background 0.2s;
+}
+
+.nx-track:last-child {
+  border-bottom: 0;
+}
+
+.nx-track:hover {
+  background: var(--tint);
+}
+
+.ix {
+  position: relative;
+  flex: 0 0 24px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: 0;
-  border-radius: 0.65rem;
-  background: transparent;
-  color: inherit;
-  text-align: left;
+  background: none;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+button.ix {
   cursor: pointer;
+}
+
+.ix-play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  opacity: 0;
+  color: var(--ink);
+}
+
+.nx-track:hover .ix-n,
+.nx-track.playing .ix-n {
+  opacity: 0;
+}
+
+.nx-track:hover .ix-play,
+.nx-track.playing .ix-play {
+  opacity: 1;
+}
+
+.nx-track.playing .ix-play {
+  color: var(--acc);
 }
 
 .art {
   position: relative;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.5rem;
+  flex: 0 0 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
   overflow: hidden;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
   display: grid;
   place-items: center;
+  color: var(--ink-3);
+  background: var(--amb-2);
+  cursor: pointer;
 }
 
 .art img {
@@ -234,133 +221,125 @@ function onAddToPlaylist(): void {
   object-fit: cover;
 }
 
-.art-fallback {
-  color: color-mix(in srgb, var(--lavender-blush) 45%, transparent);
-}
-
-.play-overlay {
+.overlay {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--coffee-bean) 55%, transparent);
+  color: #fff;
+  background: rgb(0 0 0 / 0.5);
   opacity: 0;
-  transition: opacity 0.15s ease;
-  color: var(--lavender-blush);
+  transition: opacity 0.15s;
 }
 
-.track-row:hover .play-overlay {
+.nx-track:hover .overlay,
+.art:focus-visible .overlay {
   opacity: 1;
 }
 
-.meta {
-  min-width: 0;
+.txt {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 1px;
 }
 
 .title {
-  font-size: 0.95rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-weight: 600;
-  color: var(--lavender-blush);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.playing .title {
+  color: var(--acc);
+}
+
+.sub {
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.artists {
-  font-size: 0.8rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.actions,
-.more-wrap {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s ease;
+.artist:hover {
+  color: var(--ink);
+  text-decoration: underline;
 }
 
 .actions {
-  gap: 0;
-}
-
-.track-row:hover .actions,
-.track-row:hover .more-wrap,
-.track-row:focus-within .actions,
-.track-row:focus-within .more-wrap {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.action-btn {
-  width: 2rem !important;
-  height: 2rem !important;
-  min-width: 2rem !important;
-  padding: 0 !important;
-  color: color-mix(in srgb, var(--lavender-blush) 70%, transparent) !important;
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-
-.action-btn:hover:not(:disabled) {
-  color: var(--lavender-blush) !important;
-  background: transparent !important;
-}
-
-.action-btn.liked,
-.action-btn.liked:hover:not(:disabled) {
-  color: var(--light-green) !important;
-}
-
-.duration {
-  font-size: 0.75rem;
-  color: color-mix(in srgb, var(--lavender-blush) 45%, transparent);
-  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
-  min-width: 2.5rem;
+}
+
+.hover-only,
+.like:not(.liked) {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.nx-track:hover .hover-only,
+.nx-track:hover .like,
+.nx-track:focus-within .hover-only,
+.nx-track:focus-within .like {
+  opacity: 1;
+}
+
+.like.liked {
+  color: var(--acc);
+}
+
+.like.liked :deep(svg) {
+  fill: currentColor;
+}
+
+.meta {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.dur {
+  flex: 0 0 2.6rem;
   text-align: right;
-  padding-right: 0.1rem;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.more {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+@media (hover: none), (max-width: 640px) {
+  .actions,
+  .meta {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {
-  .actions,
-  .more-wrap {
-    opacity: 1;
-    pointer-events: auto;
+  .nx-track {
+    gap: 10px;
+    padding-inline: 2px;
   }
 
-  .track-row {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      'play duration more'
-      'play actions actions';
-    gap: 0.2rem 0.35rem;
-  }
-
-  .play-hit {
-    grid-area: play;
-  }
-
-  .actions {
-    grid-area: actions;
-    justify-self: end;
-  }
-
-  .duration {
-    grid-area: duration;
-  }
-
-  .more-wrap {
-    grid-area: more;
+  .nx-track:not(.no-art) .ix {
+    display: none;
   }
 }
 </style>

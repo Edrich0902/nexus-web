@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusSpotifyChrome from '@components/nexus-spotify-chrome/NexusSpotifyChrome.vue'
+import DetailTemplate from '@design/templates/DetailTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxIconButton from '@design/components/NxIconButton.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import { usePaletteAmbient } from '@design/usePaletteAmbient'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
-import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 import type { SpotifyPlaylist } from '@/types/spotify/spotify'
-import { Status } from '@/types/status'
+import { plainText, relativeTime, totalDuration } from './listening'
 
 const spotify = useSpotifyStore()
 const route = useRoute()
@@ -16,52 +20,58 @@ const router = useRouter()
 const confirm = useConfirm()
 
 const playlist = ref<SpotifyPlaylist | null>(null)
-const status = ref<Status>(Status.LOADING)
+const state = ref<ViewState>('loading')
+const refreshing = ref(false)
 const editOpen = ref(false)
-const editName = ref('')
-const editDescription = ref('')
+const edit = ref({ name: '', description: '' })
 const saving = ref(false)
+let requestId = 0
 
 const playlistId = computed(() => String(route.params.playlistId ?? ''))
 
+usePaletteAmbient(() => playlist.value?.image_url)
+
 async function load(refresh = false): Promise<void> {
-  status.value = Status.LOADING
+  const current = ++requestId
+  if (refresh) refreshing.value = true
+  else state.value = 'loading'
   const data = await spotify.fetchPlaylist(playlistId.value, refresh)
-  playlist.value = data
-  status.value = data ? Status.OK : Status.ERROR
-  if (data) {
-    editName.value = data.name
-    editDescription.value = data.description ?? ''
-  }
+  if (current !== requestId) return
+  refreshing.value = false
+  if (data) playlist.value = data
+  if (!refresh) state.value = data ? 'ready' : 'error'
 }
 
-onMounted(() => {
-  void load()
-})
-
-watch(playlistId, () => {
-  void load()
-})
+watch(playlistId, () => void load(), { immediate: true })
 
 const items = computed(() => playlist.value?.items ?? [])
+const tracks = computed(() => items.value.flatMap((i) => (i.track ? [i.track] : [])))
 
-watch(
-  items,
-  (list) => {
-    const uris = list
-      .map((item) => item.track?.uri)
-      .filter((uri): uri is string => Boolean(uri))
-    void spotify.refreshLikedUris(uris)
-  },
-  { deep: true },
-)
+watch(tracks, (list) => void spotify.refreshLikedUris(list.map((t) => t.uri)))
+
+const description = computed(() => plainText(playlist.value?.description))
+
+const lede = computed(() => {
+  const p = playlist.value
+  if (!p) return ''
+  const parts = [`${p.item_count} ${p.item_count === 1 ? 'track' : 'tracks'}`]
+  if (tracks.value.length) parts.push(totalDuration(tracks.value))
+  if (p.synced_at) parts.push(`synced ${relativeTime(p.synced_at)}`)
+  return parts.join(' · ')
+})
+
+function openEdit(): void {
+  if (!playlist.value) return
+  edit.value = { name: playlist.value.name, description: description.value }
+  editOpen.value = true
+}
 
 async function saveEdits(): Promise<void> {
-  if (!playlist.value) return
+  if (!playlist.value || !edit.value.name.trim()) return
   saving.value = true
   const updated = await spotify.updatePlaylist(playlist.value.id, {
-    name: editName.value.trim(),
-    description: editDescription.value.trim(),
+    name: edit.value.name.trim(),
+    description: edit.value.description.trim(),
   })
   saving.value = false
   if (updated) {
@@ -70,326 +80,167 @@ async function saveEdits(): Promise<void> {
   }
 }
 
-function confirmDelete(event: Event): void {
+function confirmUnfollow(event: Event): void {
   confirm.require({
     target: event.currentTarget as HTMLElement,
-    message: 'Unfollow this playlist from Spotify?',
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: {
-      label: 'Cancel',
-      severity: 'secondary',
-      outlined: true,
-    },
-    acceptProps: {
-      label: 'Remove',
-      severity: 'danger',
-    },
+    message: playlist.value?.is_owner ? 'Delete this playlist from your Spotify?' : 'Unfollow this playlist?',
+    rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
+    acceptProps: { label: playlist.value?.is_owner ? 'Delete' : 'Unfollow', severity: 'danger' },
     accept: async () => {
       if (!playlist.value) return
-      const ok = await spotify.deletePlaylist(playlist.value.id)
-      if (ok) await router.push({ name: 'spotify' })
+      if (await spotify.deletePlaylist(playlist.value.id)) await router.push({ name: 'spotify' })
     },
   })
 }
 
 async function removeTrack(uri: string, position: number): Promise<void> {
   if (!playlist.value) return
-  const ok = await spotify.removePlaylistTrack(playlist.value.id, uri, position)
-  if (ok) await load()
+  if (await spotify.removePlaylistTrack(playlist.value.id, uri, position)) await load(true)
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar :title="playlist?.name ?? 'Playlist'">
-    <template #toolbar>
-      <div class="toolbar-actions">
-        <Button
-          label="Back"
-          icon="pi pi-arrow-left"
-          severity="secondary"
-          text
-          @click="router.push({ name: 'spotify' })"
-        />
-        <Button
-          v-if="playlist"
-          label="Refresh"
-          icon="pi pi-refresh"
-          severity="secondary"
-          text
-          @click="load(true)"
-        />
-      </div>
+  <DetailTemplate
+    :state="state"
+    :back-to="{ name: 'spotify' }"
+    back-label="Listening"
+    error-title="Playlist not found"
+    error-body="It may have been deleted, or Spotify could not be reached."
+  >
+    <template #stage>
+      <NxStage :eyebrow="playlist?.is_owner ? 'Your playlist' : 'Playlist'" :title="playlist?.name ?? 'Playlist'">
+        <template #visual>
+          <img v-if="playlist?.image_url" :src="playlist.image_url" alt="" />
+          <NxIcon v-else name="queue" :size="48" />
+        </template>
+        <template #lede>
+          <p v-if="description" class="desc">{{ description }}</p>
+          <span class="meta">{{ lede }}</span>
+        </template>
+        <template v-if="playlist" #actions>
+          <Button
+            rounded
+            severity="contrast"
+            label="Play"
+            :disabled="spotify.controlBusy || !items.length"
+            @click="spotify.playPlaylist(playlist.uri)"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="play" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <Button
+            rounded
+            severity="secondary"
+            label="Shuffle"
+            :disabled="spotify.controlBusy || !items.length"
+            @click="spotify.setShuffle(true).then(() => spotify.playPlaylist(playlist!.uri))"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="shuffle" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <NxIconButton v-if="playlist.is_owner" icon="edit" variant="tint" label="Edit details" @click="openEdit" />
+          <NxIconButton
+            icon="refresh"
+            variant="tint"
+            label="Refresh from Spotify"
+            :disabled="refreshing"
+            @click="load(true)"
+          />
+          <NxIconButton
+            icon="trash"
+            variant="tint"
+            :label="playlist.is_owner ? 'Delete playlist' : 'Unfollow playlist'"
+            @click="confirmUnfollow"
+          />
+        </template>
+      </NxStage>
     </template>
 
-    <NexusSpotifyChrome>
-    <div class="playlist-page">
-      <NexusSkeletonMedia v-if="status === Status.LOADING" :rows="8" />
-
-      <p v-else-if="!playlist" class="empty">Playlist not found.</p>
-
-      <template v-else>
-        <header class="hero">
-          <div class="art">
-            <img
-              v-if="playlist.image_url"
-              :src="playlist.image_url"
-              :alt="playlist.name"
+    <NxEmptyState
+      v-if="!items.length"
+      icon="queue"
+      title="Nothing in here yet"
+      body="Add tracks from search, the queue or any track's menu."
+    />
+    <div v-else :class="{ dim: refreshing }">
+      <template v-for="item in items" :key="`${item.position}-${item.track?.id ?? 'gone'}`">
+        <NexusSpotifyTrackRow
+          v-if="item.track"
+          :track="item.track"
+          :index="item.position + 1"
+          :meta="item.added_at ? relativeTime(item.added_at) : undefined"
+          @play="spotify.playPlaylist(playlist!.uri, item.position)"
+        >
+          <template v-if="playlist?.is_owner" #trailing>
+            <NxIconButton
+              icon="minus"
+              label="Remove from playlist"
+              size="sm"
+              @click="removeTrack(item.track.uri, item.position)"
             />
-            <span v-else class="pi pi-list text-3xl" />
-          </div>
-          <div class="hero-copy">
-            <p class="eyebrow">Playlist</p>
-            <h2>{{ playlist.name }}</h2>
-            <p v-if="playlist.description" class="description">
-              {{ playlist.description }}
-            </p>
-            <p class="meta">{{ playlist.item_count }} tracks</p>
-            <div class="hero-actions">
-              <Button
-                label="Play"
-                icon="pi pi-play"
-                :loading="spotify.controlBusy"
-                @click="spotify.playPlaylist(playlist.uri)"
-              />
-              <Button
-                v-if="playlist.is_owner"
-                label="Edit"
-                icon="pi pi-pencil"
-                severity="secondary"
-                text
-                @click="editOpen = true"
-              />
-              <Button
-                label="Unfollow"
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                @click="confirmDelete"
-              />
-            </div>
-          </div>
-        </header>
-
-        <section class="tracks">
-          <p v-if="items.length === 0" class="empty">
-            This playlist has no tracks yet.
-          </p>
-          <div v-else class="track-list">
-            <div
-              v-for="item in items"
-              :key="`${item.position}-${item.track?.id ?? item.position}`"
-              class="track-line"
-            >
-              <span class="pos">{{ item.position + 1 }}</span>
-              <NexusSpotifyTrackRow
-                v-if="item.track"
-                :track="item.track"
-                class="track-grow"
-                @play="
-                  spotify.playPlaylist(playlist.uri, item.position)
-                "
-              />
-              <span v-else class="missing">Unavailable track</span>
-              <button
-                v-if="item.track && playlist.is_owner"
-                v-tooltip.left="'Remove'"
-                type="button"
-                class="remove"
-                @click="removeTrack(item.track.uri, item.position)"
-              >
-                <span class="pi pi-times" />
-              </button>
-            </div>
-          </div>
-        </section>
+          </template>
+        </NexusSpotifyTrackRow>
+        <div v-else class="gone">
+          <span class="num">{{ item.position + 1 }}</span>
+          <span>Track no longer available</span>
+        </div>
       </template>
     </div>
-    </NexusSpotifyChrome>
+  </DetailTemplate>
 
-    <Dialog
-      v-model:visible="editOpen"
-      modal
-      header="Edit playlist"
-      :style="{ width: 'min(28rem, 92vw)' }"
-    >
-      <div class="edit-form">
-        <label class="field">
-          <span>Name</span>
-          <InputText v-model="editName" class="w-full" />
-        </label>
-        <label class="field">
-          <span>Description</span>
-          <Textarea v-model="editDescription" rows="3" class="w-full" auto-resize />
-        </label>
-      </div>
-      <template #footer>
-        <Button
-          label="Cancel"
-          severity="secondary"
-          text
-          @click="editOpen = false"
-        />
-        <Button
-          label="Save"
-          :loading="saving"
-          :disabled="!editName.trim()"
-          @click="saveEdits"
-        />
-      </template>
-    </Dialog>
-  </NexusPageWrapper>
+  <Dialog v-model:visible="editOpen" modal header="Edit playlist" :style="{ width: 'min(30rem, 94vw)' }">
+    <form id="edit-playlist" class="nx-form" @submit.prevent="saveEdits">
+      <label class="f">
+        <span>Name</span>
+        <InputText v-model="edit.name" autofocus />
+      </label>
+      <label class="f">
+        <span>Description</span>
+        <Textarea v-model="edit.description" rows="3" auto-resize />
+      </label>
+    </form>
+    <template #footer>
+      <Button label="Cancel" text severity="secondary" @click="editOpen = false" />
+      <Button
+        type="submit"
+        form="edit-playlist"
+        rounded
+        label="Save"
+        :loading="saving"
+        :disabled="!edit.name.trim()"
+      />
+    </template>
+  </Dialog>
 </template>
 
 <style scoped>
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.playlist-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding-top: 0.5rem;
-  padding-bottom: 2rem;
-}
-
-.empty {
-  margin: 0;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
-}
-
-.hero {
-  display: grid;
-  grid-template-columns: 10rem 1fr;
-  gap: 1.25rem;
-  padding: 1rem;
-  border-radius: 1rem;
-  background: var(--spotify-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-}
-
-@media (max-width: 700px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
-}
-
-.art {
-  width: 10rem;
-  height: 10rem;
-  border-radius: 0.85rem;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-  display: grid;
-  place-items: center;
-  color: color-mix(in srgb, var(--lavender-blush) 40%, transparent);
-}
-
-.art img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.hero-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.35rem;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--meadow-green);
-}
-
-.hero-copy h2 {
-  margin: 0;
-  font-size: clamp(1.4rem, 2.5vw, 1.9rem);
-  line-height: 1.15;
-}
-
-.description {
-  margin: 0;
-  color: color-mix(in srgb, var(--lavender-blush) 62%, transparent);
-  line-height: 1.4;
+.desc {
+  margin: 0 0 6px;
 }
 
 .meta {
-  margin: 0;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 48%, transparent);
+  font-size: 14px;
+  color: var(--ink-3);
 }
 
-.hero-actions {
+.gone {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.5rem;
+  gap: 14px;
+  padding: 14px 6px;
+  font-size: 13px;
+  color: var(--ink-4);
+  border-bottom: 1px solid var(--line);
 }
 
-.track-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+.gone .num {
+  width: 24px;
+  text-align: center;
 }
 
-.track-line {
-  display: grid;
-  grid-template-columns: 2rem 1fr auto;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.pos {
-  text-align: right;
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  color: color-mix(in srgb, var(--lavender-blush) 40%, transparent);
-}
-
-.track-grow {
-  min-width: 0;
-}
-
-.missing {
-  padding: 0.75rem;
-  color: color-mix(in srgb, var(--lavender-blush) 45%, transparent);
-}
-
-.remove {
-  width: 2rem;
-  height: 2rem;
-  border: 0;
-  border-radius: 0.5rem;
-  background: transparent;
-  color: color-mix(in srgb, var(--lavender-blush) 45%, transparent);
-  cursor: pointer;
-}
-
-.remove:hover {
-  color: var(--meadow-green);
-  background: color-mix(in srgb, var(--meadow-green) 12%, transparent);
-}
-
-.edit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 70%, transparent);
+.dim {
+  opacity: 0.55;
+  transition: opacity 0.2s;
 }
 </style>

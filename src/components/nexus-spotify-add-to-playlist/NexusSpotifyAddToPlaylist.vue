@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
+import NxIcon from '@design/components/NxIcon.vue'
 
 const spotify = useSpotifyStore()
 
@@ -18,7 +19,7 @@ const membershipLoading = ref(false)
 const containingIds = ref<Set<string>>(new Set())
 
 const uri = computed(() => spotify.addToPlaylistUri)
-const playlists = computed(() => spotify.playlists)
+const playlists = computed(() => spotify.playlists.filter((p) => p.is_owner || p.collaborative))
 
 async function refreshMembership(): Promise<void> {
   if (!uri.value) {
@@ -26,8 +27,7 @@ async function refreshMembership(): Promise<void> {
     return
   }
   membershipLoading.value = true
-  const ids = await spotify.playlistsContainingUri(uri.value)
-  containingIds.value = new Set(ids)
+  containingIds.value = new Set(await spotify.playlistsContainingUri(uri.value))
   membershipLoading.value = false
 }
 
@@ -35,60 +35,32 @@ watch(visible, (open) => {
   if (open) {
     newName.value = ''
     creating.value = false
-    if (spotify.playlists.length === 0) {
-      void spotify.loadHub()
-    }
+    if (spotify.playlists.length === 0) void spotify.loadHub()
     void refreshMembership()
   } else {
     containingIds.value = new Set()
   }
 })
 
-async function addTo(playlistId: string): Promise<void> {
+async function toggle(playlistId: string): Promise<void> {
   if (!uri.value) return
   busyId.value = playlistId
-  const ok = await spotify.addTracksToPlaylist(playlistId, [uri.value], {
-    close: false,
-  })
-  if (ok) {
-    containingIds.value = new Set([...containingIds.value, playlistId])
+  const next = new Set(containingIds.value)
+  if (next.has(playlistId)) {
+    if (await spotify.removeTrackFromPlaylist(playlistId, uri.value)) next.delete(playlistId)
+  } else if (await spotify.addTracksToPlaylist(playlistId, [uri.value], { close: false })) {
+    next.add(playlistId)
   }
+  containingIds.value = next
   busyId.value = null
-}
-
-async function removeFrom(playlistId: string): Promise<void> {
-  if (!uri.value) return
-  busyId.value = playlistId
-  const ok = await spotify.removeTrackFromPlaylist(playlistId, uri.value)
-  if (ok) {
-    const next = new Set(containingIds.value)
-    next.delete(playlistId)
-    containingIds.value = next
-  }
-  busyId.value = null
-}
-
-async function onPlaylistClick(playlistId: string): Promise<void> {
-  if (containingIds.value.has(playlistId)) {
-    await removeFrom(playlistId)
-  } else {
-    await addTo(playlistId)
-  }
 }
 
 async function createAndAdd(): Promise<void> {
   if (!uri.value || !newName.value.trim()) return
   busyId.value = 'new'
-  const playlist = await spotify.createPlaylist({
-    name: newName.value.trim(),
-  })
-  if (playlist) {
-    const ok = await spotify.addTracksToPlaylist(playlist.id, [uri.value], {
-      close: false,
-    })
-    if (ok) {
-      containingIds.value = new Set([...containingIds.value, playlist.id])
-    }
+  const playlist = await spotify.createPlaylist({ name: newName.value.trim() })
+  if (playlist && (await spotify.addTracksToPlaylist(playlist.id, [uri.value], { close: false }))) {
+    containingIds.value = new Set([...containingIds.value, playlist.id])
   }
   busyId.value = null
   creating.value = false
@@ -97,77 +69,38 @@ async function createAndAdd(): Promise<void> {
 </script>
 
 <template>
-  <Dialog
-    v-model:visible="visible"
-    modal
-    header="Add to playlist"
-    :style="{ width: 'min(26rem, 92vw)' }"
-  >
-    <div class="add-panel">
-      <Button
-        v-if="!creating"
-        label="New playlist"
-        icon="pi pi-plus"
-        text
-        size="small"
-        class="new-btn"
-        @click="creating = true"
-      />
-      <div v-else class="create-row">
-        <InputText
-          v-model="newName"
-          placeholder="Playlist name"
-          class="w-full"
-          autofocus
-          @keyup.enter="createAndAdd"
-        />
-        <Button
-          label="Create & add"
-          size="small"
-          :loading="busyId === 'new'"
-          :disabled="!newName.trim()"
-          @click="createAndAdd"
-        />
-      </div>
+  <Dialog v-model:visible="visible" modal header="Add to playlist" :style="{ width: 'min(28rem, 94vw)' }">
+    <div class="add">
+      <form v-if="creating" class="create" @submit.prevent="createAndAdd">
+        <InputText v-model="newName" placeholder="Playlist name" aria-label="Playlist name" autofocus fluid />
+        <Button type="submit" rounded label="Create" :loading="busyId === 'new'" :disabled="!newName.trim()" />
+      </form>
+      <button v-else type="button" class="row new" @click="creating = true">
+        <span class="art"><NxIcon name="plus" :size="18" /></span>
+        <span class="name">New playlist</span>
+      </button>
 
-      <p v-if="playlists.length === 0" class="empty">
-        No playlists yet. Create one above or sync after connecting.
-      </p>
-      <div v-else class="list">
-        <Skeleton
-          v-if="membershipLoading"
-          width="100%"
-          height="0.65rem"
-          class="membership-hint"
-        />
+      <p v-if="playlists.length === 0" class="empty">No playlists of yours yet. Create one above.</p>
+      <div v-else class="list" :aria-busy="membershipLoading">
         <button
-          v-for="playlist in playlists"
-          :key="playlist.id"
+          v-for="p in playlists"
+          :key="p.id"
           type="button"
-          class="playlist-row"
-          :class="{ belongs: containingIds.has(playlist.id) }"
-          :disabled="busyId === playlist.id"
-          @click="onPlaylistClick(playlist.id)"
+          class="row"
+          :class="{ in: containingIds.has(p.id) }"
+          :disabled="busyId === p.id || membershipLoading"
+          :aria-pressed="containingIds.has(p.id)"
+          @click="toggle(p.id)"
         >
-          <div class="art">
-            <img
-              v-if="playlist.image_url"
-              :src="playlist.image_url"
-              :alt="playlist.name"
-            />
-            <span v-else class="pi pi-list" />
-          </div>
-          <span class="name">{{ playlist.name }}</span>
-          <Skeleton
-            v-if="busyId === playlist.id"
-            shape="circle"
-            size="1.25rem"
-          />
-          <template v-else-if="containingIds.has(playlist.id)">
-            <span class="action-label">Remove</span>
-            <span class="pi pi-minus" />
-          </template>
-          <span v-else class="pi pi-plus" />
+          <span class="art">
+            <img v-if="p.image_url" :src="p.image_url" alt="" loading="lazy" />
+            <NxIcon v-else name="queue" :size="16" />
+          </span>
+          <span class="name">{{ p.name }}</span>
+          <span class="state">
+            <ProgressSpinner v-if="busyId === p.id" style="width: 18px; height: 18px" stroke-width="5" />
+            <NxIcon v-else :name="containingIds.has(p.id) ? 'check' : 'plus'" :size="16" />
+          </span>
         </button>
       </div>
     </div>
@@ -175,74 +108,64 @@ async function createAndAdd(): Promise<void> {
 </template>
 
 <style scoped>
-.add-panel {
+.add {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 12px;
 }
 
-.new-btn {
-  align-self: flex-start;
-}
-
-.create-row {
+.create {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  gap: 8px;
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  max-height: 18rem;
+  max-height: 22rem;
   overflow: auto;
 }
 
-.membership-hint {
-  margin-bottom: 0.25rem;
+.list[aria-busy='true'] {
+  opacity: 0.6;
 }
 
-.playlist-row {
+.row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
   width: 100%;
-  padding: 0.5rem;
+  padding: 8px;
   border: 0;
-  border-radius: 0.65rem;
+  border-radius: var(--r-md);
   background: transparent;
-  color: inherit;
-  cursor: pointer;
+  color: var(--ink);
+  font: inherit;
   text-align: left;
+  cursor: pointer;
 }
 
-.playlist-row:hover {
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
+.row:hover:not(:disabled) {
+  background: var(--tint);
 }
 
-.playlist-row.belongs {
-  background: color-mix(in srgb, var(--light-green) 10%, transparent);
-}
-
-.playlist-row.belongs:hover {
-  background: color-mix(in srgb, var(--light-green) 16%, transparent);
-}
-
-.playlist-row.belongs .pi-minus,
-.playlist-row.belongs .action-label {
-  color: var(--light-green);
+.row:disabled {
+  cursor: progress;
 }
 
 .art {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.35rem;
+  flex: 0 0 40px;
+  height: 40px;
+  border-radius: var(--r-xs);
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-  flex-shrink: 0;
+  color: var(--ink-3);
+  background: var(--tint-2);
+}
+
+.new .art {
+  color: var(--acc);
 }
 
 .art img {
@@ -255,20 +178,28 @@ async function createAndAdd(): Promise<void> {
   flex: 1;
   min-width: 0;
   font-weight: 600;
-  color: var(--lavender-blush);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.action-label {
-  font-size: 0.75rem;
-  font-weight: 600;
+.state {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--ink-3);
+}
+
+.row.in .state {
+  color: var(--acc-ink);
+  background: var(--acc);
 }
 
 .empty {
   margin: 0;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+  font-size: 13.5px;
+  color: var(--ink-3);
 }
 </style>

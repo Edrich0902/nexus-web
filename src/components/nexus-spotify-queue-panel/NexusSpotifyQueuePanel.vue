@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxIconButton from '@design/components/NxIconButton.vue'
+import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
 import type { SpotifyPlayerItem } from '@/types/spotify/spotify'
 
 const spotify = useSpotifyStore()
@@ -22,127 +24,120 @@ watch(visible, (open) => {
 })
 
 function artistLabel(item: SpotifyPlayerItem | null): string {
-  if (!item?.artists?.length) return 'Unknown artist'
-  return item.artists.map((a) => a.name).filter(Boolean).join(', ') || 'Unknown artist'
+  return item?.artists?.map((a) => a.name).filter(Boolean).join(', ') || 'Unknown artist'
 }
 
 function artUrl(item: SpotifyPlayerItem | null): string | null {
-  return item?.album?.images?.[0]?.url ?? null
-}
-
-function queueUri(item: SpotifyPlayerItem): string | null {
-  return item.uri ?? null
+  return item?.album?.images?.at(-1)?.url ?? item?.album?.images?.[0]?.url ?? null
 }
 </script>
 
 <template>
-  <Drawer
-    v-model:visible="visible"
-    position="right"
-    header="Queue"
-    class="queue-drawer"
-    :style="{ width: 'min(24rem, 92vw)' }"
-  >
-    <div class="queue-panel">
-      <NexusSkeletonList
-        v-if="spotify.queueLoading && !spotify.queue"
-        :rows="6"
-        variant="track"
-      />
+  <Drawer v-model:visible="visible" position="right" header="Queue" :style="{ width: 'min(26rem, 94vw)' }">
+    <NxSkeletonRows v-if="spotify.queueLoading && !spotify.queue" :rows="7" />
 
-      <template v-else>
-        <section class="section">
-          <h4>Now playing</h4>
-          <div v-if="currentlyPlaying" class="row current">
-            <div class="art">
-              <img
-                v-if="artUrl(currentlyPlaying)"
-                :src="artUrl(currentlyPlaying)!"
-                :alt="currentlyPlaying.name ?? 'Now playing'"
-              />
-              <span v-else class="pi pi-microphone" />
-            </div>
-            <div class="meta">
-              <span class="title">{{ currentlyPlaying.name ?? 'Unknown' }}</span>
-              <span class="artists">{{ artistLabel(currentlyPlaying) }}</span>
-            </div>
-          </div>
-          <p v-else class="empty">Nothing playing right now.</p>
-        </section>
+    <div v-else class="queue">
+      <section>
+        <h3 class="nx-label">Now playing</h3>
+        <div v-if="currentlyPlaying" class="row current">
+          <span class="art">
+            <img v-if="artUrl(currentlyPlaying)" :src="artUrl(currentlyPlaying)!" alt="" />
+            <NxIcon v-else name="music" :size="16" />
+          </span>
+          <span class="txt">
+            <span class="t">{{ currentlyPlaying.name ?? 'Unknown' }}</span>
+            <span class="a">{{ artistLabel(currentlyPlaying) }}</span>
+          </span>
+        </div>
+        <p v-else class="empty">Nothing is playing right now.</p>
+      </section>
 
-        <section class="section">
-          <h4>Next up</h4>
-          <p v-if="upcoming.length === 0" class="empty">
-            Queue is empty. Add tracks from search or any track menu.
-          </p>
-          <div v-else class="list">
-            <div v-for="(item, index) in upcoming" :key="`${item.uri}-${index}`" class="row">
-              <div class="art">
-                <img
-                  v-if="artUrl(item)"
-                  :src="artUrl(item)!"
-                  :alt="item.name ?? 'Queued track'"
-                />
-                <span v-else class="pi pi-microphone" />
-              </div>
-              <div class="meta">
-                <span class="title">{{ item.name ?? 'Unknown' }}</span>
-                <span class="artists">{{ artistLabel(item) }}</span>
-              </div>
-              <button
-                v-if="queueUri(item)"
-                v-tooltip.top="'Add to playlist'"
-                type="button"
-                class="icon-btn"
-                @click="spotify.openAddToPlaylist(queueUri(item)!)"
-              >
-                <span class="pi pi-plus" />
-              </button>
-            </div>
-          </div>
-        </section>
-      </template>
+      <section>
+        <h3 class="nx-label">Next up</h3>
+        <p v-if="upcoming.length === 0" class="empty">
+          The queue is empty. Add tracks from any track's menu.
+        </p>
+        <ol v-else class="list">
+          <li v-for="(item, index) in upcoming" :key="`${item.uri}-${index}`" class="row">
+            <span class="ix num">{{ index + 1 }}</span>
+            <span class="art">
+              <img v-if="artUrl(item)" :src="artUrl(item)!" alt="" loading="lazy" />
+              <NxIcon v-else name="music" :size="16" />
+            </span>
+            <span class="txt">
+              <span class="t">{{ item.name ?? 'Unknown' }}</span>
+              <span class="a">{{ artistLabel(item) }}</span>
+            </span>
+            <NxIconButton
+              v-if="item.uri"
+              icon="plus"
+              label="Add to playlist"
+              size="sm"
+              @click="spotify.openAddToPlaylist(item.uri)"
+            />
+          </li>
+        </ol>
+      </section>
     </div>
   </Drawer>
 </template>
 
 <style scoped>
-.queue-panel {
+.queue {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 24px;
 }
 
-.section h4 {
-  margin: 0 0 0.65rem;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+h3 {
+  margin: 0 0 10px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.45rem 0;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-bottom: 0;
 }
 
 .row.current {
-  padding: 0.65rem;
-  border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--spotify-green, #1db954) 12%, transparent);
+  padding: 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--tint-2);
+}
+
+.row.current .t {
+  color: var(--acc);
+}
+
+.ix {
+  flex: 0 0 18px;
+  font-size: 11.5px;
+  color: var(--ink-4);
+  text-align: right;
 }
 
 .art {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.4rem;
+  flex: 0 0 40px;
+  height: 40px;
+  border-radius: var(--r-xs);
   overflow: hidden;
-  flex-shrink: 0;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--lavender-blush) 8%, transparent);
+  color: var(--ink-3);
+  background: var(--amb-2);
 }
 
 .art img {
@@ -151,49 +146,33 @@ function queueUri(item: SpotifyPlayerItem): string | null {
   object-fit: cover;
 }
 
-.meta {
-  min-width: 0;
+.txt {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
 }
 
-.title {
-  font-size: 0.9rem;
+.t,
+.a {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.t {
   font-weight: 600;
-  color: var(--lavender-blush);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 14px;
 }
 
-.artists {
-  font-size: 0.75rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.a {
+  font-size: 12.5px;
+  color: var(--ink-3);
 }
 
 .empty {
   margin: 0;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
-}
-
-.icon-btn {
-  width: 2rem;
-  height: 2rem;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-  cursor: pointer;
-}
-
-.icon-btn:hover {
-  background: color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-  color: var(--lavender-blush);
+  font-size: 13.5px;
+  color: var(--ink-3);
 }
 </style>

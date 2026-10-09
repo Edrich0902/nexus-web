@@ -17,6 +17,10 @@ import {
   Bookmark,
   CalendarDays,
   Check,
+  Ellipsis,
+  ListMusic,
+  ListPlus,
+  Minus,
   ChefHat,
   Compass,
   Dices,
@@ -116,6 +120,10 @@ export const icons = {
   dice: Dices,
   pin: MapPin,
   calendar: CalendarDays,
+  queue: ListMusic,
+  'list-plus': ListPlus,
+  more: Ellipsis,
+  minus: Minus,
 } satisfies Record<string, Component>
 
 export type IconName = keyof typeof icons
