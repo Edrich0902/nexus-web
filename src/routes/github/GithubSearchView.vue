@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPillGroup from '@design/components/NxPillGroup.vue'
+import NxSearchField from '@design/components/NxSearchField.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
 import { useGithubStore } from '@stores/github/github.store'
 import type {
   GithubSearchCodeHit,
@@ -11,298 +16,244 @@ import type {
   GithubSearchRepoHit,
   GithubSearchType,
 } from '@/types/github/github'
+import CodeNav from './CodeNav.vue'
+import RepoRow from './RepoRow.vue'
+import PullRow from './PullRow.vue'
 
 const github = useGithubStore()
 const router = useRouter()
 
 const query = ref('')
+const searched = ref('')
 const type = ref<GithubSearchType>('repositories')
-let debounceTimer: number | null = null
+const ready = ref(false)
 
-const tabs: { label: string; value: GithubSearchType }[] = [
-  { label: 'Repositories', value: 'repositories' },
-  { label: 'Issues & PRs', value: 'issues' },
-  { label: 'Code', value: 'code' },
+const types: { value: GithubSearchType; label: string }[] = [
+  { value: 'repositories', label: 'Repositories' },
+  { value: 'issues', label: 'Issues & PRs' },
+  { value: 'code', label: 'Code' },
 ]
 
-const repoHits = computed(
-  () => github.searchResults as GithubSearchRepoHit[],
-)
-const issueHits = computed(
-  () => github.searchResults as GithubSearchIssueHit[],
-)
-const codeHits = computed(
-  () => github.searchResults as GithubSearchCodeHit[],
-)
-
-async function runSearch(): Promise<void> {
-  const q = query.value.trim()
-  if (!q) {
-    await github.search('', type.value)
-    return
-  }
-  await github.search(q, type.value)
-}
-
-function scheduleSearch(): void {
-  if (debounceTimer !== null) {
-    window.clearTimeout(debounceTimer)
-  }
-  debounceTimer = window.setTimeout(() => {
-    void runSearch()
-  }, 350)
-}
+const repoHits = computed(() => github.searchResults as GithubSearchRepoHit[])
+const issueHits = computed(() => github.searchResults as GithubSearchIssueHit[])
+const codeHits = computed(() => github.searchResults as GithubSearchCodeHit[])
 
 onMounted(async () => {
   await github.loadHub()
   if (!github.connected) {
     await router.replace({ name: 'github' })
+    return
   }
+  ready.value = true
 })
 
-onUnmounted(() => {
-  if (debounceTimer !== null) {
-    window.clearTimeout(debounceTimer)
-  }
+async function run(q = query.value.trim()): Promise<void> {
+  searched.value = q
+  await github.search(q, type.value)
+}
+
+watch(type, () => {
+  if (searched.value) void run()
 })
 
-watch([query, type], () => {
-  scheduleSearch()
-})
+const state = computed<ViewState>(() => (ready.value ? 'ready' : 'loading'))
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Search">
-    <div class="github-page">
-      <NexusGithubChrome>
-        <div class="search-bar">
-          <InputText
-            v-model="query"
-            class="w-full"
-            placeholder="Search your GitHub…"
-            autofocus
-          />
-        </div>
+  <IndexTemplate :state="state">
+    <template #stage>
+      <NxStage
+        size="compact"
+        eyebrow="Code"
+        title="Search"
+        accent="GitHub"
+        lede="Repositories, issues, pull requests and code across everything you can see."
+      />
+    </template>
 
-        <div class="tabs">
-          <button
-            v-for="tab in tabs"
-            :key="tab.value"
-            type="button"
-            class="tab"
-            :class="{ active: type === tab.value }"
-            @click="type = tab.value"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
+    <template #toolbar>
+      <CodeNav />
+    </template>
 
-        <p v-if="query.trim()" class="result-meta">
-          <Skeleton
-            v-if="github.searchLoading"
-            width="6rem"
-            height="0.75rem"
-          />
-          <template v-else>
-            {{ github.searchTotal }} result{{
-              github.searchTotal === 1 ? '' : 's'
-            }}
-          </template>
-        </p>
-
-        <div v-if="!query.trim()" class="empty">
-          Search only your account — repositories you own, plus issues, PRs, and
-          code in those repos.
-        </div>
-        <NexusSkeletonList
-          v-else-if="github.searchLoading"
-          :rows="6"
-          variant="repo"
+    <div class="search">
+      <div class="controls">
+        <NxSearchField
+          v-model="query"
+          class="field"
+          placeholder="Search GitHub…"
+          :debounce="350"
+          autofocus
+          @search="run"
         />
-        <div
-          v-else-if="github.searchResults.length === 0"
-          class="empty"
-        >
-          No results.
+        <NxPillGroup v-model="type" :options="types" label="Search in" size="sm" />
+      </div>
+
+      <NxSkeletonRows v-if="github.searchLoading" :rows="6" />
+      <NxEmptyState
+        v-else-if="!searched"
+        title="Start typing"
+        body="GitHub search qualifiers work too — try user:, repo:, is:pr or language:."
+        icon="search"
+      />
+      <NxEmptyState
+        v-else-if="!github.searchResults.length"
+        title="No results"
+        :body="`Nothing matched “${searched}”.`"
+        icon="search"
+      />
+      <template v-else>
+        <p class="count">{{ github.searchTotal.toLocaleString() }} results</p>
+
+        <div v-if="type === 'repositories'" class="hits">
+          <RepoRow
+            v-for="hit in repoHits"
+            :key="hit.id ?? hit.full_name ?? ''"
+            :owner="hit.owner"
+            :name="hit.name"
+            :description="hit.description"
+            :language="hit.language"
+            :is-private="hit.private"
+            :stars="hit.stargazers_count"
+            :href="hit.html_url"
+          />
         </div>
 
-        <ul v-else-if="type === 'repositories'" class="list">
-          <li v-for="hit in repoHits" :key="String(hit.id)">
-            <router-link
-              v-if="hit.owner && hit.name"
-              :to="{
-                name: 'github-repo',
-                params: { owner: hit.owner, repo: hit.name },
-              }"
-              class="row"
-            >
-              <strong>{{ hit.full_name }}</strong>
-              <p v-if="hit.description" class="desc">{{ hit.description }}</p>
-              <div class="meta">
-                <span v-if="hit.language">{{ hit.language }}</span>
-                <span v-if="hit.stargazers_count != null">
-                  ★ {{ hit.stargazers_count }}
-                </span>
-              </div>
-            </router-link>
-            <a
-              v-else-if="hit.html_url"
+        <div v-else-if="type === 'issues'">
+          <template v-for="hit in issueHits" :key="hit.id ?? hit.html_url ?? ''">
+            <PullRow
+              v-if="hit.is_pull_request"
+              :owner="hit.repository.owner"
+              :repo="hit.repository.name"
+              :number="hit.number"
+              :title="hit.title"
+              :state="hit.state"
               :href="hit.html_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="row"
-            >
-              <strong>{{ hit.full_name }}</strong>
+              show-repo
+            />
+            <a v-else :href="hit.html_url ?? undefined" target="_blank" rel="noopener noreferrer" class="hit">
+              <span class="issue" :class="{ closed: hit.state === 'closed' }" />
+              <span class="body">
+                <b>{{ hit.title }}</b>
+                <span class="meta">{{ hit.repository.full_name }} · issue #{{ hit.number }} · {{ hit.state }}</span>
+              </span>
+              <NxIcon name="external-link" :size="14" class="ext" />
             </a>
-          </li>
-        </ul>
+          </template>
+        </div>
 
-        <ul v-else-if="type === 'issues'" class="list">
-          <li v-for="hit in issueHits" :key="String(hit.id)">
-            <router-link
-              v-if="
-                hit.is_pull_request &&
-                hit.repository.owner &&
-                hit.repository.name &&
-                hit.number
-              "
-              :to="{
-                name: 'github-pull-detail',
-                params: {
-                  owner: hit.repository.owner,
-                  repo: hit.repository.name,
-                  number: hit.number,
-                },
-              }"
-              class="row"
-            >
-              <strong>{{ hit.title }}</strong>
-              <div class="meta">
-                <span>{{ hit.repository.full_name }}</span>
-                <span>#{{ hit.number }}</span>
-                <span>PR</span>
-                <span>{{ hit.state }}</span>
-              </div>
-            </router-link>
-            <a
-              v-else-if="hit.html_url"
-              :href="hit.html_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="row"
-            >
-              <strong>{{ hit.title }}</strong>
-              <div class="meta">
-                <span>{{ hit.repository.full_name }}</span>
-                <span>#{{ hit.number }}</span>
-                <span>Issue</span>
-                <span>{{ hit.state }}</span>
-              </div>
-            </a>
-          </li>
-        </ul>
-
-        <ul v-else class="list">
-          <li v-for="(hit, index) in codeHits" :key="`${hit.sha}-${index}`">
-            <a
-              v-if="hit.html_url"
-              :href="hit.html_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="row"
-            >
-              <strong>{{ hit.path }}</strong>
-              <div class="meta">
-                <span>{{ hit.repository.full_name }}</span>
-                <span>{{ hit.name }}</span>
-              </div>
-            </a>
-          </li>
-        </ul>
-      </NexusGithubChrome>
+        <div v-else>
+          <a
+            v-for="hit in codeHits"
+            :key="`${hit.repository.full_name}-${hit.path}-${hit.sha}`"
+            :href="hit.html_url ?? undefined"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hit"
+          >
+            <NxIcon name="code" :size="16" class="file" />
+            <span class="body">
+              <b class="mono">{{ hit.path }}</b>
+              <span class="meta">{{ hit.repository.full_name }}</span>
+            </span>
+            <NxIcon name="external-link" :size="14" class="ext" />
+          </a>
+        </div>
+      </template>
     </div>
-  </NexusPageWrapper>
+  </IndexTemplate>
 </template>
 
 <style scoped>
-.github-page {
+.search {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding-bottom: 2rem;
+  gap: 20px;
 }
 
-.search-bar {
-  max-width: 36rem;
-}
-
-.tabs {
+.controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  align-items: center;
+  gap: 12px;
 }
 
-.tab {
-  border: 0;
-  background: color-mix(in srgb, var(--lavender-blush) 6%, transparent);
-  color: color-mix(in srgb, var(--lavender-blush) 70%, transparent);
-  padding: 0.45rem 0.85rem;
-  border-radius: 0.65rem;
-  font-weight: 600;
-  cursor: pointer;
+.field {
+  flex: 1;
+  min-width: min(100%, 280px);
 }
 
-.tab.active {
-  background: color-mix(in srgb, var(--github-ink) 14%, transparent);
-  color: var(--github-ink);
-}
-
-.result-meta {
+.count {
   margin: 0;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+  font-size: 13px;
+  color: var(--ink-3);
 }
 
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.hits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 40px;
+}
+
+.hit {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+  color: inherit;
+}
+
+.hit:hover b {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.issue {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--ok);
+  justify-self: center;
+}
+
+.issue.closed {
+  border-color: var(--ink-3);
+}
+
+.file,
+.ext {
+  color: var(--ink-3);
+}
+
+.body {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 3px;
+  min-width: 0;
 }
 
-.row {
-  display: block;
-  padding: 0.9rem 1rem;
-  border-radius: 0.85rem;
-  text-decoration: none;
-  color: inherit;
-  background: color-mix(in srgb, var(--lavender-blush) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
+b {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.row:hover {
-  border-color: color-mix(in srgb, var(--github-ink) 35%, transparent);
-}
-
-.desc {
-  margin: 0.35rem 0 0;
-  color: color-mix(in srgb, var(--lavender-blush) 60%, transparent);
-  font-size: 0.9rem;
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 14px;
 }
 
 .meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.35rem;
-  font-size: 0.8rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
-.empty {
-  padding: 1.25rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+@media (max-width: 960px) {
+  .hits {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

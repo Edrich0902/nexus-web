@@ -17,6 +17,7 @@ export const useLibraryStore = defineStore('library', () => {
   const books = ref<LibraryBook[]>([])
   const booksLoading = ref(false)
   const booksTotal = ref(0)
+  const booksPage = ref(1)
   const book = ref<LibraryBook | null>(null)
   const bookLoading = ref(false)
   const pulse = ref<LibraryPulse | null>(null)
@@ -60,8 +61,10 @@ export const useLibraryStore = defineStore('library', () => {
         ...params,
         per_page: 24,
       })
-      books.value = page.data
-      booksTotal.value = page.meta?.total ?? page.data.length
+      const next = params?.page ?? 1
+      books.value = next > 1 ? [...books.value, ...page.data] : page.data
+      booksPage.value = next
+      booksTotal.value = page.meta?.total ?? books.value.length
     } catch (error) {
       books.value = []
       toastError(error, 'Could not load books.')
@@ -212,6 +215,7 @@ export const useLibraryStore = defineStore('library', () => {
     books,
     booksLoading,
     booksTotal,
+    booksPage,
     book,
     bookLoading,
     pulse,

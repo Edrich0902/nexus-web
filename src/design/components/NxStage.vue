@@ -16,6 +16,8 @@ withDefaults(
     progress?: number | null
     /** `compact` drops the artwork column and shrinks the title. */
     size?: 'hero' | 'compact'
+    /** Artwork shape: square (albums, bottles) or 2:3 portrait (book covers). */
+    art?: 'square' | 'portrait'
   }>(),
   {
     eyebrow: undefined,
@@ -25,12 +27,13 @@ withDefaults(
     lede: undefined,
     progress: null,
     size: 'hero',
+    art: 'square',
   },
 )
 </script>
 
 <template>
-  <header class="nx-stage nx-rise" :class="[`size-${size}`, { 'has-visual': $slots.visual }]">
+  <header class="nx-stage nx-rise" :class="[`size-${size}`, `art-${art}`, { 'has-visual': $slots.visual }]">
     <div v-if="$slots.visual" class="visual">
       <slot name="visual" />
     </div>
@@ -91,6 +94,14 @@ withDefaults(
   display: grid;
   place-items: center;
   background: var(--amb-2);
+}
+
+.nx-stage.has-visual.size-hero.art-portrait {
+  grid-template-columns: 220px 1fr;
+}
+
+.art-portrait .visual {
+  aspect-ratio: 2 / 3;
 }
 
 .visual :deep(img) {
@@ -169,11 +180,16 @@ withDefaults(
     grid-template-columns: 200px 1fr;
     gap: 32px;
   }
+
+  .nx-stage.has-visual.size-hero.art-portrait {
+    grid-template-columns: 160px 1fr;
+  }
 }
 
 @media (max-width: 640px) {
   .nx-stage,
   .nx-stage.has-visual.size-hero,
+  .nx-stage.has-visual.size-hero.art-portrait,
   .nx-stage.has-visual.size-compact {
     grid-template-columns: 1fr;
     gap: 20px;
@@ -182,6 +198,10 @@ withDefaults(
 
   .visual {
     width: 132px;
+  }
+
+  .art-portrait .visual {
+    width: 104px;
   }
 
   .title {

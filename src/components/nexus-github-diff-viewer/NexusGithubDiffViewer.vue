@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import NxIcon from '@design/components/NxIcon.vue'
 import { parseUnifiedDiff } from '@lib/github-diff'
 import type { GithubPullFile } from '@/types/github/github'
 
@@ -57,8 +58,15 @@ const hasFiles = computed(() => props.files.length > 0)
       <button
         type="button"
         class="file-head"
+        :aria-expanded="Boolean(expanded[fileKey(file, index)])"
         @click="toggle(fileKey(file, index))"
       >
+        <NxIcon
+          name="chevron-right"
+          :size="14"
+          class="chev"
+          :class="{ open: expanded[fileKey(file, index)] }"
+        />
         <span class="filename">{{ file.filename ?? 'unknown file' }}</span>
         <span class="file-meta">
           <span class="add">+{{ file.additions ?? 0 }}</span>
@@ -133,24 +141,21 @@ const hasFiles = computed(() => props.files.length > 0)
 .diff-viewer {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 8px;
 }
 
 .file-card {
-  border-radius: 0.85rem;
+  border-radius: var(--r-md);
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-  background: color-mix(in srgb, var(--lavender-blush) 3%, transparent);
+  background: var(--surface);
 }
 
 .file-head {
   width: 100%;
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 10px;
   align-items: center;
-  padding: 0.75rem 0.9rem;
+  padding: 12px 14px;
   border: 0;
   background: transparent;
   color: inherit;
@@ -158,45 +163,63 @@ const hasFiles = computed(() => props.files.length > 0)
   text-align: left;
 }
 
+.file-head:hover {
+  background: var(--tint);
+}
+
+.chev {
+  flex-shrink: 0;
+  color: var(--ink-3);
+  transition: transform var(--dur-hover, 0.2s) ease;
+}
+
+.chev.open {
+  transform: rotate(90deg);
+}
+
 .filename {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.85rem;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .file-meta {
   display: flex;
-  gap: 0.65rem;
-  font-size: 0.8rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+  flex-shrink: 0;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
 .add {
-  color: #3fb950;
-  font-weight: 600;
+  color: var(--ok);
 }
 
 .del {
-  color: #f85149;
-  font-weight: 600;
+  color: var(--bad);
 }
 
 .file-body {
-  border-top: 1px solid color-mix(in srgb, var(--lavender-blush) 8%, transparent);
+  border-top: 1px solid var(--line);
+  overflow-x: auto;
 }
 
 .side-by-side {
-  background: #0d1117;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.75rem;
-  line-height: 1.45;
+  min-width: 640px;
+  background: color-mix(in srgb, var(--amb) 70%, #000);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .hunk-header {
-  padding: 0.35rem 0.65rem;
-  color: #8b949e;
-  background: #161b22;
-  border-top: 1px solid #30363d;
-  border-bottom: 1px solid #30363d;
+  padding: 6px 12px;
+  color: var(--ink-3);
+  background: var(--tint);
+  border-block: 1px solid var(--line);
   white-space: pre;
   overflow-x: auto;
 }
@@ -209,7 +232,7 @@ const hasFiles = computed(() => props.files.length > 0)
 .pane {
   min-width: 0;
   overflow-x: auto;
-  border-right: 1px solid #30363d;
+  border-right: 1px solid var(--line);
 }
 
 .pane-right {
@@ -221,45 +244,44 @@ const hasFiles = computed(() => props.files.length > 0)
   grid-template-columns: 3.25rem max-content;
   width: max-content;
   min-width: 100%;
-  min-height: 1.45em;
+  min-height: 1.5em;
 }
 
 .gutter {
   position: sticky;
   left: 0;
   z-index: 1;
-  padding: 0 0.4rem;
+  padding: 0 8px;
   text-align: right;
-  color: #6e7681;
+  color: var(--ink-4);
   user-select: none;
-  border-right: 1px solid #21262d;
+  border-right: 1px solid var(--line);
   white-space: nowrap;
-  background: #0d1117;
+  background: color-mix(in srgb, var(--amb) 70%, #000);
 }
 
 .gutter.cell-del {
-  background: #2d1518;
+  background: color-mix(in srgb, var(--bad) 18%, color-mix(in srgb, var(--amb) 70%, #000));
 }
 
 .gutter.cell-add {
-  background: #12261a;
+  background: color-mix(in srgb, var(--ok) 18%, color-mix(in srgb, var(--amb) 70%, #000));
 }
 
 .gutter.cell-empty {
-  background: #161b22;
+  background: var(--tint);
 }
 
 .code {
   display: flex;
   align-items: flex-start;
-  padding: 0 0.5rem;
+  padding: 0 8px;
   white-space: pre;
 }
 
 .sign {
   flex: 0 0 0.85rem;
   width: 0.85rem;
-  color: inherit;
   opacity: 0.85;
   user-select: none;
 }
@@ -269,33 +291,31 @@ const hasFiles = computed(() => props.files.length > 0)
 }
 
 .cell-context {
-  color: #e6edf3;
-}
-
-.code.cell-context {
-  background: transparent;
+  color: var(--ink-2);
 }
 
 .code.cell-del {
-  background: rgba(248, 81, 73, 0.15);
-  color: #ffa198;
-  box-shadow: inset 2px 0 0 #f85149;
+  background: color-mix(in srgb, var(--bad) 15%, transparent);
+  color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--bad);
 }
 
 .code.cell-add {
-  background: rgba(63, 185, 80, 0.15);
-  color: #7ee787;
-  box-shadow: inset 2px 0 0 #3fb950;
+  background: color-mix(in srgb, var(--ok) 15%, transparent);
+  color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--ok);
 }
 
 .code.cell-empty {
-  background: rgba(110, 118, 129, 0.08);
+  background: var(--tint);
   color: transparent;
   min-width: 4rem;
 }
 
 .empty {
-  padding: 1rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+  margin: 0;
+  padding: 16px;
+  font-size: 14px;
+  color: var(--ink-3);
 }
 </style>

@@ -1,26 +1,107 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusLibraryIcon from '@components/nexus-library-icon/NexusLibraryIcon.vue'
-import NexusLibraryCard from '@components/nexus-library-card/NexusLibraryCard.vue'
-import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
-import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxSearchField from '@design/components/NxSearchField.vue'
+import NxPillGroup from '@design/components/NxPillGroup.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import { usePaletteAmbient } from '@design/usePaletteAmbient'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
+import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
+import CollectionFields from '@routes/collections/CollectionFields.vue'
+import type { CollectionField } from '@routes/collections/collectionFields'
+import { mediaDeliveryUrl } from '@lib/media'
 import { useLibraryStore } from '@stores/library/library.store'
-import type {
-  LibraryBookStatus,
-  LibrarySearchResult,
-} from '@/types/library/library'
+import type { LibraryBookStatus, LibrarySearchResult } from '@/types/library/library'
+import BookCandidates from './BookCandidates.vue'
+import { STATUS_LABEL, STATUS_OPTIONS, bookAuthors, isoDay, readableDate, splitBookTitle } from './library'
 
 const library = useLibraryStore()
 const router = useRouter()
 
-const statusFilter = ref<LibraryBookStatus | ''>('')
-const searchQ = ref('')
+const status = ref<LibraryBookStatus | 'all'>('all')
+const query = ref('')
+
+const filterOptions = [{ value: 'all' as const, label: 'All' }, ...STATUS_OPTIONS]
+
+onMounted(() => {
+  void reload()
+  void library.loadPulse({ silent: true })
+})
+
+watch(status, () => void reload())
+
+function reload(page = 1): Promise<void> {
+  return library.loadBooks({
+    q: query.value.trim() || undefined,
+    status: status.value === 'all' ? undefined : status.value,
+    page,
+  })
+}
+
+const filtered = computed(() => status.value !== 'all' || Boolean(query.value.trim()))
+
+const state = computed<ViewState>(() => {
+  if (library.booksLoading && !library.books.length) return 'loading'
+  if (library.books.length || filtered.value) return 'ready'
+  return 'empty'
+})
+
+const hasMore = computed(() => library.books.length < library.booksTotal)
+
+/* ── Stage: the book you are reading ───────────────────── */
+
+const current = computed(() => library.pulse?.reading[0] ?? null)
+const currentTitle = computed(() => splitBookTitle(current.value?.title ?? ''))
+
+usePaletteAmbient(() => mediaDeliveryUrl(current.value?.media, 'thumb') ?? current.value?.image_url ?? null)
+
+const currentLede = computed(() => {
+  const b = current.value
+  if (!b) return ''
+  const started = readableDate(b.started_at)
+  return [bookAuthors(b), started ? `started ${started}` : null].filter(Boolean).join(' · ')
+})
+
+async function finishCurrent(): Promise<void> {
+  const b = current.value
+  if (!b) return
+  await library.updateBook(b.id, { title: b.title, status: 'read', finished_at: isoDay() })
+  await Promise.all([library.loadPulse({ silent: true }), reload()])
+}
+
+const fields = computed<CollectionField[]>(() => {
+  const c = library.pulse?.counts
+  const reading = library.pulse?.reading ?? []
+  return [
+    { key: 'total', label: 'On the shelf', value: c?.total ?? library.booksTotal, variant: 'solid', span: 4 },
+    reading[0]
+      ? {
+          key: 'reading',
+          label: 'Reading now',
+          aside: reading.length > 1 ? `+${reading.length - 1} more` : undefined,
+          title: reading[0].title,
+          variant: 'tint',
+          span: 4,
+          to: { name: 'library-book', params: { bookId: reading[0].id } },
+        }
+      : { key: 'reading', label: 'Reading now', title: 'Pick your next book', variant: 'outline', span: 4 },
+    { key: 'read', label: 'Read', value: c?.read ?? 0, variant: 'tint', span: 2 },
+    { key: 'want', label: 'Want to read', value: c?.want ?? 0, variant: 'outline', span: 2 },
+  ]
+})
+
+/* ── Add a book ─────────────────────────────────────────── */
+
 const showCreate = ref(false)
-const createTab = ref<'manual' | 'catalog'>('manual')
+const createMode = ref<'catalog' | 'manual'>('catalog')
 const catalogQuery = ref('')
+const searching = ref(false)
 
 const form = reactive({
   title: '',
@@ -31,60 +112,32 @@ const form = reactive({
   notes: '',
 })
 
-const statusOptions = [
-  { label: 'All', value: '' },
-  { label: 'Want to read', value: 'want' },
-  { label: 'Reading', value: 'reading' },
-  { label: 'Read', value: 'read' },
-]
-
-const createStatusOptions = [
-  { label: 'Want to read', value: 'want' },
-  { label: 'Reading', value: 'reading' },
-  { label: 'Read', value: 'read' },
-]
-
-onMounted(() => {
-  void reload()
-})
-
-watch(statusFilter, () => {
-  void reload()
-})
-
-async function reload(): Promise<void> {
-  await library.loadBooks({
-    q: searchQ.value.trim() || undefined,
-    status: statusFilter.value || undefined,
-  })
-}
-
-function resetCreateForm(): void {
-  form.title = ''
-  form.authors = ''
-  form.isbn = ''
-  form.status = 'want'
-  form.rating = null
-  form.notes = ''
-  catalogQuery.value = ''
-  createTab.value = 'manual'
-  library.clearCatalogResults()
-}
-
 function openCreate(): void {
-  resetCreateForm()
+  Object.assign(form, { title: '', authors: '', isbn: '', status: 'want', rating: null, notes: '' })
+  catalogQuery.value = ''
+  createMode.value = 'catalog'
+  library.clearCatalogResults()
   showCreate.value = true
 }
 
 async function searchCatalog(): Promise<void> {
-  if (catalogQuery.value.trim()) {
-    await library.searchCatalog(catalogQuery.value.trim())
-  }
+  const q = catalogQuery.value.trim()
+  if (!q) return
+  searching.value = true
+  await library.searchCatalog(q)
+  searching.value = false
+}
+
+async function created(id: number | undefined): Promise<void> {
+  if (!id) return
+  showCreate.value = false
+  void library.loadPulse({ silent: true })
+  await router.push({ name: 'library-book', params: { bookId: id } })
 }
 
 async function submitManual(): Promise<void> {
   if (!form.title.trim()) return
-  const created = await library.createBook({
+  const book = await library.createBook({
     title: form.title.trim(),
     authors: form.authors.trim() || null,
     isbn: form.isbn.trim() || null,
@@ -92,315 +145,229 @@ async function submitManual(): Promise<void> {
     rating: form.rating,
     notes: form.notes || null,
   })
-  if (created) {
-    showCreate.value = false
-    await router.push({ name: 'library-book', params: { bookId: created.id } })
-  }
+  await created(book?.id)
 }
 
 async function pickCatalog(result: LibrarySearchResult): Promise<void> {
-  const created = await library.createFromCatalog({
+  const book = await library.createFromCatalog({
     ol_work_key: result.ol_work_key,
     status: form.status,
     rating: form.rating,
     notes: form.notes || null,
   })
-  if (created) {
-    showCreate.value = false
-    await router.push({ name: 'library-book', params: { bookId: created.id } })
-  }
+  await created(book?.id)
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Library">
-    <template #toolbar>
-      <Button label="Add book" icon="pi pi-plus" @click="openCreate" />
+  <IndexTemplate :state="state">
+    <template #stage>
+      <NxStage
+        v-if="current"
+        art="portrait"
+        eyebrow="Reading now"
+        :title="currentTitle.title"
+        :accent="currentTitle.accent"
+        :lede="currentLede"
+      >
+        <template #visual>
+          <NexusImage
+            :media="current.media"
+            :src="current.image_url"
+            :alt="current.title"
+            variant="hero"
+            size="fill"
+            fit="cover"
+          />
+        </template>
+        <template #actions>
+          <Button rounded severity="contrast" label="Finished it" :loading="library.saving" @click="finishCurrent">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="check" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <Button
+            as="router-link"
+            rounded
+            severity="secondary"
+            label="Open book"
+            :to="{ name: 'library-book', params: { bookId: current.id } }"
+          />
+          <Button rounded severity="secondary" label="Add a book" @click="openCreate">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="plus" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
+      <NxStage
+        v-else
+        size="compact"
+        eyebrow="Library"
+        title="Your"
+        accent="shelf"
+        lede="Books you own, are reading or want to read — matched to Open Library for covers and details."
+      >
+        <template #actions>
+          <Button rounded severity="contrast" label="Add a book" @click="openCreate">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="plus" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
     </template>
 
-    <div class="library-page">
-      <header class="hero">
-        <div class="icon-wrap"><NexusLibraryIcon :size="28" /></div>
-        <div>
-          <p class="eyebrow">Collections</p>
-          <h1>Library</h1>
-          <p class="lede">
-            Log books on your shelf, track reading status, and match titles to
-            Open Library for covers and metadata.
-          </p>
-        </div>
-      </header>
+    <template v-if="library.pulse || state === 'loading'" #fields>
+      <CollectionFields section="library" :fields="fields" />
+    </template>
 
-      <div class="filters">
-        <SelectButton
-          v-model="statusFilter"
-          :options="statusOptions"
-          option-label="label"
-          option-value="value"
-          :allow-empty="false"
+    <template #toolbar>
+      <NxPillGroup v-model="status" :options="filterOptions" label="Reading status" size="sm" />
+      <NxSearchField
+        v-model="query"
+        class="search"
+        placeholder="Search title or author…"
+        :debounce="350"
+        @search="reload()"
+      />
+    </template>
+
+    <template #empty>
+      <NxEmptyState
+        title="No books yet"
+        body="Search Open Library to add a book with its cover, or add one by hand."
+        icon="library"
+      >
+        <Button rounded label="Add your first book" @click="openCreate" />
+      </NxEmptyState>
+    </template>
+
+    <NxEmptyState
+      v-if="!library.books.length && !library.booksLoading"
+      title="Nothing on this shelf"
+      :body="query.trim() ? `No books match “${query.trim()}”.` : 'Try another reading status.'"
+      icon="search"
+    />
+    <template v-else>
+      <NxCoverGrid :class="{ dim: library.booksLoading }">
+        <NxCoverCard
+          v-for="b in library.books"
+          :key="b.id"
+          :to="{ name: 'library-book', params: { bookId: b.id } }"
+          :title="b.title"
+          :sub="bookAuthors(b)"
+          :meta="STATUS_LABEL[b.status]"
+          :media="b.media"
+          :src="b.image_url"
+          :rating="b.rating"
+          :badge="b.status === 'reading' ? 'Reading' : null"
+          icon="library"
         />
-        <div class="search">
-          <InputText
-            v-model="searchQ"
-            placeholder="Search title or author…"
-            class="w-full"
-            @keyup.enter="reload"
-          />
-          <Button icon="pi pi-search" :loading="library.booksLoading" @click="reload" />
-        </div>
-      </div>
-
-      <NexusSkeletonCards v-if="library.booksLoading" />
-      <div v-else-if="library.books.length" class="grid">
-        <NexusLibraryCard
-          v-for="book in library.books"
-          :key="book.id"
-          :book="book"
+      </NxCoverGrid>
+      <div v-if="hasMore" class="more">
+        <Button
+          rounded
+          severity="secondary"
+          :label="`Show more · ${library.booksTotal - library.books.length} left`"
+          :loading="library.booksLoading"
+          @click="reload(library.booksPage + 1)"
         />
       </div>
-      <p v-else class="empty">No books on this shelf yet.</p>
-    </div>
+    </template>
+  </IndexTemplate>
 
-    <Dialog
-      v-model:visible="showCreate"
-      modal
-      header="Add book"
-      style="width: min(520px, 94vw)"
-    >
-      <SelectButton
-        v-model="createTab"
+  <Dialog v-model:visible="showCreate" modal header="Add a book" style="width: min(540px, 94vw)">
+    <form id="add-book" class="nx-form" @submit.prevent="createMode === 'manual' ? submitManual() : searchCatalog()">
+      <NxPillGroup
+        v-model="createMode"
         :options="[
-          { label: 'Manual', value: 'manual' },
-          { label: 'Open Library', value: 'catalog' },
+          { value: 'catalog', label: 'Open Library' },
+          { value: 'manual', label: 'By hand' },
         ]"
-        option-label="label"
-        option-value="value"
-        :allow-empty="false"
-        class="mb"
+        label="How to add"
+        size="sm"
       />
 
-      <div class="form">
-        <label>
-          Status
-          <Select
-            v-model="form.status"
-            :options="createStatusOptions"
-            option-label="label"
-            option-value="value"
-            class="w-full"
-          />
-        </label>
-
-        <template v-if="createTab === 'manual'">
-          <label>
-            Title
-            <InputText v-model="form.title" class="w-full" />
-          </label>
-          <label>
-            Authors
-            <InputText v-model="form.authors" class="w-full" />
-          </label>
-          <label>
-            ISBN
-            <InputText v-model="form.isbn" class="w-full" />
-          </label>
-        </template>
-
-        <template v-else>
-          <div class="search">
-            <InputText
-              v-model="catalogQuery"
-              placeholder="Search Open Library…"
-              class="w-full"
-              @keyup.enter="searchCatalog"
-            />
-            <Button icon="pi pi-search" @click="searchCatalog" />
-          </div>
-          <ul v-if="library.catalogResults.length" class="catalog-results">
-            <li v-for="r in library.catalogResults" :key="r.ol_work_key">
-              <button type="button" class="catalog-row" @click="pickCatalog(r)">
-                <NexusImage
-                  :src="r.cover_url"
-                  :alt="r.title || 'Cover'"
-                  variant="thumb"
-                  size="sm"
-                  fit="cover"
-                  class="thumb"
-                />
-                <div>
-                  <strong>{{ r.title }}</strong>
-                  <span>
-                    {{
-                      [r.authors?.join(', '), r.publish_year]
-                        .filter(Boolean)
-                        .join(' · ')
-                    }}
-                  </span>
-                </div>
-              </button>
-            </li>
-          </ul>
-        </template>
-
-        <label>
-          Rating
-          <NexusRatingInput v-model="form.rating" />
-        </label>
-        <label>
-          Notes
-          <Textarea v-model="form.notes" rows="3" class="w-full" auto-resize />
-        </label>
-      </div>
-
-      <template #footer>
-        <Button
-          label="Cancel"
-          severity="secondary"
-          text
-          @click="showCreate = false"
-        />
-        <Button
-          v-if="createTab === 'manual'"
-          label="Save"
-          :loading="library.saving"
-          @click="submitManual"
-        />
+      <template v-if="createMode === 'catalog'">
+        <div class="lookup">
+          <InputText v-model="catalogQuery" placeholder="Title, author or ISBN" autofocus />
+          <Button type="submit" label="Search" severity="secondary" rounded :loading="searching" />
+        </div>
+        <BookCandidates v-if="library.catalogResults.length" :items="library.catalogResults" @pick="pickCatalog" />
+        <p v-else class="hint">Pick a result to add it with its cover and details.</p>
       </template>
-    </Dialog>
-  </NexusPageWrapper>
+
+      <template v-else>
+        <label class="f">
+          <span>Title</span>
+          <InputText v-model="form.title" autofocus />
+        </label>
+        <div class="row">
+          <label class="f">
+            <span>Authors</span>
+            <InputText v-model="form.authors" />
+          </label>
+          <label class="f">
+            <span>ISBN</span>
+            <InputText v-model="form.isbn" />
+          </label>
+        </div>
+      </template>
+
+      <div class="row">
+        <label class="f">
+          <span>Status</span>
+          <Select v-model="form.status" :options="STATUS_OPTIONS" option-label="label" option-value="value" />
+        </label>
+        <div class="f">
+          <span>Rating</span>
+          <NexusRatingInput v-model="form.rating" />
+        </div>
+      </div>
+      <label class="f">
+        <span>Notes</span>
+        <Textarea v-model="form.notes" rows="2" auto-resize />
+      </label>
+    </form>
+    <template #footer>
+      <Button label="Cancel" text severity="secondary" @click="showCreate = false" />
+      <Button
+        v-if="createMode === 'manual'"
+        type="submit"
+        form="add-book"
+        rounded
+        label="Add book"
+        :loading="library.saving"
+        :disabled="!form.title.trim()"
+      />
+    </template>
+  </Dialog>
 </template>
 
 <style scoped>
-.library-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.hero {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-  padding: 1.1rem 1.2rem;
-  border-radius: 1.1rem;
-  background: var(--library-card-surface);
-}
-
-.icon-wrap {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--library-accent) 22%, transparent);
-  color: var(--library-accent);
-}
-
-.eyebrow {
-  margin: 0;
-  color: var(--library-accent);
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-h1 {
-  margin: 0.15rem 0 0.35rem;
-  font-size: clamp(1.6rem, 3vw, 2rem);
-}
-
-.lede {
-  margin: 0;
-  opacity: 0.75;
-  max-width: 42rem;
-}
-
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .search {
-  display: flex;
-  gap: 0.45rem;
-  min-width: min(100%, 18rem);
   flex: 1;
+  min-width: min(100%, 260px);
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
-  gap: 1rem;
+.dim {
+  opacity: 0.55;
+  transition: opacity 0.2s;
 }
 
-.empty {
-  margin: 0;
-  opacity: 0.7;
-}
-
-.mb {
-  margin-bottom: 0.85rem;
-}
-
-.form {
+.more {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 28px;
 }
 
-.form label {
+.lookup {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
+  gap: 8px;
 }
 
-.catalog-results {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  max-height: 240px;
-  overflow: auto;
-}
-
-.catalog-row {
-  width: 100%;
-  display: flex;
-  gap: 0.65rem;
-  align-items: center;
-  text-align: left;
-  border: 0;
-  border-radius: 0.65rem;
-  padding: 0.45rem 0.55rem;
-  background: color-mix(in srgb, var(--library-accent) 12%, transparent);
-  color: inherit;
-  cursor: pointer;
-}
-
-.catalog-row:hover {
-  background: color-mix(in srgb, var(--library-accent) 22%, transparent);
-}
-
-.catalog-row strong,
-.catalog-row span {
-  display: block;
-}
-
-.catalog-row span {
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
-
-.thumb {
-  width: 2.4rem;
-  height: 3.3rem;
-  border-radius: 0.3rem;
-  overflow: hidden;
-  flex: 0 0 auto;
+.lookup :deep(.p-inputtext) {
+  flex: 1;
 }
 </style>

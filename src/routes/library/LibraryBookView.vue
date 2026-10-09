@@ -1,24 +1,107 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
+import { useConfirm } from 'primevue/useconfirm'
+import DetailTemplate from '@design/templates/DetailTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPanel from '@design/components/NxPanel.vue'
+import NxFacts from '@design/components/NxFacts.vue'
+import NxRating from '@design/components/NxRating.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxIconButton from '@design/components/NxIconButton.vue'
+import { usePaletteAmbient } from '@design/usePaletteAmbient'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
 import NexusImageUploader from '@components/nexus-image-uploader/NexusImageUploader.vue'
-import NexusRatingDisplay from '@components/nexus-rating-display/NexusRatingDisplay.vue'
 import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
-import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
-import NexusLibraryMatchDialog from '@components/nexus-library-match-dialog/NexusLibraryMatchDialog.vue'
+import { mediaDeliveryUrl } from '@lib/media'
 import { useLibraryStore } from '@stores/library/library.store'
 import type { LibraryBookStatus, LibrarySearchResult } from '@/types/library/library'
 import type { MediaImage } from '@/types/media/media'
+import LibraryMatchDialog from './LibraryMatchDialog.vue'
+import { STATUS_LABEL, STATUS_OPTIONS, bookAuthors, isoDay, readableDate, splitBookTitle } from './library'
 
 const library = useLibraryStore()
 const route = useRoute()
 const router = useRouter()
+const confirm = useConfirm()
+
 const bookId = computed(() => Number(route.params.bookId))
-const showImageUploader = ref(false)
+const showUploader = ref(false)
 const showMatch = ref(false)
-const editing = ref(false)
+const showEdit = ref(false)
+
+watch(
+  bookId,
+  (id) => {
+    if (Number.isFinite(id)) void library.loadBook(id)
+  },
+  { immediate: true },
+)
+
+const book = computed(() => (library.book?.id === bookId.value ? library.book : null))
+
+const state = computed<ViewState>(() => {
+  if (!book.value) return library.bookLoading ? 'loading' : 'error'
+  return 'ready'
+})
+
+usePaletteAmbient(() => mediaDeliveryUrl(book.value?.media, 'thumb') ?? book.value?.image_url ?? null)
+
+const heading = computed(() => splitBookTitle(book.value?.title ?? ''))
+const hasArt = computed(() => Boolean(book.value?.media || book.value?.image_url))
+
+const eyebrow = computed(() => {
+  const b = book.value
+  if (!b) return ''
+  if (b.status === 'reading') {
+    const since = readableDate(b.started_at)
+    return since ? `Reading since ${since}` : 'Reading'
+  }
+  if (b.status === 'read') {
+    const done = readableDate(b.finished_at)
+    return done ? `Finished ${done}` : 'Read'
+  }
+  return STATUS_LABEL[b.status]
+})
+
+const lede = computed(() => {
+  const b = book.value
+  if (!b) return ''
+  const c = b.catalog
+  return [bookAuthors(b), c?.publish_year, c?.page_count ? `${c.page_count} pages` : null].filter(Boolean).join(' · ')
+})
+
+const facts = computed(() => {
+  const b = book.value
+  if (!b) return []
+  return [
+    { label: 'Status', value: STATUS_LABEL[b.status] },
+    { label: 'Published', value: b.catalog?.publish_year },
+    { label: 'Pages', value: b.catalog?.page_count },
+    { label: 'ISBN', value: b.isbn || b.catalog?.isbn_13 || b.catalog?.isbn_10 },
+    { label: 'Started', value: readableDate(b.started_at) },
+    { label: 'Finished', value: readableDate(b.finished_at) },
+  ]
+})
+
+const MATCH_LABEL = { matched: 'Matched to Open Library', no_match: 'Not in Open Library', unmatched: 'Not matched yet' }
+
+/** The one next step for this book, shown as the primary action. */
+const nextStep = computed<{ label: string; status: LibraryBookStatus; date: 'started_at' | 'finished_at' } | null>(() => {
+  if (book.value?.status === 'want') return { label: 'Start reading', status: 'reading', date: 'started_at' }
+  if (book.value?.status === 'reading') return { label: 'Finished it', status: 'read', date: 'finished_at' }
+  return null
+})
+
+async function advance(): Promise<void> {
+  const b = book.value
+  const step = nextStep.value
+  if (!b || !step) return
+  await library.updateBook(b.id, { title: b.title, status: step.status, [step.date]: isoDay() })
+}
+
+/* ── Edit ───────────────────────────────────────────────── */
 
 const form = reactive({
   title: '',
@@ -31,47 +114,24 @@ const form = reactive({
   finished_at: null as Date | null,
 })
 
-const statusOptions = [
-  { label: 'Want to read', value: 'want' },
-  { label: 'Reading', value: 'reading' },
-  { label: 'Read', value: 'read' },
-]
-
-const statusLabel = computed(() => {
-  const status = library.book?.status
-  return statusOptions.find((o) => o.value === status)?.label ?? status
-})
-
-async function load(): Promise<void> {
-  if (Number.isFinite(bookId.value)) await library.loadBook(bookId.value)
-  syncForm()
+function openEdit(): void {
+  const b = book.value
+  if (!b) return
+  Object.assign(form, {
+    title: b.title,
+    authors: b.authors ?? '',
+    isbn: b.isbn ?? '',
+    status: b.status,
+    rating: b.rating,
+    notes: b.notes ?? '',
+    started_at: b.started_at ? new Date(b.started_at) : null,
+    finished_at: b.finished_at ? new Date(b.finished_at) : null,
+  })
+  showEdit.value = true
 }
-
-function syncForm(): void {
-  const book = library.book
-  if (!book) return
-  form.title = book.title
-  form.authors = book.authors ?? ''
-  form.isbn = book.isbn ?? ''
-  form.status = book.status
-  form.rating = book.rating
-  form.notes = book.notes ?? ''
-  form.started_at = book.started_at ? new Date(book.started_at) : null
-  form.finished_at = book.finished_at ? new Date(book.finished_at) : null
-}
-
-function toDateString(value: Date | null): string | null {
-  if (!value) return null
-  const y = value.getFullYear()
-  const m = String(value.getMonth() + 1).padStart(2, '0')
-  const d = String(value.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-onMounted(load)
-watch(bookId, load)
 
 async function save(): Promise<void> {
+  if (!form.title.trim()) return
   await library.updateBook(bookId.value, {
     title: form.title.trim(),
     authors: form.authors.trim() || null,
@@ -79,32 +139,36 @@ async function save(): Promise<void> {
     status: form.status,
     rating: form.rating,
     notes: form.notes || null,
-    started_at: toDateString(form.started_at),
-    finished_at: toDateString(form.finished_at),
+    started_at: isoDay(form.started_at),
+    finished_at: isoDay(form.finished_at),
   })
-  editing.value = false
-  syncForm()
+  showEdit.value = false
 }
 
-async function remove(): Promise<void> {
-  if (await library.removeBook(bookId.value)) {
-    await router.push({ name: 'library' })
-  }
+function askRemove(event: MouseEvent): void {
+  confirm.require({
+    target: event.currentTarget as HTMLElement,
+    message: 'Remove this book from your library?',
+    acceptLabel: 'Remove',
+    rejectLabel: 'Keep',
+    acceptProps: { severity: 'danger', size: 'small' },
+    rejectProps: { severity: 'secondary', text: true, size: 'small' },
+    accept: async () => {
+      if (await library.removeBook(bookId.value)) await router.push({ name: 'library' })
+    },
+  })
 }
+
+/* ── Open Library match ─────────────────────────────────── */
 
 function openMatch(): void {
   showMatch.value = true
   void library.fetchCandidates(bookId.value)
 }
 
-async function onSearch(query: string): Promise<void> {
-  await library.fetchCandidates(bookId.value, query.trim() || undefined)
-}
-
 async function onSelect(candidate: LibrarySearchResult): Promise<void> {
   await library.confirmMatch(bookId.value, candidate.ol_work_key)
   showMatch.value = false
-  syncForm()
 }
 
 async function onNoMatch(): Promise<void> {
@@ -120,296 +184,206 @@ function onImageUploaded(image: MediaImage | null): void {
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Book detail">
-    <template #toolbar>
-      <Button
-        label="Back"
-        icon="pi pi-arrow-left"
-        text
-        @click="router.push({ name: 'library' })"
-      />
-    </template>
-
-    <NexusSkeletonMedia v-if="library.bookLoading" />
-    <div v-else-if="library.book" class="detail">
-      <header class="hero">
-        <div class="hero-media">
+  <DetailTemplate
+    :state="state"
+    :back-to="{ name: 'library' }"
+    back-label="Library"
+    error-title="This book could not be loaded"
+  >
+    <template #stage>
+      <NxStage art="portrait" :eyebrow="eyebrow" :title="heading.title" :accent="heading.accent" :lede="lede">
+        <template #visual>
           <NexusImage
-            :media="library.book.media"
-            :src="library.book.image_url"
-            :alt="library.book.title"
+            v-if="hasArt"
+            :media="book?.media"
+            :src="book?.image_url"
+            :alt="book?.title ?? ''"
             variant="hero"
             size="fill"
             fit="cover"
             previewable
           />
-        </div>
-
-        <div class="hero-body">
-          <div class="hero-info">
-            <p class="eyebrow">{{ statusLabel }}</p>
-            <h2>{{ library.book.title }}</h2>
-            <p class="meta">{{ library.book.authors || 'Unknown author' }}</p>
-            <p v-if="library.book.isbn" class="meta">ISBN {{ library.book.isbn }}</p>
-            <p v-if="library.book.match_status" class="match">
-              Match: {{ library.book.match_status.replaceAll('_', ' ') }}
-            </p>
-            <NexusRatingDisplay
-              :model-value="library.book.rating"
-              accent="var(--library-accent, #7a8fbf)"
-            />
-          </div>
-
-          <div class="hero-actions" role="toolbar" aria-label="Book actions">
-            <Button
-              v-if="library.book.match_status !== 'matched'"
-              icon="pi pi-search"
-              severity="secondary"
-              text
-              rounded
-              aria-label="Find match"
-              v-tooltip.left="'Find match'"
-              @click="openMatch"
-            />
-            <Button
-              icon="pi pi-pencil"
-              severity="secondary"
-              text
-              rounded
-              aria-label="Edit book"
-              v-tooltip.left="'Edit'"
-              @click="editing = !editing"
-            />
-            <Button
-              icon="pi pi-image"
-              severity="secondary"
-              text
-              rounded
-              aria-label="Change image"
-              v-tooltip.left="'Change image'"
-              @click="showImageUploader = true"
-            />
-            <Button
-              icon="pi pi-trash"
-              severity="danger"
-              text
-              rounded
-              aria-label="Delete book"
-              v-tooltip.left="'Delete'"
-              @click="remove"
-            />
-          </div>
-        </div>
-      </header>
-
-      <section v-if="editing" class="panel form">
-        <h3>Edit</h3>
-        <label>
-          Title
-          <InputText v-model="form.title" class="w-full" />
-        </label>
-        <label>
-          Authors
-          <InputText v-model="form.authors" class="w-full" />
-        </label>
-        <label>
-          ISBN
-          <InputText v-model="form.isbn" class="w-full" />
-        </label>
-        <label>
-          Status
-          <Select
-            v-model="form.status"
-            :options="statusOptions"
-            option-label="label"
-            option-value="value"
-            class="w-full"
+          <button v-else type="button" class="add-art" @click="showUploader = true">
+            <NxIcon name="image" :size="26" />
+            <span>Add a cover</span>
+          </button>
+        </template>
+        <template #actions>
+          <Button
+            v-if="nextStep"
+            rounded
+            severity="contrast"
+            :label="nextStep.label"
+            :loading="library.saving"
+            @click="advance"
           />
-        </label>
-        <label>
-          Rating
-          <NexusRatingInput v-model="form.rating" />
-        </label>
-        <label>
-          Started
-          <DatePicker v-model="form.started_at" date-format="yy-mm-dd" show-icon class="w-full" />
-        </label>
-        <label>
-          Finished
-          <DatePicker v-model="form.finished_at" date-format="yy-mm-dd" show-icon class="w-full" />
-        </label>
-        <label>
-          Notes
-          <Textarea v-model="form.notes" rows="4" class="w-full" auto-resize />
-        </label>
-        <div class="form-actions">
-          <Button label="Cancel" severity="secondary" text @click="editing = false; syncForm()" />
-          <Button label="Save" :loading="library.saving" @click="save" />
+          <Button rounded severity="secondary" label="Edit" @click="openEdit">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="edit" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <NxIconButton
+            v-if="book?.match_status !== 'matched'"
+            icon="search"
+            label="Match in Open Library"
+            variant="tint"
+            @click="openMatch"
+          />
+          <NxIconButton icon="image" :label="hasArt ? 'Change cover' : 'Add a cover'" variant="tint" @click="showUploader = true" />
+          <NxIconButton icon="trash" label="Remove book" variant="tint" @click="askRemove" />
+        </template>
+      </NxStage>
+    </template>
+
+    <NxPanel v-if="book?.catalog?.description" title="About the book" variant="flush">
+      <p class="prose">{{ book.catalog.description }}</p>
+    </NxPanel>
+
+    <NxPanel title="Your notes" variant="flush">
+      <p v-if="book?.notes" class="prose">{{ book.notes }}</p>
+      <button v-else type="button" class="add-note" @click="openEdit">Add a note about this book</button>
+    </NxPanel>
+
+    <template #aside>
+      <NxPanel title="At a glance">
+        <div class="glance">
+          <NxRating :value="book?.rating" size="lg" />
+          <NxFacts :items="facts" :cols="2" />
+          <p class="match">{{ book ? MATCH_LABEL[book.match_status] : '' }}</p>
         </div>
-      </section>
+      </NxPanel>
+    </template>
+  </DetailTemplate>
 
-      <section v-if="library.book.notes && !editing" class="panel">
-        <h3>Notes</h3>
-        <p>{{ library.book.notes }}</p>
-      </section>
+  <LibraryMatchDialog
+    v-model:visible="showMatch"
+    :loading="library.candidatesLoading"
+    :result="library.candidates"
+    @search="(q) => library.fetchCandidates(bookId, q.trim() || undefined)"
+    @select="onSelect"
+    @no-match="onNoMatch"
+  />
 
-      <section v-if="library.book.catalog" class="panel">
-        <h3>Catalog</h3>
-        <p class="meta">
-          {{ library.book.catalog.publish_year || 'Year unknown' }}
-          <span v-if="library.book.catalog.page_count">
-            · {{ library.book.catalog.page_count }} pages
-          </span>
-        </p>
-        <p v-if="library.book.catalog.description" class="description">
-          {{ library.book.catalog.description }}
-        </p>
-      </section>
-    </div>
+  <NexusImageUploader
+    v-if="book"
+    v-model:visible="showUploader"
+    :model-value="book.media ?? null"
+    collection="library"
+    :attach-to="{ type: 'library_book', id: book.id }"
+    :header="`${book.title} · cover`"
+    @update:model-value="onImageUploaded"
+  />
 
-    <NexusLibraryMatchDialog
-      v-model:visible="showMatch"
-      :loading="library.candidatesLoading"
-      :result="library.candidates"
-      @search="onSearch"
-      @select="onSelect"
-      @no-match="onNoMatch"
-    />
-
-    <NexusImageUploader
-      v-if="library.book"
-      v-model:visible="showImageUploader"
-      :model-value="library.book.media ?? null"
-      collection="library"
-      :attach-to="{ type: 'library_book', id: library.book.id }"
-      header="Book cover"
-      @update:model-value="onImageUploaded"
-    />
-  </NexusPageWrapper>
+  <Dialog v-model:visible="showEdit" modal header="Edit book" style="width: min(540px, 94vw)">
+    <form id="edit-book" class="nx-form" @submit.prevent="save">
+      <label class="f">
+        <span>Title</span>
+        <InputText v-model="form.title" />
+      </label>
+      <div class="row">
+        <label class="f">
+          <span>Authors</span>
+          <InputText v-model="form.authors" />
+        </label>
+        <label class="f">
+          <span>ISBN</span>
+          <InputText v-model="form.isbn" />
+        </label>
+      </div>
+      <div class="row">
+        <label class="f">
+          <span>Status</span>
+          <Select v-model="form.status" :options="STATUS_OPTIONS" option-label="label" option-value="value" />
+        </label>
+        <div class="f">
+          <span>Rating</span>
+          <NexusRatingInput v-model="form.rating" />
+        </div>
+      </div>
+      <div class="row">
+        <label class="f">
+          <span>Started</span>
+          <DatePicker v-model="form.started_at" date-format="d M yy" show-button-bar />
+        </label>
+        <label class="f">
+          <span>Finished</span>
+          <DatePicker v-model="form.finished_at" date-format="d M yy" show-button-bar />
+        </label>
+      </div>
+      <label class="f">
+        <span>Notes</span>
+        <Textarea v-model="form.notes" rows="4" auto-resize />
+      </label>
+    </form>
+    <template #footer>
+      <Button label="Cancel" text severity="secondary" @click="showEdit = false" />
+      <Button
+        type="submit"
+        form="edit-book"
+        rounded
+        label="Save"
+        :loading="library.saving"
+        :disabled="!form.title.trim()"
+      />
+    </template>
+  </Dialog>
 </template>
 
 <style scoped>
-.detail {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-}
-
-.hero {
-  display: grid;
-  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
-  gap: 1.35rem;
-  padding: 1.15rem;
-  border-radius: 1.1rem;
-  background: var(--library-card-surface);
-  align-items: stretch;
-}
-
-.hero-media {
-  min-height: 18rem;
-  border-radius: 0.85rem;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--library-accent) 18%, transparent);
-}
-
-.hero-media :deep(.nexus-image) {
+.add-art {
   width: 100%;
   height: 100%;
-  min-height: 18rem;
-}
-
-.hero-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: start;
-  min-width: 0;
-}
-
-.hero-info {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding-top: 0.15rem;
-  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: inherit;
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
 }
 
-.eyebrow {
+.add-art:hover {
+  color: var(--ink);
+  border-color: var(--acc);
+}
+
+.add-art :deep(svg) {
+  color: var(--acc);
+}
+
+.prose {
   margin: 0;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.65;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  white-space: pre-line;
+  max-width: 68ch;
 }
 
-h2 {
-  margin: 0;
-  font-size: clamp(1.55rem, 2.6vw, 2rem);
-  line-height: 1.15;
-  font-weight: 700;
+.add-note {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--acc);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
 }
 
-.meta,
+.glance {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .match {
   margin: 0;
-  opacity: 0.75;
-  font-size: 0.92rem;
-}
-
-.match {
-  text-transform: capitalize;
-}
-
-.hero-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.panel {
-  padding: 1rem 1.1rem;
-  border-radius: 1rem;
-  background: var(--library-card-surface);
-}
-
-.panel h3 {
-  margin: 0 0 0.55rem;
-  font-size: 1rem;
-}
-
-.panel p {
-  margin: 0;
-  line-height: 1.5;
-}
-
-.description {
-  margin-top: 0.65rem !important;
-  opacity: 0.85;
-  white-space: pre-wrap;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.form label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-@media (max-width: 720px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
+  font-size: 13px;
+  color: var(--ink-3);
 }
 </style>

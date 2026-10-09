@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
+import DetailTemplate from '@design/templates/DetailTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPanel from '@design/components/NxPanel.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
 import NexusGithubDiffViewer from '@components/nexus-github-diff-viewer/NexusGithubDiffViewer.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import { plural } from '@routes/collections/collectionFields'
+import { relativeTime } from '@lib/datetime'
 import { useGithubStore } from '@stores/github/github.store'
-import { formatDateTime } from '@lib/datetime'
 import type { GithubSubmitReviewPayload } from '@/types/github/github'
+import { PULL_STATE_LABEL, pullState } from './code'
 
 const github = useGithubStore()
 const route = useRoute()
@@ -18,395 +23,355 @@ const confirm = useConfirm()
 const owner = computed(() => String(route.params.owner ?? ''))
 const repo = computed(() => String(route.params.repo ?? ''))
 const number = computed(() => Number(route.params.number))
-const mergeMethod = ref<'merge' | 'squash' | 'rebase'>('squash')
-const reviewBody = ref('')
-const reviewEvent = ref<GithubSubmitReviewPayload['event']>('COMMENT')
+const checked = ref(false)
 
+const mergeMethod = ref<'merge' | 'squash' | 'rebase'>('squash')
 const mergeOptions = [
-  { label: 'Create a merge commit', value: 'merge' },
   { label: 'Squash and merge', value: 'squash' },
+  { label: 'Create a merge commit', value: 'merge' },
   { label: 'Rebase and merge', value: 'rebase' },
 ]
 
-const title = computed(
-  () => github.pullDetail?.title ?? `Pull #${number.value}`,
-)
+const reviewBody = ref('')
+const reviewEvent = ref<GithubSubmitReviewPayload['event']>('COMMENT')
 
 async function load(): Promise<void> {
+  checked.value = false
   await github.loadHub()
   if (!github.connected) {
     await router.replace({ name: 'github' })
     return
   }
-  if (!Number.isFinite(number.value)) return
-  await github.loadPullDetail(owner.value, repo.value, number.value)
+  checked.value = true
+  if (Number.isFinite(number.value)) await github.loadPullDetail(owner.value, repo.value, number.value)
 }
 
-onMounted(() => {
-  void load()
+watch([owner, repo, number], () => void load(), { immediate: true })
+
+const pull = computed(() => (github.pullDetail?.number === number.value ? github.pullDetail : null))
+
+const state = computed<ViewState>(() => {
+  if (!checked.value || (github.pullDetailLoading && !pull.value)) return 'loading'
+  return pull.value ? 'ready' : 'error'
 })
 
-watch([owner, repo, number], () => {
-  void load()
-})
+const kind = computed(() => (pull.value ? pullState(pull.value) : 'open'))
+const isOpen = computed(() => kind.value === 'open' || kind.value === 'draft')
+const canMerge = computed(() => isOpen.value && !pull.value?.draft && pull.value?.mergeable !== false)
 
-function canMerge(): boolean {
-  const pull = github.pullDetail
-  if (!pull || pull.merged || pull.state !== 'open') return false
-  return pull.mergeable !== false
-}
+const eyebrow = computed(() => `${owner.value}/${repo.value} · #${number.value} · ${PULL_STATE_LABEL[kind.value]}`)
+
+const lede = computed(() => {
+  const p = pull.value
+  if (!p) return ''
+  const parts = [`${p.head.ref ?? '?'} → ${p.base.ref ?? '?'}`]
+  if (p.commits != null) parts.push(plural(p.commits, 'commit'))
+  if (p.changed_files != null) parts.push(plural(p.changed_files, 'file'))
+  if (p.user.login) parts.push(`opened by ${p.user.login} ${relativeTime(p.created_at)}`)
+  return parts.join(' · ')
+})
 
 function mergeConfirm(event: Event): void {
+  const label = mergeOptions.find((o) => o.value === mergeMethod.value)?.label.toLowerCase() ?? mergeMethod.value
   confirm.require({
     target: event.currentTarget as HTMLElement,
-    message: `Merge #${number.value} with ${mergeMethod.value}?`,
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: {
-      label: 'Cancel',
-      severity: 'secondary',
-      outlined: true,
-    },
-    acceptProps: {
-      label: 'Merge',
-      severity: 'success',
-    },
-    accept: () => {
-      void github.mergePull(owner.value, repo.value, number.value, {
-        merge_method: mergeMethod.value,
-      })
-    },
+    message: `${label.charAt(0).toUpperCase()}${label.slice(1)} #${number.value}?`,
+    acceptLabel: 'Merge',
+    rejectLabel: 'Cancel',
+    acceptProps: { size: 'small' },
+    rejectProps: { severity: 'secondary', text: true, size: 'small' },
+    accept: () => void github.mergePull(owner.value, repo.value, number.value, { merge_method: mergeMethod.value }),
   })
 }
 
-function formatDate(value: string | null): string {
-  return formatDateTime(value)
-}
-
-async function submitReview(
-  event: GithubSubmitReviewPayload['event'],
-): Promise<void> {
+async function submitReview(event: GithubSubmitReviewPayload['event']): Promise<void> {
   reviewEvent.value = event
   const body = reviewBody.value.trim()
-  if ((event === 'REQUEST_CHANGES' || event === 'COMMENT') && !body) {
-    return
-  }
-  const ok = await github.submitReview(owner.value, repo.value, number.value, {
-    event,
-    body: body || null,
-  })
-  if (ok) {
-    reviewBody.value = ''
-  }
+  if (event !== 'APPROVE' && !body) return
+  const ok = await github.submitReview(owner.value, repo.value, number.value, { event, body: body || null })
+  if (ok) reviewBody.value = ''
+}
+
+const REVIEW_LABEL: Record<string, string> = {
+  APPROVED: 'Approved',
+  CHANGES_REQUESTED: 'Requested changes',
+  COMMENTED: 'Commented',
+  DISMISSED: 'Dismissed',
+  PENDING: 'Pending',
+}
+
+function reviewTone(state: string | null): string {
+  if (state === 'APPROVED') return 'ok'
+  if (state === 'CHANGES_REQUESTED') return 'bad'
+  return 'muted'
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar :title="title">
-    <template #toolbar>
-      <a
-        v-if="github.pullDetail?.html_url"
-        :href="github.pullDetail.html_url"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="external"
-      >
-        Open on GitHub
-      </a>
+  <DetailTemplate
+    :state="state"
+    :back-to="{ name: 'github-repo', params: { owner, repo } }"
+    :back-label="repo"
+    error-title="Pull request not found"
+    error-body="It may have been deleted, or you no longer have access to this repository."
+  >
+    <template #stage>
+      <NxStage size="compact" :eyebrow="eyebrow" :title="pull?.title ?? `Pull #${number}`" :lede="lede">
+        <template #actions>
+          <template v-if="canMerge">
+            <Select v-model="mergeMethod" :options="mergeOptions" option-label="label" option-value="value" class="method" />
+            <Button rounded severity="contrast" label="Merge" :loading="github.writePending" @click="mergeConfirm">
+              <template #icon="{ class: iconClass }">
+                <NxIcon name="check" :size="16" :class="iconClass" />
+              </template>
+            </Button>
+          </template>
+          <Button
+            v-if="isOpen && pull?.draft"
+            rounded
+            severity="contrast"
+            label="Ready for review"
+            :loading="github.writePending"
+            @click="github.markReady(owner, repo, number)"
+          />
+          <Button
+            v-else-if="isOpen"
+            rounded
+            severity="secondary"
+            label="Convert to draft"
+            :loading="github.writePending"
+            @click="github.convertToDraft(owner, repo, number)"
+          />
+          <Button
+            v-if="pull?.html_url"
+            as="a"
+            :href="pull.html_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            rounded
+            severity="secondary"
+            label="Open on GitHub"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="external-link" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
     </template>
 
-    <div class="github-page">
-      <NexusGithubChrome>
-        <div v-if="github.pullDetailLoading" class="detail-skel">
-          <Skeleton width="70%" height="1.5rem" />
-          <Skeleton width="40%" height="0.85rem" />
-          <Skeleton width="100%" height="6rem" border-radius="0.75rem" />
-          <NexusSkeletonList :rows="3" variant="repo" />
-        </div>
-        <template v-else-if="github.pullDetail">
-          <section class="summary">
-            <div class="summary-top">
-              <span class="badge">#{{ github.pullDetail.number }}</span>
-              <span class="badge">{{ github.pullDetail.state }}</span>
-              <span v-if="github.pullDetail.merged" class="badge merged">merged</span>
-              <span v-if="github.pullDetail.draft" class="badge">draft</span>
-            </div>
-            <p class="branch-line">
-              <code>{{ github.pullDetail.head.ref }}</code>
-              →
-              <code>{{ github.pullDetail.base.ref }}</code>
-            </p>
-            <p v-if="github.pullDetail.body" class="body">
-              {{ github.pullDetail.body }}
-            </p>
-            <div class="stats">
-              <span v-if="github.pullDetail.additions != null">
-                +{{ github.pullDetail.additions }}
-              </span>
-              <span v-if="github.pullDetail.deletions != null">
-                −{{ github.pullDetail.deletions }}
-              </span>
-              <span v-if="github.pullDetail.changed_files != null">
-                {{ github.pullDetail.changed_files }} files
-              </span>
-            </div>
+    <div v-if="pull" class="pull">
+      <div v-if="isOpen && pull.mergeable === false" class="notice" role="status">
+        <NxIcon name="close" :size="16" />
+        This branch has conflicts with {{ pull.base.ref }} — resolve them on GitHub before merging.
+      </div>
 
-            <div
-              v-if="github.pullDetail.state === 'open' && !github.pullDetail.merged"
-              class="draft-bar"
-            >
-              <Button
-                v-if="github.pullDetail.draft"
-                label="Ready for review"
-                icon="pi pi-eye"
-                size="small"
-                :loading="github.writePending"
-                @click="github.markReady(owner, repo, number)"
-              />
-              <Button
-                v-else
-                label="Convert to draft"
-                icon="pi pi-file"
-                severity="secondary"
-                size="small"
-                :loading="github.writePending"
-                @click="github.convertToDraft(owner, repo, number)"
-              />
-            </div>
+      <div class="cols">
+        <NxPanel title="Description" variant="flush">
+          <p v-if="pull.body" class="prose">{{ pull.body }}</p>
+          <p v-else class="quiet">No description provided.</p>
+          <p class="diffstat">
+            <span class="add">+{{ (pull.additions ?? 0).toLocaleString() }}</span>
+            <span class="del">−{{ (pull.deletions ?? 0).toLocaleString() }}</span>
+            <span v-if="pull.comments || pull.review_comments">
+              {{ plural((pull.comments ?? 0) + (pull.review_comments ?? 0), 'comment') }}
+            </span>
+          </p>
+        </NxPanel>
 
-            <div v-if="canMerge()" class="merge-bar">
-              <Select
-                v-model="mergeMethod"
-                :options="mergeOptions"
-                option-label="label"
-                option-value="value"
-                class="merge-select"
-              />
-              <Button
-                label="Merge pull request"
-                icon="pi pi-check"
-                :loading="github.writePending"
-                @click="mergeConfirm"
-              />
-            </div>
-          </section>
-
-          <section class="reviews">
-            <h3>Reviews</h3>
-            <div v-if="github.pullReviews.length === 0" class="empty-inline">
-              No reviews yet.
-            </div>
-            <ul v-else class="review-list">
-              <li
-                v-for="review in github.pullReviews"
-                :key="String(review.id)"
-                class="review-item"
-              >
-                <div class="review-head">
-                  <strong>{{ review.user.login ?? 'Unknown' }}</strong>
-                  <span class="badge">{{ review.state }}</span>
-                  <span class="review-date">{{ formatDate(review.submitted_at) }}</span>
-                </div>
-                <p v-if="review.body" class="review-body">{{ review.body }}</p>
-              </li>
-            </ul>
-
-            <div
-              v-if="github.pullDetail.state === 'open' && !github.pullDetail.merged"
-              class="review-actions"
-            >
-              <Textarea
-                v-model="reviewBody"
-                rows="3"
-                class="w-full"
-                placeholder="Leave a comment (required for request changes / comment)"
-                auto-resize
-              />
-              <div class="review-buttons">
-                <Button
-                  label="Approve"
-                  icon="pi pi-check"
-                  size="small"
-                  severity="success"
-                  :loading="github.writePending && reviewEvent === 'APPROVE'"
-                  @click="submitReview('APPROVE')"
-                />
-                <Button
-                  label="Request changes"
-                  icon="pi pi-times"
-                  size="small"
-                  severity="danger"
-                  :disabled="!reviewBody.trim()"
-                  :loading="
-                    github.writePending && reviewEvent === 'REQUEST_CHANGES'
-                  "
-                  @click="submitReview('REQUEST_CHANGES')"
-                />
-                <Button
-                  label="Comment"
-                  icon="pi pi-comment"
-                  size="small"
-                  severity="secondary"
-                  :disabled="!reviewBody.trim()"
-                  :loading="github.writePending && reviewEvent === 'COMMENT'"
-                  @click="submitReview('COMMENT')"
-                />
+        <NxPanel :title="`Reviews · ${github.pullReviews.length}`" variant="flush">
+          <p v-if="!github.pullReviews.length" class="quiet">No reviews yet.</p>
+          <div v-for="r in github.pullReviews" :key="r.id ?? r.submitted_at ?? ''" class="review">
+            <img v-if="r.user.avatar_url" :src="r.user.avatar_url" alt="" class="avatar" loading="lazy" />
+            <div class="review-body">
+              <div class="review-head">
+                <b>{{ r.user.login ?? 'Someone' }}</b>
+                <span class="tone" :class="`t-${reviewTone(r.state)}`">{{ REVIEW_LABEL[r.state ?? ''] ?? r.state }}</span>
+                <span class="when">{{ relativeTime(r.submitted_at) }}</span>
               </div>
+              <p v-if="r.body" class="prose small">{{ r.body }}</p>
             </div>
-          </section>
+          </div>
 
-          <section class="files">
-            <h3>Files changed</h3>
-            <NexusGithubDiffViewer :files="github.pullFiles" />
-          </section>
-        </template>
-        <div v-else class="empty">Pull request not found.</div>
-      </NexusGithubChrome>
+          <form v-if="isOpen" class="review-form" @submit.prevent="submitReview('COMMENT')">
+            <Textarea
+              v-model="reviewBody"
+              rows="3"
+              auto-resize
+              placeholder="Leave a review — a comment is required to request changes."
+              aria-label="Review comment"
+            />
+            <div class="review-actions">
+              <Button
+                rounded
+                size="small"
+                label="Approve"
+                :loading="github.writePending && reviewEvent === 'APPROVE'"
+                @click="submitReview('APPROVE')"
+              />
+              <Button
+                rounded
+                size="small"
+                severity="secondary"
+                label="Request changes"
+                :disabled="!reviewBody.trim()"
+                :loading="github.writePending && reviewEvent === 'REQUEST_CHANGES'"
+                @click="submitReview('REQUEST_CHANGES')"
+              />
+              <Button
+                type="submit"
+                rounded
+                size="small"
+                text
+                severity="secondary"
+                label="Comment"
+                :disabled="!reviewBody.trim()"
+                :loading="github.writePending && reviewEvent === 'COMMENT'"
+              />
+            </div>
+          </form>
+        </NxPanel>
+      </div>
+
+      <NxPanel :title="`Files changed · ${github.pullFiles.length}`" variant="flush">
+        <NxSkeletonRows v-if="github.pullDetailLoading" :rows="4" />
+        <NexusGithubDiffViewer v-else :files="github.pullFiles" />
+      </NxPanel>
     </div>
-  </NexusPageWrapper>
+  </DetailTemplate>
 </template>
 
 <style scoped>
-.github-page {
+.pull {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding-bottom: 2rem;
+  gap: 40px;
 }
 
-.detail-skel {
+.cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 40px;
+}
+
+.method {
+  min-width: 190px;
+}
+
+.notice {
   display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.external {
-  color: var(--github-ink);
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.summary,
-.reviews {
-  padding: 1.1rem 1.2rem;
-  border-radius: 1rem;
-  background: var(--github-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-}
-
-.summary-top {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 0.2rem 0.45rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--github-black) 65%, transparent);
-  color: var(--github-ink);
-}
-
-.badge.merged {
-  color: var(--meadow-green);
-  background: color-mix(in srgb, var(--meadow-green) 16%, transparent);
-}
-
-.branch-line {
-  margin: 0.75rem 0 0;
-  color: color-mix(in srgb, var(--lavender-blush) 70%, transparent);
-}
-
-.body {
-  margin: 0.75rem 0 0;
-  white-space: pre-wrap;
-  color: color-mix(in srgb, var(--lavender-blush) 75%, transparent);
-  line-height: 1.45;
-}
-
-.stats {
-  display: flex;
-  gap: 0.85rem;
-  margin-top: 0.75rem;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-}
-
-.draft-bar,
-.merge-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
   align-items: center;
-  margin-top: 1rem;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+  font-size: 14px;
 }
 
-.merge-select {
-  min-width: 14rem;
+.prose {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-2);
 }
 
-.reviews h3,
-.files h3 {
-  margin: 0 0 0.75rem;
+.prose.small {
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-.review-list {
-  list-style: none;
-  margin: 0 0 1rem;
-  padding: 0;
+.quiet {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+.diffstat {
+  display: flex;
+  gap: 14px;
+  margin: 16px 0 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.add {
+  color: var(--ok);
+}
+
+.del {
+  color: var(--bad);
+}
+
+.review {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.review-body {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-}
-
-.review-item {
-  padding: 0.7rem 0.8rem;
-  border-radius: 0.7rem;
-  background: color-mix(in srgb, var(--lavender-blush) 4%, transparent);
+  gap: 6px;
+  min-width: 0;
 }
 
 .review-head {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: 14px;
 }
 
-.review-date {
-  font-size: 0.8rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
+.tone {
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.review-body {
-  margin: 0.45rem 0 0;
-  white-space: pre-wrap;
-  color: color-mix(in srgb, var(--lavender-blush) 75%, transparent);
-  line-height: 1.4;
+.t-ok {
+  color: var(--ok);
+}
+
+.t-bad {
+  color: var(--bad);
+}
+
+.t-muted {
+  color: var(--ink-3);
+}
+
+.when {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .review-actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.review-buttons {
-  display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
-.empty,
-.empty-inline {
-  padding: 1rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-}
-
-.empty-inline {
-  padding: 0 0 0.75rem;
+@media (max-width: 960px) {
+  .cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

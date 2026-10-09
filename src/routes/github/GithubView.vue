@@ -2,12 +2,26 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPanel from '@design/components/NxPanel.vue'
+import NxPillGroup from '@design/components/NxPillGroup.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxIconButton from '@design/components/NxIconButton.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
 import NexusGithubIcon from '@components/nexus-github-icon/NexusGithubIcon.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import CollectionFields from '@routes/collections/CollectionFields.vue'
+import type { CollectionField } from '@routes/collections/collectionFields'
+import { plural } from '@routes/collections/collectionFields'
+import { relativeTime } from '@lib/datetime'
 import { useGithubStore } from '@stores/github/github.store'
-import { formatDateTime } from '@lib/datetime'
+import CodeNav from './CodeNav.vue'
+import RepoRow from './RepoRow.vue'
+import PullRow from './PullRow.vue'
+import CommitRow from './CommitRow.vue'
+import { firstLine } from './code'
 
 const github = useGithubStore()
 const route = useRoute()
@@ -15,450 +29,335 @@ const router = useRouter()
 const confirm = useConfirm()
 const filter = ref<'all' | 'starred'>('all')
 
-const filteredRepos = computed(() => {
-  if (filter.value === 'starred') {
-    return github.repos.filter((repo) => repo.starred)
-  }
-  return github.repos
-})
-
 onMounted(async () => {
-  const connected =
-    typeof route.query.connected === 'string' ? route.query.connected : null
+  const connected = typeof route.query.connected === 'string' ? route.query.connected : null
   const error = typeof route.query.error === 'string' ? route.query.error : null
 
   if (connected !== null) {
     await github.handleOAuthReturn(connected, error)
     await router.replace({ name: 'github', query: {} })
-    return
+  } else {
+    await github.loadHub()
   }
+  if (github.connected) void github.loadPulse()
+})
 
-  await github.loadHub()
+const state = computed<ViewState>(() => {
+  if (!github.status && github.statusLoading) return 'loading'
+  return github.connected ? 'ready' : 'empty'
+})
+
+const repos = computed(() => (filter.value === 'starred' ? github.repos.filter((r) => r.starred) : github.repos))
+const openPulls = computed(() => github.pulse?.open_pulls ?? [])
+const mergedPulls = computed(() => github.pulse?.merged_pulls ?? [])
+const commits = computed(() => github.pulse?.commits ?? [])
+
+const profile = computed(() => github.profile)
+
+const eyebrow = computed(() => {
+  const parts = [profile.value?.login ? `@${profile.value.login}` : 'GitHub']
+  if (github.status?.last_synced_at) parts.push(`Synced ${relativeTime(github.status.last_synced_at)}`)
+  return parts.join(' · ')
+})
+
+const stageTitle = computed(() => {
+  const n = openPulls.value.length
+  if (!github.pulse) return { title: 'Your', accent: 'code' }
+  return n ? { title: plural(n, 'pull request'), accent: 'open' } : { title: 'All', accent: 'clear' }
+})
+
+const lede = computed(() => {
+  if (profile.value?.bio) return profile.value.bio
+  const latest = github.repos.reduce<string | null>(
+    (best, r) => (r.pushed_at && (!best || r.pushed_at > best) ? r.pushed_at : best),
+    null,
+  )
+  const count = plural(github.repos.length, 'repository', 'repositories')
+  return latest ? `${count}, last pushed ${relativeTime(latest)}.` : `${count} synced from GitHub.`
+})
+
+const fields = computed<CollectionField[]>(() => {
+  const p = profile.value
+  const latest = commits.value[0]
+  const privateCount = github.repos.filter((r) => r.private).length
+  return [
+    {
+      key: 'repos',
+      label: 'Repositories',
+      value: github.repos.length,
+      sub: privateCount ? `${privateCount} private` : undefined,
+      variant: 'solid',
+      span: 3,
+    },
+    {
+      key: 'open',
+      label: 'Open PRs',
+      value: openPulls.value.length,
+      variant: 'tint',
+      span: 3,
+      to: { name: 'github-pulls' },
+    },
+    { key: 'merged', label: 'Recently merged', value: mergedPulls.value.length, variant: 'tint', span: 2 },
+    latest
+      ? {
+          key: 'latest',
+          label: 'Latest commit',
+          aside: latest.author_date ? relativeTime(latest.author_date) : undefined,
+          title: firstLine(latest.message),
+          sub: latest.repository.full_name ?? latest.repository.name,
+          variant: 'outline',
+          span: 4,
+        }
+      : {
+          key: 'followers',
+          label: 'Followers',
+          value: p?.followers ?? 0,
+          sub: p?.following != null ? `following ${p.following}` : undefined,
+          variant: 'outline',
+          span: 4,
+        },
+  ]
 })
 
 function disconnectConfirm(event: Event): void {
   confirm.require({
     target: event.currentTarget as HTMLElement,
     message: 'Disconnect GitHub from Nexus?',
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: {
-      label: 'Cancel',
-      severity: 'secondary',
-      outlined: true,
-    },
-    acceptProps: {
-      label: 'Disconnect',
-      severity: 'danger',
-    },
-    accept: () => {
-      void github.disconnect()
-    },
+    acceptLabel: 'Disconnect',
+    rejectLabel: 'Cancel',
+    acceptProps: { severity: 'danger', size: 'small' },
+    rejectProps: { severity: 'secondary', text: true, size: 'small' },
+    accept: () => void github.disconnect(),
   })
-}
-
-function formatDate(value: string | null): string {
-  return formatDateTime(value)
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="GitHub">
-    <template #toolbar>
-      <div class="toolbar-actions">
-        <template v-if="github.connected">
-          <Button
-            label="Sync"
-            icon="pi pi-sync"
-            severity="secondary"
-            text
-            :loading="github.syncPending"
-            @click="github.syncNow()"
-          />
-          <Button
-            label="Disconnect"
-            icon="pi pi-times"
-            severity="danger"
-            text
-            @click="disconnectConfirm"
-          />
+  <IndexTemplate :state="state">
+    <template #stage>
+      <NxStage
+        v-if="github.connected"
+        art="square"
+        :eyebrow="eyebrow"
+        :title="stageTitle.title"
+        :accent="stageTitle.accent"
+        :lede="lede"
+      >
+        <template v-if="profile?.avatar_url" #visual>
+          <img :src="profile.avatar_url" :alt="profile.login ?? 'GitHub avatar'" />
         </template>
-      </div>
+        <template #actions>
+          <Button
+            v-if="openPulls.length"
+            as="router-link"
+            rounded
+            severity="contrast"
+            label="Review pull requests"
+            :to="{ name: 'github-pulls' }"
+          />
+          <Button rounded severity="secondary" label="Sync" :loading="github.syncPending" @click="github.syncNow()">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="refresh" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <Button
+            v-if="profile?.html_url"
+            as="a"
+            :href="profile.html_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            rounded
+            severity="secondary"
+            label="Open on GitHub"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="external-link" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <NxIconButton icon="close" label="Disconnect GitHub" @click="disconnectConfirm" />
+        </template>
+      </NxStage>
+      <NxStage
+        v-else
+        size="compact"
+        eyebrow="Code"
+        title="Your"
+        accent="code"
+        lede="Link GitHub to browse repositories, review pull request diffs and merge without leaving Nexus."
+      >
+        <template #actions>
+          <Button rounded severity="contrast" label="Connect GitHub" @click="github.connect()">
+            <template #icon>
+              <NexusGithubIcon :size="16" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
     </template>
 
-    <div class="github-page">
-      <NexusGithubChrome>
-        <Message
-          v-if="github.needsReauth"
-          severity="warn"
-          :closable="false"
-          class="reauth-banner"
-        >
-          GitHub needs re-authorization.
-          <Button
-            label="Reconnect"
-            size="small"
-            class="ml-2"
-            @click="github.connect()"
+    <template v-if="github.connected" #fields>
+      <CollectionFields section="code" :fields="fields" />
+    </template>
+
+    <template v-if="github.connected" #toolbar>
+      <CodeNav />
+    </template>
+
+    <template #empty>
+      <NxEmptyState
+        title="GitHub is not linked"
+        body="Connecting asks GitHub for read access to your repositories and permission to open, review and merge pull requests."
+        icon="code"
+      />
+    </template>
+
+    <div class="code">
+      <div v-if="github.needsReauth" class="notice" role="status">
+        <NxIcon name="clock" :size="16" />
+        <span>GitHub needs you to authorise Nexus again before it can sync.</span>
+        <Button size="small" rounded label="Reconnect" @click="github.connect()" />
+      </div>
+
+      <div class="cols">
+        <NxPanel title="Recent commits" variant="flush">
+          <NxSkeletonRows v-if="github.pulseLoading && !github.pulse" :rows="5" />
+          <p v-else-if="!commits.length" class="quiet">No commits in the last few days.</p>
+          <CommitRow
+            v-for="c in commits.slice(0, 8)"
+            v-else
+            :key="`${c.repository.full_name}-${c.sha}`"
+            :commit="c"
+            :repo="c.repository.name"
           />
-        </Message>
+        </NxPanel>
 
-        <section
-          v-if="!github.connected && !github.statusLoading"
-          class="connect-hero"
-        >
-          <div class="connect-mark">
-            <NexusGithubIcon :size="36" />
-          </div>
-          <div class="connect-copy">
-            <h2>Link GitHub</h2>
-            <p>
-              Browse your repositories, review pull request diffs, and merge
-              from Nexus.
-            </p>
-            <Button
-              label="Connect GitHub"
-              icon="pi pi-link"
-              @click="github.connect()"
+        <NxPanel title="Open pull requests" action-label="All pull requests" :to="{ name: 'github-pulls' }" variant="flush">
+          <NxSkeletonRows v-if="github.pulseLoading && !github.pulse" :rows="4" />
+          <p v-else-if="!openPulls.length" class="quiet">Nothing waiting on you.</p>
+          <PullRow
+            v-for="p in openPulls.slice(0, 6)"
+            v-else
+            :key="p.id ?? `${p.repository.full_name}-${p.number}`"
+            :owner="p.repository.owner"
+            :repo="p.repository.name"
+            :number="p.number"
+            :title="p.title"
+            :state="p.state"
+            :draft="p.draft"
+            :updated-at="p.updated_at"
+            :user="p.user"
+            :href="p.html_url"
+            show-repo
+          />
+          <template v-if="mergedPulls.length">
+            <h3 class="sub">Recently merged</h3>
+            <PullRow
+              v-for="p in mergedPulls.slice(0, 4)"
+              :key="`m-${p.id ?? p.number}`"
+              :owner="p.repository.owner"
+              :repo="p.repository.name"
+              :number="p.number"
+              :title="p.title"
+              :state="p.state"
+              merged
+              :updated-at="p.updated_at"
+              :user="p.user"
+              :href="p.html_url"
+              show-repo
             />
-          </div>
-        </section>
+          </template>
+        </NxPanel>
+      </div>
 
-        <div v-else-if="github.statusLoading" class="hub-skel">
-          <Skeleton width="100%" height="6rem" border-radius="1rem" />
-          <Skeleton width="10rem" height="1.1rem" />
-          <NexusSkeletonList :rows="5" variant="repo" />
-        </div>
-
-        <template v-else-if="github.connected">
-          <section v-if="github.profile" class="profile-strip">
-            <img
-              v-if="github.profile.avatar_url"
-              :src="github.profile.avatar_url"
-              :alt="github.profile.login ?? 'avatar'"
-              class="avatar"
-            />
-            <div class="profile-copy">
-              <h2>{{ github.profile.name || github.profile.login }}</h2>
-              <p v-if="github.profile.login">@{{ github.profile.login }}</p>
-              <p v-if="github.profile.bio" class="bio">{{ github.profile.bio }}</p>
-              <div class="meta">
-                <span v-if="github.profile.public_repos != null">
-                  {{ github.profile.public_repos }} public
-                </span>
-                <span v-if="github.profile.total_private_repos != null">
-                  {{ github.profile.total_private_repos }} private
-                </span>
-                <span v-if="github.status?.last_synced_at">
-                  Synced {{ formatDate(github.status.last_synced_at) }}
-                </span>
-              </div>
-            </div>
-            <a
-              v-if="github.profile.html_url"
-              :href="github.profile.html_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="external"
-            >
-              Open on GitHub
-            </a>
-          </section>
-
-          <section class="repos-section">
-            <div class="section-head">
-              <h3>Repositories</h3>
-              <span class="count">{{ filteredRepos.length }}</span>
-              <div class="filter-chips">
-                <button
-                  type="button"
-                  class="chip"
-                  :class="{ active: filter === 'all' }"
-                  @click="filter = 'all'"
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  class="chip"
-                  :class="{ active: filter === 'starred' }"
-                  @click="filter = 'starred'"
-                >
-                  Starred
-                </button>
-              </div>
-            </div>
-
-            <NexusSkeletonList
-              v-if="github.reposLoading"
-              :rows="6"
-              variant="repo"
-            />
-            <div v-else-if="filteredRepos.length === 0" class="empty">
-              <template v-if="filter === 'starred'">
-                No starred repositories yet.
-              </template>
-              <template v-else>
-                No repositories synced yet. Hit Sync to pull from GitHub.
-              </template>
-            </div>
-            <ul v-else class="repo-list">
-              <li v-for="repo in filteredRepos" :key="repo.id">
-                <router-link
-                  :to="{
-                    name: 'github-repo',
-                    params: { owner: repo.owner, repo: repo.name },
-                  }"
-                  class="repo-row"
-                >
-                  <div class="repo-main">
-                    <strong>{{ repo.full_name }}</strong>
-                    <span v-if="repo.private" class="badge">Private</span>
-                    <span v-else class="badge badge-public">Public</span>
-                    <span v-if="repo.starred" class="star-badge" title="Starred on GitHub">
-                      <i class="pi pi-star-fill" />
-                    </span>
-                  </div>
-                  <p v-if="repo.description" class="desc">{{ repo.description }}</p>
-                  <div class="repo-meta">
-                    <span v-if="repo.language">{{ repo.language }}</span>
-                    <span>Pushed {{ formatDate(repo.pushed_at) }}</span>
-                  </div>
-                </router-link>
-              </li>
-            </ul>
-          </section>
+      <NxPanel :title="`Repositories · ${repos.length}`" variant="flush">
+        <template #action>
+          <NxPillGroup
+            v-model="filter"
+            :options="[
+              { value: 'all', label: 'All' },
+              { value: 'starred', label: 'Starred' },
+            ]"
+            label="Repository filter"
+            size="sm"
+          />
         </template>
-      </NexusGithubChrome>
+        <NxSkeletonRows v-if="github.reposLoading && !github.repos.length" :rows="6" />
+        <p v-else-if="!repos.length" class="quiet">
+          {{ filter === 'starred' ? 'No starred repositories yet.' : 'No repositories synced yet — hit Sync to pull them from GitHub.' }}
+        </p>
+        <div v-else class="repos">
+          <RepoRow
+            v-for="r in repos"
+            :key="r.id"
+            :owner="r.owner"
+            :name="r.name"
+            :description="r.description"
+            :language="r.language"
+            :is-private="r.private"
+            :starred="r.starred"
+            :pushed-at="r.pushed_at"
+          />
+        </div>
+      </NxPanel>
     </div>
-  </NexusPageWrapper>
+  </IndexTemplate>
 </template>
 
 <style scoped>
-.github-page {
+.code {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  padding-top: 0.5rem;
-  padding-bottom: 2rem;
+  gap: 40px;
 }
 
-.hub-skel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.toolbar-actions {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.connect-hero {
+.cols {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1.25rem;
-  align-items: center;
-  padding: 1.5rem;
-  border-radius: 1rem;
-  background: var(--github-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px;
 }
 
-@media (max-width: 640px) {
-  .connect-hero {
-    grid-template-columns: 1fr;
-  }
-}
-
-.connect-mark {
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 1rem;
-  display: grid;
-  place-items: center;
-  color: var(--github-ink);
-  background: color-mix(in srgb, var(--github-black) 55%, transparent);
-  border: 1px solid color-mix(in srgb, var(--github-ink) 25%, transparent);
-}
-
-.connect-copy h2 {
-  margin: 0 0 0.35rem;
-  font-size: 1.45rem;
-}
-
-.connect-copy p {
-  margin: 0 0 1rem;
-  max-width: 36rem;
-  color: color-mix(in srgb, var(--lavender-blush) 65%, transparent);
-  line-height: 1.45;
-}
-
-.profile-strip {
+.notice {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
   align-items: center;
-  padding: 1.1rem 1.25rem;
-  border-radius: 1rem;
-  background: var(--github-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  color: var(--ink);
+  font-size: 14px;
 }
 
-.avatar {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 999px;
-  object-fit: cover;
-}
-
-.profile-copy {
+.notice span {
   flex: 1;
-  min-width: 12rem;
 }
 
-.profile-copy h2 {
+.quiet {
   margin: 0;
-  font-size: 1.25rem;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 14px;
 }
 
-.profile-copy p {
-  margin: 0.15rem 0 0;
-  color: color-mix(in srgb, var(--lavender-blush) 65%, transparent);
-}
-
-.bio {
-  max-width: 40rem;
-}
-
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-}
-
-.external {
-  color: var(--github-ink);
-  text-decoration: none;
+.sub {
+  margin: 24px 0 4px;
+  font-size: 11px;
   font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.section-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.75rem;
-}
-
-.section-head h3 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.count {
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
-  font-size: 0.85rem;
-}
-
-.filter-chips {
-  margin-left: auto;
-  display: flex;
-  gap: 0.35rem;
-}
-
-.chip {
-  border: 0;
-  background: color-mix(in srgb, var(--lavender-blush) 6%, transparent);
-  color: color-mix(in srgb, var(--lavender-blush) 70%, transparent);
-  padding: 0.3rem 0.7rem;
-  border-radius: 0.55rem;
-  font-weight: 600;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.chip.active {
-  background: color-mix(in srgb, var(--github-ink) 14%, transparent);
-  color: var(--github-ink);
-}
-
-.repo-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.repo-row {
-  display: block;
-  padding: 0.9rem 1rem;
-  border-radius: 0.85rem;
-  text-decoration: none;
-  color: inherit;
-  background: color-mix(in srgb, var(--lavender-blush) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-  transition:
-    border-color 0.15s ease,
-    background-color 0.15s ease;
-}
-
-.repo-row:hover {
-  border-color: color-mix(in srgb, var(--github-ink) 35%, transparent);
-  background: color-mix(in srgb, var(--github-black) 40%, transparent);
-}
-
-.repo-main {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-  color: var(--github-ink);
-  background: color-mix(in srgb, var(--github-black) 70%, transparent);
+  color: var(--ink-3);
 }
 
-.badge-public {
-  color: var(--meadow-green);
-  background: color-mix(in srgb, var(--meadow-green) 16%, transparent);
+.repos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 40px;
 }
 
-.star-badge {
-  margin-left: auto;
-  color: var(--github-ink);
-  line-height: 1;
-}
-
-.desc {
-  margin: 0.35rem 0 0;
-  color: color-mix(in srgb, var(--lavender-blush) 60%, transparent);
-  font-size: 0.9rem;
-}
-
-.repo-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.45rem;
-  font-size: 0.8rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
-}
-
-.empty {
-  padding: 1.25rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+@media (max-width: 960px) {
+  .cols,
+  .repos {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

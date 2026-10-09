@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
+import DetailTemplate from '@design/templates/DetailTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPanel from '@design/components/NxPanel.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
 import NexusGithubDiffViewer from '@components/nexus-github-diff-viewer/NexusGithubDiffViewer.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import { plural } from '@routes/collections/collectionFields'
 import { useGithubStore } from '@stores/github/github.store'
 
 const github = useGithubStore()
@@ -13,6 +17,7 @@ const router = useRouter()
 
 const owner = computed(() => String(route.params.owner ?? ''))
 const repo = computed(() => String(route.params.repo ?? ''))
+const ready = ref(false)
 
 const title = ref('')
 const body = ref('')
@@ -20,32 +25,8 @@ const head = ref<string | null>(null)
 const base = ref<string | null>(null)
 const draft = ref(false)
 
-const branchOptions = computed(() =>
-  github.branches.map((branch) => ({
-    label: branch.name,
-    value: branch.name,
-  })),
-)
-
-const compareSummary = computed(() => {
-  const result = github.compareResult
-  if (!result) return null
-  return {
-    ahead: result.ahead_by,
-    behind: result.behind_by,
-    commits: result.total_commits,
-    status: result.status,
-    files: result.files.length,
-  }
-})
-
-async function refreshCompare(): Promise<void> {
-  if (!base.value || !head.value || base.value === head.value) {
-    await github.loadCompare(owner.value, repo.value, '', '')
-    return
-  }
-  await github.loadCompare(owner.value, repo.value, base.value, head.value)
-}
+const branchOptions = computed(() => github.branches.map((b) => ({ label: b.name, value: b.name })))
+const comparable = computed(() => Boolean(base.value && head.value && base.value !== head.value))
 
 onMounted(async () => {
   await github.loadHub()
@@ -54,243 +35,139 @@ onMounted(async () => {
     return
   }
   await github.loadBranches(owner.value, repo.value)
-  const repoRow = github.repos.find(
-    (item) => item.owner === owner.value && item.name === repo.value,
-  )
-  base.value = repoRow?.default_branch ?? github.branches[0]?.name ?? null
+  const repoRow = github.repos.find((r) => r.owner === owner.value && r.name === repo.value)
+  base.value = github.currentRepo?.default_branch ?? repoRow?.default_branch ?? github.branches[0]?.name ?? null
+  const requested = typeof route.query.head === 'string' ? route.query.head : null
   head.value =
+    (requested && github.branches.some((b) => b.name === requested) ? requested : null) ??
     github.branches.find((b) => b.name !== base.value)?.name ??
-    github.branches[0]?.name ??
     null
-  await refreshCompare()
+  if (head.value && !title.value) title.value = head.value.replace(/^[\w-]+\//, '').replace(/[-_]+/g, ' ')
+  ready.value = true
 })
 
 watch([base, head], () => {
-  void refreshCompare()
+  if (comparable.value) void github.loadCompare(owner.value, repo.value, base.value!, head.value!)
+  else void github.loadCompare(owner.value, repo.value, '', '')
+})
+
+const state = computed<ViewState>(() => (ready.value ? 'ready' : 'loading'))
+
+const lede = computed(() => {
+  const r = github.compareResult
+  if (!comparable.value) return 'Choose two different branches to compare.'
+  if (!r || github.compareLoading) return `Merging ${head.value} into ${base.value}.`
+  const parts = [`Merging ${head.value} into ${base.value}`]
+  if (r.total_commits != null) parts.push(plural(r.total_commits, 'commit'))
+  parts.push(plural(r.files.length, 'file'))
+  if (r.behind_by) parts.push(`${r.behind_by} behind`)
+  return `${parts.join(' · ')}.`
 })
 
 async function submit(): Promise<void> {
-  if (!title.value.trim() || !head.value || !base.value) return
+  if (!title.value.trim() || !comparable.value) return
   const pull = await github.createPull(owner.value, repo.value, {
     title: title.value.trim(),
-    head: head.value,
-    base: base.value,
+    head: head.value!,
+    base: base.value!,
     body: body.value.trim() || null,
     draft: draft.value,
   })
   if (pull?.number) {
     await router.push({
       name: 'github-pull-detail',
-      params: {
-        owner: owner.value,
-        repo: repo.value,
-        number: pull.number,
-      },
+      params: { owner: owner.value, repo: repo.value, number: pull.number },
     })
   }
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="New pull request">
-    <div class="github-page">
-      <NexusGithubChrome>
-        <form class="form" @submit.prevent="submit">
-          <p class="repo-label">{{ owner }}/{{ repo }}</p>
+  <DetailTemplate :state="state" :back-to="{ name: 'github-repo', params: { owner, repo } }" :back-label="repo">
+    <template #stage>
+      <NxStage size="compact" :eyebrow="`${owner}/${repo}`" title="New" accent="pull request" :lede="lede" />
+    </template>
 
-          <label class="field">
-            <span>Title</span>
-            <InputText v-model="title" class="w-full" required maxlength="256" />
-          </label>
-
-          <div class="branch-row">
-            <label class="field">
-              <span>Base</span>
-              <Select
-                v-model="base"
-                :options="branchOptions"
-                option-label="label"
-                option-value="value"
-                placeholder="Base branch"
-                class="w-full"
-              />
+    <div class="create">
+      <NxPanel>
+        <form id="create-pull" class="nx-form" @submit.prevent="submit">
+          <div class="row">
+            <label class="f">
+              <span>Merge into</span>
+              <Select v-model="base" :options="branchOptions" option-label="label" option-value="value" placeholder="Base branch" filter />
             </label>
-            <label class="field">
-              <span>Compare</span>
-              <Select
-                v-model="head"
-                :options="branchOptions"
-                option-label="label"
-                option-value="value"
-                placeholder="Head branch"
-                class="w-full"
-              />
+            <label class="f">
+              <span>From</span>
+              <Select v-model="head" :options="branchOptions" option-label="label" option-value="value" placeholder="Head branch" filter />
             </label>
           </div>
-
-          <label class="field">
+          <label class="f">
+            <span>Title</span>
+            <InputText v-model="title" required maxlength="256" />
+          </label>
+          <label class="f">
             <span>Description</span>
-            <Textarea v-model="body" rows="6" class="w-full" auto-resize />
+            <Textarea v-model="body" rows="5" auto-resize />
           </label>
-
-          <label class="draft-check">
-            <Checkbox v-model="draft" binary input-id="create-draft" />
-            <span>Create as draft</span>
-          </label>
-
-          <div class="actions">
-            <Button
-              type="button"
-              label="Cancel"
-              severity="secondary"
-              text
-              @click="
-                router.push({
-                  name: 'github-repo',
-                  params: { owner, repo },
-                })
-              "
-            />
+          <div class="foot">
+            <label class="check">
+              <Checkbox v-model="draft" binary input-id="create-draft" />
+              <span>Open as a draft</span>
+            </label>
             <Button
               type="submit"
-              label="Create pull request"
-              icon="pi pi-check"
+              rounded
+              :label="draft ? 'Create draft' : 'Create pull request'"
               :loading="github.writePending"
-              :disabled="!title.trim() || !head || !base || head === base"
-            />
+              :disabled="!title.trim() || !comparable"
+            >
+              <template #icon="{ class: iconClass }">
+                <NxIcon name="check" :size="16" :class="iconClass" />
+              </template>
+            </Button>
           </div>
         </form>
+      </NxPanel>
 
-        <section class="preview">
-          <div class="preview-head">
-            <h3>Diff preview</h3>
-            <p v-if="compareSummary" class="preview-meta">
-              <span v-if="compareSummary.commits != null">
-                {{ compareSummary.commits }} commit{{
-                  compareSummary.commits === 1 ? '' : 's'
-                }}
-              </span>
-              <span v-if="compareSummary.ahead != null">
-                {{ compareSummary.ahead }} ahead
-              </span>
-              <span v-if="compareSummary.behind != null">
-                {{ compareSummary.behind }} behind
-              </span>
-              <span>{{ compareSummary.files }} files</span>
-            </p>
-          </div>
-
-          <div v-if="!base || !head || base === head" class="empty">
-            Choose different base and compare branches to preview the diff.
-          </div>
-          <div v-else-if="github.compareLoading" class="compare-skel">
-            <Skeleton width="60%" height="0.9rem" />
-            <Skeleton width="100%" height="8rem" border-radius="0.75rem" />
-            <NexusSkeletonList :rows="4" variant="repo" />
-          </div>
-          <NexusGithubDiffViewer
-            v-else-if="github.compareResult"
-            :files="github.compareResult.files"
-            expand-all
-          />
-        </section>
-      </NexusGithubChrome>
+      <NxPanel title="Changes" variant="flush">
+        <p v-if="!comparable" class="quiet">Pick two different branches to preview the diff.</p>
+        <NxSkeletonRows v-else-if="github.compareLoading" :rows="4" />
+        <p v-else-if="github.compareResult && !github.compareResult.files.length" class="quiet">
+          These branches are identical.
+        </p>
+        <NexusGithubDiffViewer v-else-if="github.compareResult" :files="github.compareResult.files" expand-all />
+      </NxPanel>
     </div>
-  </NexusPageWrapper>
+  </DetailTemplate>
 </template>
 
 <style scoped>
-.github-page {
-  padding-bottom: 2rem;
+.create {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 36px;
 }
 
-.form {
+.foot {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-width: 42rem;
-  padding: 1.2rem;
-  border-radius: 1rem;
-  background: var(--github-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-}
-
-.repo-label {
-  margin: 0;
-  font-weight: 700;
-  color: var(--github-ink);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.field span {
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 65%, transparent);
-}
-
-.branch-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.85rem;
-}
-
-@media (max-width: 640px) {
-  .branch-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.draft-check {
-  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.55rem;
-  font-size: 0.9rem;
-  color: color-mix(in srgb, var(--lavender-blush) 75%, transparent);
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.preview-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink-2);
+  cursor: pointer;
 }
 
-.preview-head h3 {
+.quiet {
   margin: 0;
-}
-
-.preview-meta {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  font-size: 0.85rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-}
-
-.empty {
-  padding: 1rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-}
-
-.compare-skel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  padding: 0.25rem 0;
+  color: var(--ink-3);
+  font-size: 14px;
 }
 </style>

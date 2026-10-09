@@ -1,13 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusGithubChrome from '@components/nexus-github-chrome/NexusGithubChrome.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import DetailTemplate from '@design/templates/DetailTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPillGroup from '@design/components/NxPillGroup.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxIconButton from '@design/components/NxIconButton.vue'
+import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
+import { relativeTime } from '@lib/datetime'
 import { useGithubStore } from '@stores/github/github.store'
-import { formatDateTime } from '@lib/datetime'
 import type { GithubPullStateFilter } from '@/types/github/github'
+import PullRow from './PullRow.vue'
+import CommitRow from './CommitRow.vue'
+import { PULL_FILTERS, languageColour } from './code'
+
+type Tab = 'pulls' | 'commits' | 'branches'
 
 const github = useGithubStore()
 const route = useRoute()
@@ -16,451 +25,318 @@ const confirm = useConfirm()
 
 const owner = computed(() => String(route.params.owner ?? ''))
 const repo = computed(() => String(route.params.repo ?? ''))
-const tab = ref<'pulls' | 'commits' | 'branches'>('pulls')
-const state = ref<GithubPullStateFilter>('open')
-const showCreateBranch = ref(false)
-const newBranchName = ref('')
-const newBranchFrom = ref<string | null>(null)
+const tab = ref<Tab>('pulls')
+const filter = ref<GithubPullStateFilter>('open')
+const ready = ref(false)
 
-const stateOptions = [
-  { label: 'Open', value: 'open' },
-  { label: 'Merged', value: 'merged' },
-  { label: 'Closed', value: 'closed' },
-  { label: 'All', value: 'all' },
+const tabs: { value: Tab; label: string }[] = [
+  { value: 'pulls', label: 'Pull requests' },
+  { value: 'commits', label: 'Commits' },
+  { value: 'branches', label: 'Branches' },
 ]
 
-const title = computed(() => `${owner.value}/${repo.value}`)
-const defaultBranch = computed(
-  () => github.currentRepo?.default_branch ?? null,
-)
-const branchOptions = computed(() =>
-  github.branches.map((branch) => ({
-    label: branch.name,
-    value: branch.name,
-  })),
-)
+const info = computed(() => github.repos.find((r) => r.owner === owner.value && r.name === repo.value) ?? null)
+const defaultBranch = computed(() => github.currentRepo?.default_branch ?? info.value?.default_branch ?? null)
+const starred = computed(() => github.currentRepo?.starred ?? info.value?.starred ?? false)
 
-async function load(): Promise<void> {
+async function init(): Promise<void> {
+  ready.value = false
   await github.loadHub()
   if (!github.connected) {
     await router.replace({ name: 'github' })
     return
   }
-  await github.loadCurrentRepo(owner.value, repo.value)
-  if (tab.value === 'pulls') {
-    await github.loadRepoPulls(owner.value, repo.value, state.value)
-  } else if (tab.value === 'commits') {
-    await github.loadCommits(owner.value, repo.value)
-  } else {
-    await github.loadBranches(owner.value, repo.value)
-    newBranchFrom.value = defaultBranch.value ?? github.branches[0]?.name ?? null
-  }
+  ready.value = true
+  await Promise.all([github.loadCurrentRepo(owner.value, repo.value), loadTab()])
 }
 
-onMounted(() => {
-  void load()
+async function loadTab(): Promise<void> {
+  if (tab.value === 'pulls') await github.loadRepoPulls(owner.value, repo.value, filter.value)
+  else if (tab.value === 'commits') await github.loadCommits(owner.value, repo.value)
+  else await github.loadBranches(owner.value, repo.value)
+}
+
+watch([owner, repo], () => void init(), { immediate: true })
+watch([tab, filter], () => void loadTab())
+
+const state = computed<ViewState>(() => (ready.value ? 'ready' : 'loading'))
+
+const eyebrow = computed(() => {
+  const parts = [owner.value, info.value?.private ? 'Private' : 'Public']
+  if (info.value?.pushed_at) parts.push(`pushed ${relativeTime(info.value.pushed_at)}`)
+  return parts.join(' · ')
 })
 
-watch([owner, repo, tab, state], () => {
-  void load()
-})
+const lede = computed(() => info.value?.description || (defaultBranch.value ? `Default branch ${defaultBranch.value}.` : ''))
 
-function formatDate(value: string | null): string {
-  return formatDateTime(value)
+/* ── Branches ───────────────────────────────────────────── */
+
+const showCreateBranch = ref(false)
+const newBranchName = ref('')
+const newBranchFrom = ref<string | null>(null)
+const branchOptions = computed(() => github.branches.map((b) => ({ label: b.name, value: b.name })))
+
+function openCreateBranch(): void {
+  newBranchName.value = ''
+  newBranchFrom.value = defaultBranch.value ?? github.branches[0]?.name ?? null
+  showCreateBranch.value = true
+}
+
+async function createBranch(): Promise<void> {
+  const name = newBranchName.value.trim()
+  if (!name) return
+  const ok = await github.createBranch(owner.value, repo.value, { name, from: newBranchFrom.value })
+  if (ok) showCreateBranch.value = false
 }
 
 function deleteBranchConfirm(event: Event, branch: string): void {
   confirm.require({
     target: event.currentTarget as HTMLElement,
     message: `Delete branch “${branch}”?`,
-    icon: 'pi pi-exclamation-triangle',
-    rejectProps: {
-      label: 'Cancel',
-      severity: 'secondary',
-      outlined: true,
-    },
-    acceptProps: {
-      label: 'Delete',
-      severity: 'danger',
-    },
-    accept: () => {
-      void github.deleteBranch(owner.value, repo.value, branch)
-    },
+    acceptLabel: 'Delete',
+    rejectLabel: 'Cancel',
+    acceptProps: { severity: 'danger', size: 'small' },
+    rejectProps: { severity: 'secondary', text: true, size: 'small' },
+    accept: () => void github.deleteBranch(owner.value, repo.value, branch),
   })
-}
-
-async function createBranch(): Promise<void> {
-  const name = newBranchName.value.trim()
-  if (!name) return
-  const ok = await github.createBranch(owner.value, repo.value, {
-    name,
-    from: newBranchFrom.value,
-  })
-  if (ok) {
-    showCreateBranch.value = false
-    newBranchName.value = ''
-  }
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar :title="title">
-    <template #toolbar>
-      <div class="toolbar-actions">
-        <span
-          v-if="github.currentRepo?.starred"
-          class="star-badge"
-          title="Starred on GitHub"
-        >
-          <i class="pi pi-star-fill" />
-          Starred
-        </span>
-        <Button
-          label="New pull request"
-          icon="pi pi-plus"
-          size="small"
-          @click="
-            router.push({
-              name: 'github-pull-create',
-              params: { owner, repo },
-            })
-          "
-        />
-      </div>
+  <DetailTemplate :state="state" :back-to="{ name: 'github' }" back-label="Code">
+    <template #stage>
+      <NxStage size="compact" :eyebrow="eyebrow" :title="repo" :lede="lede">
+        <template #actions>
+          <Button
+            as="router-link"
+            rounded
+            severity="contrast"
+            label="New pull request"
+            :to="{ name: 'github-pull-create', params: { owner, repo } }"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="plus" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <Button
+            v-if="info?.html_url"
+            as="a"
+            :href="info.html_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            rounded
+            severity="secondary"
+            label="Open on GitHub"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="external-link" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <NxIconButton
+            icon="star"
+            :label="starred ? 'Unstar repository' : 'Star repository'"
+            :active="starred"
+            :disabled="github.writePending"
+            @click="github.toggleStar(owner, repo)"
+          />
+        </template>
+      </NxStage>
     </template>
 
-    <div class="github-page">
-      <NexusGithubChrome>
-        <div class="tabs">
-          <button
-            type="button"
-            class="tab"
-            :class="{ active: tab === 'pulls' }"
-            @click="tab = 'pulls'"
-          >
-            Pull requests
-          </button>
-          <button
-            type="button"
-            class="tab"
-            :class="{ active: tab === 'commits' }"
-            @click="tab = 'commits'"
-          >
-            Commits
-          </button>
-          <button
-            type="button"
-            class="tab"
-            :class="{ active: tab === 'branches' }"
-            @click="tab = 'branches'"
-          >
-            Branches
-          </button>
+    <div class="repo">
+      <div class="bar">
+        <NxPillGroup v-model="tab" :options="tabs" label="Repository section" />
+        <span v-if="info?.language" class="lang">
+          <i :style="{ background: languageColour(info.language) }" />{{ info.language }}
+        </span>
+        <NxPillGroup
+          v-if="tab === 'pulls'"
+          v-model="filter"
+          :options="PULL_FILTERS"
+          label="Pull request state"
+          size="sm"
+          class="end"
+        />
+        <Button v-else-if="tab === 'branches'" rounded size="small" severity="secondary" label="New branch" class="end" @click="openCreateBranch">
+          <template #icon="{ class: iconClass }">
+            <NxIcon name="plus" :size="14" :class="iconClass" />
+          </template>
+        </Button>
+      </div>
+
+      <template v-if="tab === 'pulls'">
+        <NxSkeletonRows v-if="github.repoPullsLoading && !github.repoPulls.length" :rows="5" />
+        <p v-else-if="!github.repoPulls.length" class="quiet">No pull requests for this filter.</p>
+        <div v-else :class="{ dim: github.repoPullsLoading }">
+          <PullRow
+            v-for="p in github.repoPulls"
+            :key="p.id ?? p.number ?? ''"
+            :owner="owner"
+            :repo="repo"
+            :number="p.number"
+            :title="p.title"
+            :state="p.state"
+            :draft="p.draft"
+            :merged="p.merged"
+            :merged-at="p.merged_at"
+            :updated-at="p.updated_at"
+            :user="p.user"
+            :href="p.html_url"
+          />
         </div>
+      </template>
 
-        <template v-if="tab === 'pulls'">
-          <div class="filters">
-            <Select
-              v-model="state"
-              :options="stateOptions"
-              option-label="label"
-              option-value="value"
-              class="state-select"
+      <template v-else-if="tab === 'commits'">
+        <NxSkeletonRows v-if="github.commitsLoading && !github.commits.length" :rows="8" />
+        <p v-else-if="!github.commits.length" class="quiet">No commits found.</p>
+        <div v-else :class="{ dim: github.commitsLoading }">
+          <CommitRow v-for="c in github.commits" :key="c.sha ?? ''" :commit="c" />
+        </div>
+      </template>
+
+      <template v-else>
+        <NxSkeletonRows v-if="github.branchesLoading && !github.branches.length" :rows="5" />
+        <p v-else-if="!github.branches.length" class="quiet">No branches found.</p>
+        <div v-else :class="{ dim: github.branchesLoading }">
+          <div v-for="b in github.branches" :key="b.name" class="branch">
+            <span class="name">{{ b.name }}</span>
+            <span v-if="b.name === defaultBranch" class="tag">Default</span>
+            <span v-if="b.protected" class="tag">Protected</span>
+            <span class="spacer" />
+            <RouterLink
+              v-if="b.name !== defaultBranch"
+              :to="{ name: 'github-pull-create', params: { owner, repo }, query: { head: b.name } }"
+              class="open-pr"
+              >Open PR</RouterLink
+            >
+            <NxIconButton
+              icon="trash"
+              size="sm"
+              :label="`Delete ${b.name}`"
+              :disabled="b.name === defaultBranch || b.protected || github.writePending"
+              @click="deleteBranchConfirm($event, b.name)"
             />
           </div>
-
-          <NexusSkeletonList
-            v-if="github.repoPullsLoading"
-            :rows="5"
-            variant="repo"
-          />
-          <div v-else-if="github.repoPulls.length === 0" class="empty">
-            No pull requests for this filter.
-          </div>
-          <ul v-else class="list">
-            <li v-for="pull in github.repoPulls" :key="String(pull.id)">
-              <router-link
-                :to="{
-                  name: 'github-pull-detail',
-                  params: { owner, repo, number: pull.number },
-                }"
-                class="row"
-              >
-                <div class="row-main">
-                  <strong>{{ pull.title }}</strong>
-                  <span v-if="pull.draft" class="draft-chip">Draft</span>
-                </div>
-                <div class="meta">
-                  <span>#{{ pull.number }}</span>
-                  <span>{{ pull.state }}</span>
-                  <span v-if="pull.merged_at">merged</span>
-                  <span>{{ formatDate(pull.updated_at) }}</span>
-                </div>
-              </router-link>
-            </li>
-          </ul>
-        </template>
-
-        <template v-else-if="tab === 'commits'">
-          <NexusSkeletonList
-            v-if="github.commitsLoading"
-            :rows="6"
-            variant="repo"
-          />
-          <div v-else-if="github.commits.length === 0" class="empty">
-            No commits found.
-          </div>
-          <ul v-else class="list">
-            <li v-for="commit in github.commits" :key="String(commit.sha)">
-              <a
-                v-if="commit.html_url"
-                :href="commit.html_url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="row"
-              >
-                <strong>{{ commit.message?.split('\n')[0] }}</strong>
-                <div class="meta">
-                  <span>{{ commit.sha?.slice(0, 7) }}</span>
-                  <span>{{ commit.author_name }}</span>
-                  <span>{{ formatDate(commit.author_date) }}</span>
-                </div>
-              </a>
-              <div v-else class="row">
-                <strong>{{ commit.message?.split('\n')[0] }}</strong>
-              </div>
-            </li>
-          </ul>
-        </template>
-
-        <template v-else>
-          <div class="branch-toolbar">
-            <Button
-              label="New branch"
-              icon="pi pi-plus"
-              size="small"
-              @click="showCreateBranch = !showCreateBranch"
-            />
-          </div>
-
-          <form
-            v-if="showCreateBranch"
-            class="create-branch"
-            @submit.prevent="createBranch"
-          >
-            <InputText
-              v-model="newBranchName"
-              placeholder="Branch name"
-              class="w-full"
-              required
-            />
-            <Select
-              v-model="newBranchFrom"
-              :options="branchOptions"
-              option-label="label"
-              option-value="value"
-              placeholder="Base branch"
-              class="w-full"
-            />
-            <Button
-              type="submit"
-              label="Create"
-              size="small"
-              :loading="github.writePending"
-              :disabled="!newBranchName.trim()"
-            />
-          </form>
-
-          <NexusSkeletonList
-            v-if="github.branchesLoading"
-            :rows="5"
-            variant="plain"
-          />
-          <div v-else-if="github.branches.length === 0" class="empty">
-            No branches found.
-          </div>
-          <ul v-else class="list">
-            <li v-for="branch in github.branches" :key="branch.name" class="branch-row">
-              <div class="branch-main">
-                <strong>{{ branch.name }}</strong>
-                <span v-if="branch.protected" class="badge">Protected</span>
-                <span
-                  v-if="branch.name === defaultBranch"
-                  class="badge badge-default"
-                >
-                  Default
-                </span>
-              </div>
-              <Button
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                size="small"
-                :disabled="branch.name === defaultBranch"
-                :loading="github.writePending"
-                @click="deleteBranchConfirm($event, branch.name)"
-              />
-            </li>
-          </ul>
-        </template>
-      </NexusGithubChrome>
+        </div>
+      </template>
     </div>
-  </NexusPageWrapper>
+  </DetailTemplate>
+
+  <Dialog v-model:visible="showCreateBranch" modal header="New branch" style="width: min(440px, 94vw)">
+    <form id="new-branch" class="nx-form" @submit.prevent="createBranch">
+      <label class="f">
+        <span>Name</span>
+        <InputText v-model="newBranchName" placeholder="feature/my-change" autofocus />
+      </label>
+      <label class="f">
+        <span>From</span>
+        <Select
+          v-model="newBranchFrom"
+          :options="branchOptions"
+          option-label="label"
+          option-value="value"
+          placeholder="Default branch"
+          filter
+        />
+      </label>
+    </form>
+    <template #footer>
+      <Button label="Cancel" text severity="secondary" @click="showCreateBranch = false" />
+      <Button
+        type="submit"
+        form="new-branch"
+        rounded
+        label="Create branch"
+        :loading="github.writePending"
+        :disabled="!newBranchName.trim()"
+      />
+    </template>
+  </Dialog>
 </template>
 
 <style scoped>
-.github-page {
+.repo {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding-bottom: 2rem;
+  gap: 16px;
 }
 
-.toolbar-actions {
+.bar {
   display: flex;
-  gap: 0.35rem;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 12px 16px;
 }
 
-.star-badge {
+.end {
+  margin-left: auto;
+}
+
+.lang {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--github-ink);
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-3);
 }
 
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+.lang i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
-.tab {
-  border: 0;
-  background: color-mix(in srgb, var(--lavender-blush) 6%, transparent);
-  color: color-mix(in srgb, var(--lavender-blush) 70%, transparent);
-  padding: 0.45rem 0.85rem;
-  border-radius: 0.65rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.tab.active {
-  background: color-mix(in srgb, var(--github-ink) 14%, transparent);
-  color: var(--github-ink);
-}
-
-.filters {
-  margin-top: 0.25rem;
-}
-
-.state-select {
-  min-width: 10rem;
-}
-
-.list {
-  list-style: none;
+.quiet {
   margin: 0;
-  padding: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+.dim {
+  opacity: 0.55;
+  transition: opacity 0.2s;
+}
+
+.branch {
   display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.row {
-  display: block;
-  padding: 0.9rem 1rem;
-  border-radius: 0.85rem;
-  text-decoration: none;
-  color: inherit;
-  background: color-mix(in srgb, var(--lavender-blush) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-}
-
-.row:hover {
-  border-color: color-mix(in srgb, var(--github-ink) 35%, transparent);
-}
-
-.row-main {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
   align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  min-width: 0;
 }
 
-.draft-chip {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 0.15rem 0.4rem;
+.name {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag {
+  flex-shrink: 0;
+  padding: 1px 8px;
   border-radius: 999px;
-  color: color-mix(in srgb, var(--lavender-blush) 80%, transparent);
-  background: color-mix(in srgb, var(--lavender-blush) 10%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--tint-2);
 }
 
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.35rem;
-  font-size: 0.8rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
+.spacer {
+  flex: 1;
 }
 
-.branch-toolbar {
-  display: flex;
-  justify-content: flex-end;
+.open-pr {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--ink-3);
 }
 
-.create-branch {
-  display: grid;
-  gap: 0.65rem;
-  max-width: 24rem;
-  padding: 0.9rem;
-  border-radius: 0.85rem;
-  background: var(--github-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-}
-
-.branch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--lavender-blush) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-}
-
-.branch-main {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
-}
-
-.badge {
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 0.15rem 0.4rem;
-  border-radius: 999px;
-  color: var(--github-ink);
-  background: color-mix(in srgb, var(--github-black) 65%, transparent);
-}
-
-.badge-default {
-  color: var(--meadow-green);
-  background: color-mix(in srgb, var(--meadow-green) 16%, transparent);
-}
-
-.empty {
-  padding: 1.25rem;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+.open-pr:hover {
+  color: var(--ink);
 }
 </style>
