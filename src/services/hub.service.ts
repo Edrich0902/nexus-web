@@ -3,6 +3,7 @@ import type {
   ActivityModule,
   ActivityPage,
   NowPayload,
+  PaletteBatchResponse,
   PaletteResponse,
   SearchResponse,
 } from '@/types/hub/hub'
@@ -36,5 +37,10 @@ export async function search(q: string, signal?: AbortSignal): Promise<SearchRes
 
 export async function getPalette(url: string): Promise<PaletteResponse> {
   const { data } = await http.get<PaletteResponse>(`${BASE}/palette`, { params: { url } })
+  return data
+}
+
+export async function getPalettes(urls: string[]): Promise<PaletteBatchResponse> {
+  const { data } = await http.post<PaletteBatchResponse>(`${BASE}/palettes`, { urls })
   return data
 }

@@ -6,17 +6,20 @@ import type { ViewState } from '@design/templates/types'
 import NxStage from '@design/components/NxStage.vue'
 import NxPillNav from '@design/components/NxPillNav.vue'
 import NxPillGroup from '@design/components/NxPillGroup.vue'
-import NxCoverGrid from '@design/components/NxCoverGrid.vue'
-import NxCoverCard from '@design/components/NxCoverCard.vue'
 import NxSearchField from '@design/components/NxSearchField.vue'
 import NxEmptyState from '@design/components/NxEmptyState.vue'
 import NxIcon from '@design/components/NxIcon.vue'
 import { useKitchenStore } from '@stores/food-drink/kitchen.store'
+import { useFoodDrinkStore } from '@stores/food-drink/food-drink.store'
 import CollectionFields from '@routes/collections/CollectionFields.vue'
+import CollectionPrints from '@routes/collections/CollectionPrints.vue'
+import { recipePrint } from '@routes/collections/prints'
 import { plural, type CollectionField } from '@routes/collections/collectionFields'
+import type { PairingVerdict } from '@/types/food-drink/food-drink'
 import { kitchenNav } from './kitchenNav'
 
 const kitchen = useKitchenStore()
+const foodDrink = useFoodDrinkStore()
 const router = useRouter()
 
 const query = ref('')
@@ -25,7 +28,24 @@ const filtered = computed(() => Boolean(query.value.trim()) || show.value === 'f
 
 onMounted(() => {
   void kitchen.loadRecipes()
+  if (!foodDrink.pairings.length) void foodDrink.loadPairings()
 })
+
+const VERDICT_RANK: Record<PairingVerdict, number> = { great: 2, good: 1, poor: 0 }
+
+/** The best-rated drink for each recipe; poor matches are not suggested. */
+const pairs = computed(() => {
+  const best = new Map<number, { name: string; rank: number }>()
+  for (const p of foodDrink.pairings) {
+    const rank = VERDICT_RANK[p.verdict]
+    if (!rank || !p.drinkable_name) continue
+    const current = best.get(p.kitchen_recipe_id)
+    if (!current || rank > current.rank) best.set(p.kitchen_recipe_id, { name: p.drinkable_name, rank })
+  }
+  return best
+})
+
+const prints = computed(() => kitchen.recipes.map((r) => recipePrint(r, pairs.value.get(r.id)?.name ?? null)))
 
 async function reload(): Promise<void> {
   await kitchen.loadRecipes({
@@ -130,22 +150,7 @@ const fields = computed<CollectionField[]>(() => {
       :body="show === 'favourites' ? 'No favourites match that search yet.' : 'Try another ingredient or dish name.'"
       icon="search"
     />
-    <NxCoverGrid v-else :class="{ dim: kitchen.recipesLoading }">
-      <NxCoverCard
-        v-for="r in kitchen.recipes"
-        :key="r.id"
-        :to="{ name: 'kitchen-recipe', params: { recipeId: r.id } }"
-        :title="r.meal?.name ?? 'Recipe'"
-        :sub="[r.meal?.category, r.meal?.area].filter(Boolean).join(' · ')"
-        :meta="r.cooked_count ? `Cooked ${r.cooked_count}×` : 'Not cooked yet'"
-        :media="r.media"
-        :src="r.image_url ?? r.meal?.thumb_url"
-        :rating="r.rating"
-        :favourite="r.is_favourite"
-        aspect="square"
-        icon="kitchen"
-      />
-    </NxCoverGrid>
+    <CollectionPrints v-else :prints="prints" filter-label="Tags" :class="{ dim: kitchen.recipesLoading }" />
   </IndexTemplate>
 </template>
 

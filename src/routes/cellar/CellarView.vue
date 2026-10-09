@@ -4,8 +4,6 @@ import { useRouter } from 'vue-router'
 import IndexTemplate from '@design/templates/IndexTemplate.vue'
 import type { ViewState } from '@design/templates/types'
 import NxStage from '@design/components/NxStage.vue'
-import NxCoverGrid from '@design/components/NxCoverGrid.vue'
-import NxCoverCard from '@design/components/NxCoverCard.vue'
 import NxSearchField from '@design/components/NxSearchField.vue'
 import NxEmptyState from '@design/components/NxEmptyState.vue'
 import NxIcon from '@design/components/NxIcon.vue'
@@ -15,6 +13,8 @@ import { useCellarStore } from '@stores/food-drink/cellar.store'
 import { useAnalysisStore } from '@stores/analysis/analysis.store'
 import CollectionFields from '@routes/collections/CollectionFields.vue'
 import { drinkFields } from '@routes/collections/collectionFields'
+import CollectionPrints from '@routes/collections/CollectionPrints.vue'
+import { winePrint } from '@routes/collections/prints'
 
 const cellar = useCellarStore()
 const analysis = useAnalysisStore()
@@ -92,11 +92,7 @@ async function submitCreate(): Promise<void> {
   }
 }
 
-function badge(status?: string): string | null {
-  if (status === 'pending') return 'Analysing'
-  if (status === 'failed') return 'Analysis failed'
-  return null
-}
+const prints = computed(() => cellar.wines.map(winePrint))
 </script>
 
 <template>
@@ -150,21 +146,7 @@ function badge(status?: string): string | null {
       body="Try a producer, a region or part of the name."
       icon="search"
     />
-    <NxCoverGrid v-else :class="{ dim: cellar.winesLoading }">
-      <NxCoverCard
-        v-for="w in cellar.wines"
-        :key="w.id"
-        :to="{ name: 'cellar-wine', params: { wineId: w.id } }"
-        :title="w.name"
-        :sub="w.producer_name"
-        :meta="[w.vintage, w.region_name || w.country].filter(Boolean).join(' · ')"
-        :media="w.media"
-        :src="w.image_url"
-        :rating="w.rating"
-        :badge="badge(w.analysis_status)"
-        icon="wine"
-      />
-    </NxCoverGrid>
+    <CollectionPrints v-else :prints="prints" :class="{ dim: cellar.winesLoading }" />
   </IndexTemplate>
 
   <Dialog v-model:visible="showCreate" modal header="Add a wine" style="width: min(500px, 94vw)">

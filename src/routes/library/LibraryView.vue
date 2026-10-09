@@ -4,8 +4,6 @@ import { useRouter } from 'vue-router'
 import IndexTemplate from '@design/templates/IndexTemplate.vue'
 import type { ViewState } from '@design/templates/types'
 import NxStage from '@design/components/NxStage.vue'
-import NxCoverGrid from '@design/components/NxCoverGrid.vue'
-import NxCoverCard from '@design/components/NxCoverCard.vue'
 import NxSearchField from '@design/components/NxSearchField.vue'
 import NxPillGroup from '@design/components/NxPillGroup.vue'
 import NxEmptyState from '@design/components/NxEmptyState.vue'
@@ -15,11 +13,13 @@ import NexusImage from '@components/nexus-image/NexusImage.vue'
 import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
 import CollectionFields from '@routes/collections/CollectionFields.vue'
 import type { CollectionField } from '@routes/collections/collectionFields'
+import CollectionPrints from '@routes/collections/CollectionPrints.vue'
+import { bookPrint } from '@routes/collections/prints'
 import { mediaDeliveryUrl } from '@lib/media'
 import { useLibraryStore } from '@stores/library/library.store'
 import type { LibraryBookStatus, LibrarySearchResult } from '@/types/library/library'
 import BookCandidates from './BookCandidates.vue'
-import { STATUS_LABEL, STATUS_OPTIONS, bookAuthors, isoDay, readableDate, splitBookTitle } from './library'
+import { STATUS_OPTIONS, bookAuthors, isoDay, readableDate, splitBookTitle } from './library'
 
 const library = useLibraryStore()
 const router = useRouter()
@@ -53,6 +53,7 @@ const state = computed<ViewState>(() => {
 })
 
 const hasMore = computed(() => library.books.length < library.booksTotal)
+const prints = computed(() => library.books.map(bookPrint))
 
 /* ── Stage: the book you are reading ───────────────────── */
 
@@ -250,21 +251,7 @@ async function pickCatalog(result: LibrarySearchResult): Promise<void> {
       icon="search"
     />
     <template v-else>
-      <NxCoverGrid :class="{ dim: library.booksLoading }">
-        <NxCoverCard
-          v-for="b in library.books"
-          :key="b.id"
-          :to="{ name: 'library-book', params: { bookId: b.id } }"
-          :title="b.title"
-          :sub="bookAuthors(b)"
-          :meta="STATUS_LABEL[b.status]"
-          :media="b.media"
-          :src="b.image_url"
-          :rating="b.rating"
-          :badge="b.status === 'reading' ? 'Reading' : null"
-          icon="library"
-        />
-      </NxCoverGrid>
+      <CollectionPrints :prints="prints" filter-label="Author" :class="{ dim: library.booksLoading }" />
       <div v-if="hasMore" class="more">
         <Button
           rounded

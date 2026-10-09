@@ -4,8 +4,6 @@ import { useRouter } from 'vue-router'
 import IndexTemplate from '@design/templates/IndexTemplate.vue'
 import type { ViewState } from '@design/templates/types'
 import NxStage from '@design/components/NxStage.vue'
-import NxCoverGrid from '@design/components/NxCoverGrid.vue'
-import NxCoverCard from '@design/components/NxCoverCard.vue'
 import NxSearchField from '@design/components/NxSearchField.vue'
 import NxEmptyState from '@design/components/NxEmptyState.vue'
 import NxIcon from '@design/components/NxIcon.vue'
@@ -15,6 +13,8 @@ import { useSpiritsStore } from '@stores/food-drink/spirits.store'
 import { useAnalysisStore } from '@stores/analysis/analysis.store'
 import CollectionFields from '@routes/collections/CollectionFields.vue'
 import { drinkFields } from '@routes/collections/collectionFields'
+import CollectionPrints from '@routes/collections/CollectionPrints.vue'
+import { spiritPrint } from '@routes/collections/prints'
 
 const spirits = useSpiritsStore()
 const analysis = useAnalysisStore()
@@ -47,6 +47,8 @@ const fields = computed(() =>
     to: (s) => ({ name: 'spirit-detail', params: { spiritId: s.id } }),
   }),
 )
+
+const prints = computed(() => spirits.spirits.map(spiritPrint))
 
 const showCreate = ref(false)
 const form = reactive({
@@ -138,21 +140,7 @@ async function submitCreate(): Promise<void> {
       body="Try a distillery or a category."
       icon="search"
     />
-    <NxCoverGrid v-else :class="{ dim: spirits.spiritsLoading }">
-      <NxCoverCard
-        v-for="s in spirits.spirits"
-        :key="s.id"
-        :to="{ name: 'spirit-detail', params: { spiritId: s.id } }"
-        :title="s.name"
-        :sub="s.producer"
-        :meta="[s.category, s.age_statement, s.abv != null ? `${s.abv}%` : null].filter(Boolean).join(' · ')"
-        :media="s.media"
-        :src="s.image_url"
-        :rating="s.rating"
-        :badge="s.analysis_status === 'pending' ? 'Analysing' : null"
-        icon="spirits"
-      />
-    </NxCoverGrid>
+    <CollectionPrints v-else :prints="prints" :class="{ dim: spirits.spiritsLoading }" />
   </IndexTemplate>
 
   <Dialog v-model:visible="showCreate" modal header="Add a bottle" style="width: min(480px, 94vw)">

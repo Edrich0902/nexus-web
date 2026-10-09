@@ -88,3 +88,8 @@ export interface PaletteResponse {
   status: 'pending' | 'ready' | 'failed'
   palette: ImagePalette | null
 }
+
+/** Only ready palettes are keyed; a missing URL is pending or unsupported. */
+export interface PaletteBatchResponse {
+  palettes: Record<string, ImagePalette>
+}

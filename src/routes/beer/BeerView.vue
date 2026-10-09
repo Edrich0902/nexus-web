@@ -4,8 +4,6 @@ import { useRouter } from 'vue-router'
 import IndexTemplate from '@design/templates/IndexTemplate.vue'
 import type { ViewState } from '@design/templates/types'
 import NxStage from '@design/components/NxStage.vue'
-import NxCoverGrid from '@design/components/NxCoverGrid.vue'
-import NxCoverCard from '@design/components/NxCoverCard.vue'
 import NxSearchField from '@design/components/NxSearchField.vue'
 import NxEmptyState from '@design/components/NxEmptyState.vue'
 import NxIcon from '@design/components/NxIcon.vue'
@@ -13,6 +11,8 @@ import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vu
 import { useBeerStore } from '@stores/food-drink/beer.store'
 import CollectionFields from '@routes/collections/CollectionFields.vue'
 import { drinkFields } from '@routes/collections/collectionFields'
+import CollectionPrints from '@routes/collections/CollectionPrints.vue'
+import { beerPrint } from '@routes/collections/prints'
 import type { BeerBrewery } from '@/types/food-drink/beer'
 
 const beer = useBeerStore()
@@ -138,6 +138,8 @@ async function submit(): Promise<void> {
 
 const place = (b: { city?: string | null; country?: string | null }): string =>
   [b.city, b.country].filter(Boolean).join(', ')
+
+const prints = computed(() => beer.beers.map(beerPrint))
 </script>
 
 <template>
@@ -184,21 +186,7 @@ const place = (b: { city?: string | null; country?: string | null }): string =>
       body="Try a brewery or a style."
       icon="search"
     />
-    <NxCoverGrid v-else :class="{ dim: beer.beersLoading }">
-      <NxCoverCard
-        v-for="b in beer.beers"
-        :key="b.id"
-        :to="{ name: 'beer-detail', params: { beerId: b.id } }"
-        :title="b.name"
-        :sub="b.brewery?.name"
-        :meta="[b.style?.name, b.abv != null ? `${b.abv}%` : null].filter(Boolean).join(' · ')"
-        :media="b.media"
-        :src="b.image_url"
-        :rating="b.rating"
-        :badge="b.analysis_status === 'pending' ? 'Analysing' : null"
-        icon="beer"
-      />
-    </NxCoverGrid>
+    <CollectionPrints v-else :prints="prints" :class="{ dim: beer.beersLoading }" />
   </IndexTemplate>
 
   <Dialog

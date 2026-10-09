@@ -5,11 +5,11 @@ import DetailTemplate from '@design/templates/DetailTemplate.vue'
 import type { ViewState } from '@design/templates/types'
 import NxStage from '@design/components/NxStage.vue'
 import NxSectionHeader from '@design/components/NxSectionHeader.vue'
-import NxCoverGrid from '@design/components/NxCoverGrid.vue'
-import NxCoverCard from '@design/components/NxCoverCard.vue'
 import NxEmptyState from '@design/components/NxEmptyState.vue'
 import NxIcon from '@design/components/NxIcon.vue'
 import { useBeerStore } from '@stores/food-drink/beer.store'
+import CollectionPrints from '@routes/collections/CollectionPrints.vue'
+import { beerPrint } from '@routes/collections/prints'
 
 const beer = useBeerStore()
 const route = useRoute()
@@ -39,6 +39,7 @@ const place = computed(() =>
 )
 
 const beers = computed(() => beer.beers.filter((b) => b.brewery?.id === breweryId.value))
+const prints = computed(() => beers.value.map(beerPrint))
 
 const sourceLabel = computed(() =>
   brewery.value?.source === 'openbrewerydb' ? 'Open Brewery DB' : 'Added by you',
@@ -74,20 +75,7 @@ const sourceLabel = computed(() =>
 
     <section aria-labelledby="brewery-beers">
       <NxSectionHeader id="brewery-beers" :title="`Your beers from ${brewery?.name ?? 'here'}`" />
-      <NxCoverGrid v-if="beers.length">
-        <NxCoverCard
-          v-for="b in beers"
-          :key="b.id"
-          :to="{ name: 'beer-detail', params: { beerId: b.id } }"
-          :title="b.name"
-          :sub="b.style?.name"
-          :meta="b.abv != null ? `${b.abv}% ABV` : null"
-          :media="b.media"
-          :src="b.image_url"
-          :rating="b.rating"
-          icon="beer"
-        />
-      </NxCoverGrid>
+      <CollectionPrints v-if="beers.length" :prints="prints" />
       <NxEmptyState v-else title="None logged yet" body="Beers you link to this brewery appear here." icon="beer" />
     </section>
   </DetailTemplate>
