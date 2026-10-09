@@ -7,15 +7,17 @@ import NxCommandPalette from '@design/components/shell/NxCommandPalette.vue'
 import NexusSpotifyPlayerPanel from '@components/nexus-spotify-player-panel/NexusSpotifyPlayerPanel.vue'
 import NexusSpotifyQueuePanel from '@components/nexus-spotify-queue-panel/NexusSpotifyQueuePanel.vue'
 import NexusSpotifyAddToPlaylist from '@components/nexus-spotify-add-to-playlist/NexusSpotifyAddToPlaylist.vue'
-import { useCommandStore } from '@design/command/command.store'
+import { scoreItem, useCommandStore, type CommandItem } from '@design/command/command.store'
 import { createNavigationSource } from '@design/command/navigation-source'
 import { createSearchSource } from '@design/command/search-source'
+import { useAuthStore } from '@stores/auth/auth.store'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
 
 const route = useRoute()
 const router = useRouter()
 const command = useCommandStore()
 const spotify = useSpotifyStore()
+const auth = useAuthStore()
 
 const unregisterNavigation = command.register(
   createNavigationSource({
@@ -40,6 +42,26 @@ const unregisterNavigation = command.register(
   }),
 )
 const unregisterSearch = command.register(createSearchSource(router))
+
+const signOutItem: CommandItem = {
+  id: 'account:sign-out',
+  label: 'Sign out',
+  hint: 'This device',
+  group: 'Actions',
+  icon: 'log-out',
+  keywords: ['log out', 'logout', 'sign off'],
+  run: async () => {
+    await auth.logout()
+    await router.replace({ name: 'login' })
+  },
+}
+
+/** Only offered once the user types for it, so it never sits in the empty palette. */
+const unregisterAccount = command.register({
+  id: 'account',
+  order: 90,
+  fetch: (query) => (query.trim() && scoreItem(signOutItem, query) > 0 ? [signOutItem] : []),
+})
 
 function onKeydown(event: KeyboardEvent): void {
   if (!route.meta.shell) return
@@ -74,6 +96,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
   unregisterNavigation()
   unregisterSearch()
+  unregisterAccount()
 })
 </script>
 
