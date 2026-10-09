@@ -1,764 +1,420 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, watch } from 'vue'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusChart from '@components/nexus-chart/NexusChart.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPanel from '@design/components/NxPanel.vue'
+import NxMeters, { type MeterItem } from '@design/components/NxMeters.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxIconButton from '@design/components/NxIconButton.vue'
 import NexusDataTable from '@components/nexus-data-table/NexusDataTable.vue'
 import NexusTableChip from '@components/nexus-data-table/NexusTableChip.vue'
+import CollectionFields from '@routes/collections/CollectionFields.vue'
+import type { CollectionField } from '@routes/collections/collectionFields'
+import { formatDateTime, relativeTime } from '@lib/datetime'
 import { useAdminStore } from '@stores/admin/admin.store'
-import { toBarChartData } from '@lib/charts'
-import { formatDateTime } from '@lib/datetime'
+import { diskUsed, formatBytes, formatUptime, memoryUsed, share, shortClass, statusTone } from './admin'
 
 const admin = useAdminStore()
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
-const server = computed(() => admin.overview?.server ?? null)
-const openf1 = computed(() => admin.overview?.providers.openf1 ?? null)
-
-const totalPending = computed(() =>
-  admin.pendingByQueue.reduce((sum, q) => sum + q.pending, 0),
-)
-const totalReserved = computed(() =>
-  admin.pendingByQueue.reduce((sum, q) => sum + q.reserved, 0),
-)
-const totalDelayed = computed(() =>
-  admin.pendingByQueue.reduce((sum, q) => sum + q.delayed, 0),
-)
-
-const queueOptions = computed(() => [
-  { label: 'All queues', value: undefined as string | undefined },
-  ...admin.pendingByQueue.map((q) => ({
-    label: `${q.queue} (${q.pending})`,
-    value: q.queue as string | undefined,
-  })),
-])
-
-const queueBarData = computed(() =>
-  toBarChartData(
-    admin.pendingByQueue.map((q) => ({
-      label: q.queue,
-      count: q.pending,
-    })),
-    'Pending',
-    '#5b9fd4',
-  ),
-)
-
-const QUEUE_STATE_COLORS: Record<string, string> = {
-  Pending: '#5b9fd4',
-  Reserved: '#7eb8da',
-  Delayed: '#fbbf24',
-  Failed: '#fb7185',
-}
-
-const queueStateData = computed(() => {
-  const slices = [
-    {
-      label: 'Pending',
-      count: Math.max(0, totalPending.value - totalReserved.value),
-    },
-    { label: 'Reserved', count: totalReserved.value },
-    { label: 'Delayed', count: totalDelayed.value },
-    { label: 'Failed', count: admin.overview?.failed_job_count ?? 0 },
-  ].filter((i) => i.count > 0)
-
-  return {
-    labels: slices.map((s) => s.label),
-    datasets: [
-      {
-        label: 'Queue state',
-        data: slices.map((s) => s.count),
-        backgroundColor: slices.map(
-          (s) => QUEUE_STATE_COLORS[s.label] ?? '#5b9fd4',
-        ),
-        borderWidth: 0,
-      },
-    ],
-  }
-})
-
-const hasQueueBars = computed(() => admin.pendingByQueue.length > 0)
-const hasQueueState = computed(() => {
-  const data = queueStateData.value.datasets[0]?.data ?? []
-  return data.some((n) => typeof n === 'number' && n > 0)
-})
-
-const doughnutOptions = {
-  plugins: {
-    legend: { position: 'bottom' as const },
-  },
-}
-
-function formatBytes(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return '—'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let n = value
-  let i = 0
-  while (n >= 1024 && i < units.length - 1) {
-    n /= 1024
-    i++
-  }
-  return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
-}
-
-function formatUsedOfTotal(
-  used: number | null | undefined,
-  total: number | null | undefined,
-): string {
-  if (used == null && total == null) return '—'
-  if (used != null && total != null) {
-    return `${formatBytes(used)} of ${formatBytes(total)}`
-  }
-  if (used != null) return formatBytes(used)
-  return formatBytes(total)
-}
-
-function memoryUsedBytes(): number | null {
-  const mem = server.value?.memory
-  if (!mem) return null
-  if (mem.system_used_bytes != null) return mem.system_used_bytes
-  if (mem.system_total_bytes != null && mem.system_available_bytes != null) {
-    return Math.max(0, mem.system_total_bytes - mem.system_available_bytes)
-  }
-  return mem.php_usage_bytes ?? null
-}
-
-function diskUsedBytes(): number | null {
-  const disk = server.value?.disk
-  if (!disk) return null
-  if (disk.used_bytes != null) return disk.used_bytes
-  if (disk.total_bytes != null && disk.free_bytes != null) {
-    return Math.max(0, disk.total_bytes - disk.free_bytes)
-  }
-  return null
-}
-
-function formatUptime(seconds: number | null | undefined): string {
-  if (seconds == null) return '—'
-  const d = Math.floor(seconds / 86400)
-  const h = Math.floor((seconds % 86400) / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  if (d > 0) return `${d}d ${h}h`
-  return `${h}h ${m}m`
-}
-
-function shortClass(name: string): string {
-  const parts = name.split('\\')
-  return parts[parts.length - 1] || name
-}
-
-function statusTone(
-  status: string | null | undefined,
-): 'neutral' | 'info' | 'success' | 'warn' | 'danger' {
-  const s = (status ?? '').toLowerCase()
-  if (s === 'processed' || s === 'success' || s === 'ok') return 'success'
-  if (s === 'failed' || s === 'failure') return 'danger'
-  if (s === 'pending' || s === 'queued' || s === 'released') return 'warn'
-  if (s === 'processing' || s === 'reserved') return 'info'
-  return 'neutral'
-}
-
-function meterWidth(percent: number | null | undefined): string {
-  if (percent == null || Number.isNaN(percent)) return '0%'
-  return `${Math.min(100, Math.max(0, percent))}%`
-}
-
-function startPolling(): void {
-  stopPolling()
-  pollTimer = setInterval(() => {
-    void admin.loadOverview()
-  }, 12_000)
-}
-
-function stopPolling(): void {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-
 onMounted(() => {
   void admin.refreshAll()
-  startPolling()
+  pollTimer = setInterval(() => void admin.loadOverview(), 12_000)
 })
 
 onUnmounted(() => {
-  stopPolling()
+  if (pollTimer) clearInterval(pollTimer)
 })
 
 watch(
   () => admin.queueFilter,
-  () => {
-    void admin.loadJobs(1)
-  },
+  () => void admin.loadJobs(1),
 )
 
-function openTelescope(): void {
-  const url = admin.telescopeUrl
-  if (url) window.open(url, '_blank', 'noopener,noreferrer')
-}
+const server = computed(() => admin.overview?.server ?? null)
+const openf1 = computed(() => admin.overview?.providers.openf1 ?? null)
+const failed = computed(() => admin.overview?.failed_job_count ?? 0)
+
+const totals = computed(() =>
+  admin.pendingByQueue.reduce(
+    (t, q) => ({ pending: t.pending + q.pending, reserved: t.reserved + q.reserved, delayed: t.delayed + q.delayed }),
+    { pending: 0, reserved: 0, delayed: 0 },
+  ),
+)
+
+const state = computed<ViewState>(() => (admin.overviewLoading && !admin.overview ? 'loading' : 'ready'))
+
+const stageTitle = computed(() => {
+  if (failed.value) return { title: `${failed.value} failed`, accent: failed.value === 1 ? 'job' : 'jobs' }
+  if (totals.value.pending) return { title: `${totals.value.pending} jobs`, accent: 'queued' }
+  return { title: 'All', accent: 'quiet' }
+})
+
+const eyebrow = computed(() => {
+  const parts = ['Operations']
+  if (server.value?.laravel_env) parts.push(server.value.laravel_env)
+  if (admin.overview?.sampled_at) parts.push(`sampled ${relativeTime(admin.overview.sampled_at)}`)
+  return parts.join(' · ')
+})
+
+const lede = computed(() => {
+  const s = server.value
+  if (!s) return 'Queues, failures and container health.'
+  return `Up ${formatUptime(s.uptime_seconds)} on PHP ${s.php_version} with the ${s.queue_connection} queue. Refreshes every 12 seconds while this page is open.`
+})
+
+const fields = computed<CollectionField[]>(() => {
+  const s = server.value
+  if (!s) return []
+  const memSource = s.memory.source === 'cgroup' ? 'container' : (s.memory.source ?? 'php')
+  return [
+    {
+      key: 'memory',
+      label: 'Memory',
+      aside: s.memory.system_used_percent != null ? `${s.memory.system_used_percent}%` : undefined,
+      value: formatBytes(memoryUsed(s)),
+      sub: s.memory.system_total_bytes != null ? `of ${formatBytes(s.memory.system_total_bytes)} · ${memSource}` : memSource,
+      progress: share(s.memory.system_used_percent),
+      variant: 'solid',
+      span: 3,
+    },
+    {
+      key: 'cpu',
+      label: 'CPU',
+      value: s.cpu_percent != null ? `${s.cpu_percent}%` : (s.load?.[0]?.toFixed(2) ?? '—'),
+      sub: s.load ? `load ${s.load.map((n) => n.toFixed(2)).join(' · ')}` : undefined,
+      progress: share(s.cpu_percent),
+      variant: 'tint',
+      span: 3,
+    },
+    {
+      key: 'disk',
+      label: 'Disk',
+      aside: s.disk.used_percent != null ? `${s.disk.used_percent}%` : undefined,
+      value: formatBytes(diskUsed(s)),
+      sub: `${formatBytes(s.disk.free_bytes)} free on ${s.disk.path || '/'}`,
+      progress: share(s.disk.used_percent),
+      variant: 'tint',
+      span: 3,
+    },
+    {
+      key: 'queue',
+      label: 'Queue',
+      value: totals.value.pending,
+      sub: `${totals.value.reserved} running · ${totals.value.delayed} delayed · ${failed.value} failed`,
+      variant: 'outline',
+      span: 3,
+    },
+  ]
+})
+
+const queueMeters = computed<MeterItem[]>(() => {
+  const max = Math.max(1, ...admin.pendingByQueue.map((q) => q.pending))
+  return admin.pendingByQueue.map((q) => ({
+    key: q.queue,
+    label: q.queue,
+    value: q.pending / max,
+    display: String(q.pending),
+  }))
+})
+
+const health = computed(() => {
+  const slices = [
+    { key: 'waiting', label: 'Waiting', count: Math.max(0, totals.value.pending - totals.value.reserved), tone: 'var(--acc)' },
+    { key: 'running', label: 'Running', count: totals.value.reserved, tone: 'var(--ok)' },
+    { key: 'delayed', label: 'Delayed', count: totals.value.delayed, tone: 'var(--warn)' },
+    { key: 'failed', label: 'Failed', count: failed.value, tone: 'var(--bad)' },
+  ]
+  const sum = slices.reduce((a, s) => a + s.count, 0)
+  return { slices, sum }
+})
+
+const queueOptions = computed(() => [
+  { label: 'All queues', value: undefined as string | undefined },
+  ...admin.pendingByQueue.map((q) => ({ label: `${q.queue} (${q.pending})`, value: q.queue as string | undefined })),
+])
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Admin">
-    <template #toolbar>
-      <Button
-        label="Open Telescope"
-        icon="pi pi-external-link"
-        text
-        severity="secondary"
-        :disabled="!admin.telescopeUrl"
-        @click="openTelescope"
-      />
-      <Button
-        label="Refresh"
-        icon="pi pi-refresh"
-        text
-        severity="secondary"
-        :loading="admin.overviewLoading"
-        @click="admin.refreshAll()"
-      />
+  <IndexTemplate :state="state">
+    <template #stage>
+      <NxStage size="compact" live :eyebrow="eyebrow" :title="stageTitle.title" :accent="stageTitle.accent" :lede="lede">
+        <template #actions>
+          <Button rounded severity="secondary" label="Refresh" :loading="admin.overviewLoading" @click="admin.refreshAll()">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="refresh" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+          <Button
+            v-if="admin.telescopeUrl"
+            as="a"
+            :href="admin.telescopeUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            rounded
+            severity="secondary"
+            label="Telescope"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="external-link" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
     </template>
 
-    <div class="admin-page">
-      <header class="hero">
-        <div class="glow" aria-hidden="true" />
-        <div class="hero-main">
-          <div class="icon-wrap">
-            <i class="pi pi-server" />
-          </div>
-          <div>
-            <p class="eyebrow">Operations</p>
-            <h2>System admin</h2>
-            <p class="muted">
-              Queues, failures, container health, and a deep-link into Telescope.
-              Stats refresh while this page is open.
-            </p>
-          </div>
-        </div>
-        <div class="stats">
-          <div class="stat">
-            <strong>{{ totalPending }}</strong>
-            <span>Pending</span>
-          </div>
-          <div class="stat">
-            <strong>{{ admin.overview?.failed_job_count ?? 0 }}</strong>
-            <span>Failed</span>
-          </div>
-          <div class="stat">
-            <strong>{{ formatUptime(server?.uptime_seconds) }}</strong>
-            <span>Uptime</span>
-          </div>
-        </div>
-      </header>
+    <template v-if="server" #fields>
+      <CollectionFields section="admin" :fields="fields" />
+    </template>
 
-      <Message
-        v-if="openf1?.live_lockout"
-        severity="warn"
-        :closable="false"
-      >
-        OpenF1 live lockout —
-        {{ openf1.reason || 'free API restricted during a live session.' }}
-      </Message>
+    <div class="admin">
+      <div v-if="openf1?.live_lockout" class="notice" role="status">
+        <NxIcon name="clock" :size="16" />
+        OpenF1 live lockout — {{ openf1.reason || 'the free API is restricted during a live session.' }}
+      </div>
 
-      <template v-if="admin.overviewLoading && !admin.overview">
-        <NexusSkeletonList :count="4" />
-      </template>
+      <div class="cols">
+        <NxPanel title="Pending by queue">
+          <NxMeters v-if="queueMeters.length" :items="queueMeters" :cols="1" />
+          <p v-else class="quiet">No pending jobs — every queue is clear.</p>
+        </NxPanel>
 
-      <template v-else>
-        <section class="summary-grid" aria-label="Resource summary">
-          <div class="metric">
-            <span class="metric-label">Memory</span>
-            <strong>
-              {{
-                formatUsedOfTotal(
-                  memoryUsedBytes(),
-                  server?.memory.system_total_bytes,
-                )
-              }}
-            </strong>
-            <div class="meter" aria-hidden="true">
-              <div
-                class="meter-fill"
-                :style="{
-                  width: meterWidth(server?.memory.system_used_percent),
-                }"
+        <NxPanel title="Queue health">
+          <template v-if="health.sum">
+            <div class="stack" role="img" :aria-label="health.slices.map((s) => `${s.count} ${s.label.toLowerCase()}`).join(', ')">
+              <i
+                v-for="s in health.slices.filter((x) => x.count)"
+                :key="s.key"
+                :style="{ flexGrow: s.count, background: s.tone }"
               />
             </div>
-            <span class="metric-meta">
-              {{
-                server?.memory.system_used_percent != null
-                  ? `${server.memory.system_used_percent}% used`
-                  : 'usage'
-              }}
-              ·
-              {{
-                server?.memory.source === 'cgroup'
-                  ? 'container'
-                  : server?.memory.source === 'host'
-                    ? 'host'
-                    : 'php'
-              }}
-              · PHP {{ formatBytes(server?.memory.php_usage_bytes) }}
-            </span>
-          </div>
+            <ul class="legend">
+              <li v-for="s in health.slices" :key="s.key">
+                <i :style="{ background: s.tone }" />
+                <span>{{ s.label }}</span>
+                <b>{{ s.count }}</b>
+              </li>
+            </ul>
+          </template>
+          <p v-else class="quiet">Nothing queued or failed right now.</p>
+        </NxPanel>
+      </div>
 
-          <div class="metric">
-            <span class="metric-label">CPU / load</span>
-            <strong>
-              {{
-                server?.cpu_percent != null
-                  ? `${server.cpu_percent}%`
-                  : (server?.load?.[0]?.toFixed(2) ?? '—')
-              }}
-            </strong>
-            <div class="meter" aria-hidden="true">
-              <div
-                class="meter-fill"
-                :style="{ width: meterWidth(server?.cpu_percent) }"
-              />
-            </div>
-            <span class="metric-meta">
-              load
-              {{
-                server?.load
-                  ? server.load.map((n) => n.toFixed(2)).join(' · ')
-                  : 'n/a'
-              }}
-            </span>
-          </div>
+      <NxPanel title="Pending jobs" variant="flush">
+        <template #action>
+          <Select
+            v-model="admin.queueFilter"
+            :options="queueOptions"
+            option-label="label"
+            option-value="value"
+            aria-label="Filter by queue"
+            size="small"
+            class="queue-filter"
+          />
+        </template>
+        <NexusDataTable
+          :value="admin.pendingJobs"
+          :loading="admin.jobsLoading"
+          paginator
+          :rows="25"
+          lazy
+          :total-records="admin.pendingTotal"
+          empty-message="No pending jobs in this queue."
+          @page="(e) => admin.loadJobs((e.page ?? 0) + 1)"
+        >
+          <Column header="Job">
+            <template #body="{ data }">
+              <code>{{ shortClass(data.job_class) }}</code>
+            </template>
+          </Column>
+          <Column header="Queue">
+            <template #body="{ data }">
+              <NexusTableChip :label="data.queue" tone="info" />
+            </template>
+          </Column>
+          <Column field="attempts" header="Attempts" style="width: 6rem" />
+          <Column header="Available">
+            <template #body="{ data }">{{ formatDateTime(data.available_at) }}</template>
+          </Column>
+        </NexusDataTable>
+      </NxPanel>
 
-          <div class="metric">
-            <span class="metric-label">Disk</span>
-            <strong>
-              {{
-                formatUsedOfTotal(diskUsedBytes(), server?.disk.total_bytes)
-              }}
-            </strong>
-            <div class="meter" aria-hidden="true">
-              <div
-                class="meter-fill"
-                :style="{ width: meterWidth(server?.disk.used_percent) }"
-              />
-            </div>
-            <span class="metric-meta">
-              {{
-                server?.disk.used_percent != null
-                  ? `${server.disk.used_percent}% used`
-                  : 'usage'
-              }}
-              · {{ server?.disk.path || '/' }}
-              · {{ formatBytes(server?.disk.free_bytes) }} free
-            </span>
-          </div>
-
-          <div class="metric">
-            <span class="metric-label">Runtime</span>
-            <strong>{{ server?.laravel_env ?? '—' }}</strong>
-            <span class="metric-meta runtime-meta">
-              PHP {{ server?.php_version }} · queue
-              {{ server?.queue_connection }}
-            </span>
-          </div>
-        </section>
-
-        <div class="charts">
-          <section class="panel">
-            <h3>Pending by queue</h3>
-            <NexusChart
-              v-if="hasQueueBars"
-              type="bar"
-              :data="queueBarData"
-              height="14rem"
-            />
-            <p v-else class="empty">No pending jobs — queues are clear.</p>
-          </section>
-
-          <section class="panel">
-            <h3>Queue health</h3>
-            <NexusChart
-              v-if="hasQueueState"
-              type="doughnut"
-              :data="queueStateData"
-              :options="doughnutOptions"
-              height="14rem"
-            />
-            <p v-else class="empty">
-              Nothing queued or failed right now.
-            </p>
-          </section>
-        </div>
-
-        <section class="panel">
-          <div class="section-head">
-            <h3>Pending jobs</h3>
-            <Select
-              v-model="admin.queueFilter"
-              :options="queueOptions"
-              option-label="label"
-              option-value="value"
-              placeholder="Filter queue"
-              class="queue-filter"
-            />
-          </div>
-          <NexusDataTable
-            accent="admin"
-            :value="admin.pendingJobs"
-            :loading="admin.jobsLoading"
-            paginator
-            :rows="25"
-            lazy
-            :total-records="admin.pendingTotal"
-            empty-message="No pending jobs in this queue."
-            @page="(e) => admin.loadJobs((e.page ?? 0) + 1)"
-          >
-            <Column header="Job">
-              <template #body="{ data }">
-                <code>{{ shortClass(data.job_class) }}</code>
-              </template>
-            </Column>
-            <Column header="Queue">
-              <template #body="{ data }">
-                <NexusTableChip :label="data.queue" tone="info" />
-              </template>
-            </Column>
-            <Column field="attempts" header="Attempts" style="width: 6rem" />
-            <Column header="Available">
-              <template #body="{ data }">
-                {{ formatDateTime(data.available_at) }}
-              </template>
-            </Column>
-          </NexusDataTable>
-        </section>
-
-        <section class="panel">
-          <div class="section-head">
-            <h3>Failed jobs</h3>
-          </div>
-          <NexusDataTable
-            accent="admin"
-            :value="admin.failedJobs"
-            :loading="admin.failedLoading"
-            paginator
-            :rows="25"
-            lazy
-            :total-records="admin.failedTotal"
-            empty-message="No failed jobs — looking healthy."
-            @page="(e) => admin.loadFailedJobs((e.page ?? 0) + 1)"
-          >
-            <Column header="Job">
-              <template #body="{ data }">
-                <code>{{ shortClass(data.job_class) }}</code>
-              </template>
-            </Column>
-            <Column header="Queue">
-              <template #body="{ data }">
-                <NexusTableChip :label="data.queue" tone="info" />
-              </template>
-            </Column>
-            <Column header="Error">
-              <template #body="{ data }">
-                <span class="error-cell" :title="data.exception_summary">{{
-                  data.exception_summary
-                }}</span>
-              </template>
-            </Column>
-            <Column header="Failed" style="width: 10rem">
-              <template #body="{ data }">
-                {{ formatDateTime(data.failed_at) }}
-              </template>
-            </Column>
-            <Column header="" style="width: 7.5rem">
-              <template #body="{ data }">
-                <div class="row-actions">
-                  <Button
-                    icon="pi pi-replay"
-                    text
-                    rounded
-                    size="small"
-                    v-tooltip.top="'Retry'"
-                    :loading="admin.actionPending"
-                    @click="admin.retryFailed(data.uuid)"
-                  />
-                  <Button
-                    icon="pi pi-trash"
-                    text
-                    rounded
-                    size="small"
-                    severity="danger"
-                    v-tooltip.top="'Forget'"
-                    :loading="admin.actionPending"
-                    @click="admin.forgetFailed(data.uuid)"
-                  />
-                </div>
-              </template>
-            </Column>
-          </NexusDataTable>
-        </section>
-
-        <section class="panel">
-          <div class="section-head">
-            <h3>Recent activity</h3>
-            <span class="muted">Telescope</span>
-          </div>
-          <NexusDataTable
-            accent="admin"
-            :value="admin.recentJobs"
-            :loading="admin.recentLoading"
-            empty-message="No Telescope job entries yet."
-          >
-            <Column header="Job">
-              <template #body="{ data }">
-                <code>{{ shortClass(data.job_class) }}</code>
-              </template>
-            </Column>
-            <Column header="Queue">
-              <template #body="{ data }">
-                <NexusTableChip
-                  v-if="data.queue"
-                  :label="data.queue"
-                  tone="info"
+      <NxPanel :title="`Failed jobs · ${admin.failedTotal}`" variant="flush">
+        <NexusDataTable
+          :value="admin.failedJobs"
+          :loading="admin.failedLoading"
+          paginator
+          :rows="25"
+          lazy
+          :total-records="admin.failedTotal"
+          empty-message="No failed jobs — looking healthy."
+          @page="(e) => admin.loadFailedJobs((e.page ?? 0) + 1)"
+        >
+          <Column header="Job">
+            <template #body="{ data }">
+              <code>{{ shortClass(data.job_class) }}</code>
+            </template>
+          </Column>
+          <Column header="Queue">
+            <template #body="{ data }">
+              <NexusTableChip :label="data.queue" tone="info" />
+            </template>
+          </Column>
+          <Column header="Error">
+            <template #body="{ data }">
+              <span class="error" :title="data.exception_summary">{{ data.exception_summary }}</span>
+            </template>
+          </Column>
+          <Column header="Failed" style="width: 11rem">
+            <template #body="{ data }">{{ relativeTime(data.failed_at) }}</template>
+          </Column>
+          <Column header="" style="width: 6rem">
+            <template #body="{ data }">
+              <div class="row-actions">
+                <NxIconButton
+                  icon="refresh"
+                  size="sm"
+                  label="Retry job"
+                  :disabled="admin.actionPending"
+                  @click="admin.retryFailed(data.uuid)"
                 />
-                <span v-else class="muted">—</span>
-              </template>
-            </Column>
-            <Column header="Status">
-              <template #body="{ data }">
-                <NexusTableChip
-                  :label="data.status || 'unknown'"
-                  :tone="statusTone(data.status)"
+                <NxIconButton
+                  icon="trash"
+                  size="sm"
+                  label="Forget job"
+                  :disabled="admin.actionPending"
+                  @click="admin.forgetFailed(data.uuid)"
                 />
-              </template>
-            </Column>
-            <Column header="When">
-              <template #body="{ data }">
-                {{ formatDateTime(data.created_at) }}
-              </template>
-            </Column>
-          </NexusDataTable>
-        </section>
-      </template>
+              </div>
+            </template>
+          </Column>
+        </NexusDataTable>
+      </NxPanel>
+
+      <NxPanel title="Recent activity · Telescope" variant="flush">
+        <NexusDataTable :value="admin.recentJobs" :loading="admin.recentLoading" empty-message="No Telescope job entries yet.">
+          <Column header="Job">
+            <template #body="{ data }">
+              <code>{{ shortClass(data.job_class) }}</code>
+            </template>
+          </Column>
+          <Column header="Queue">
+            <template #body="{ data }">
+              <NexusTableChip v-if="data.queue" :label="data.queue" tone="info" />
+              <span v-else class="quiet">—</span>
+            </template>
+          </Column>
+          <Column header="Status">
+            <template #body="{ data }">
+              <NexusTableChip :label="data.status || 'unknown'" :tone="statusTone(data.status)" />
+            </template>
+          </Column>
+          <Column header="When">
+            <template #body="{ data }">{{ relativeTime(data.created_at) }}</template>
+          </Column>
+        </NexusDataTable>
+      </NxPanel>
     </div>
-  </NexusPageWrapper>
+  </IndexTemplate>
 </template>
 
 <style scoped>
-.admin-page {
+.admin {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding-bottom: 2rem;
-  --admin: var(--admin-accent);
+  gap: 40px;
 }
 
-.hero {
-  position: relative;
-  overflow: hidden;
-  border-radius: 1rem;
-  border: 1px solid color-mix(in srgb, var(--admin) 28%, transparent);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  background: var(--admin-card-surface);
-}
-
-.glow {
-  position: absolute;
-  inset: -40% auto auto -10%;
-  width: 60%;
-  height: 120%;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in srgb, var(--admin) 35%, transparent),
-    transparent
-  );
-  pointer-events: none;
-}
-
-.hero-main {
-  position: relative;
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.icon-wrap {
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 0.85rem;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--admin) 18%, transparent);
-  color: var(--admin);
-  font-size: 1.25rem;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--admin);
-}
-
-h2,
-h3 {
-  margin: 0;
-}
-
-h2 {
-  font-size: clamp(1.45rem, 2.5vw, 1.85rem);
-}
-
-.muted {
-  color: var(--p-text-muted-color);
-  font-size: 0.9rem;
-}
-
-.stats {
-  position: relative;
-  display: flex;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.stat strong {
-  font-size: 1.35rem;
-}
-
-.stat span {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.7;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.9rem 1rem;
-  border-radius: 0.85rem;
-  background: var(--admin-card-surface);
-  border: 1px solid color-mix(in srgb, var(--admin) 22%, transparent);
-}
-
-.metric-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-}
-
-.metric strong {
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.metric-meta {
-  font-size: 0.8rem;
-  line-height: 1.35;
-  color: color-mix(in srgb, var(--lavender-blush) 60%, transparent);
-}
-
-.runtime-meta {
-  margin-top: 0.35rem;
-}
-
-.meter {
-  height: 0.35rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--admin) 14%, transparent);
-  overflow: hidden;
-}
-
-.meter-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--admin) 70%, #7eb8da),
-    var(--admin)
-  );
-  transition: width 0.35s ease;
-}
-
-.charts {
+.cols {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
+  gap: 16px;
 }
 
-.panel {
-  padding: 1rem;
-  border-radius: 0.85rem;
-  background: var(--admin-card-surface);
-  border: 1px solid color-mix(in srgb, var(--admin) 16%, transparent);
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.panel h3 {
-  font-size: 1rem;
-}
-
-.section-head {
+.notice {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  font-size: 14px;
+}
+
+.quiet {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+.stack {
+  display: flex;
+  gap: 3px;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.stack i {
+  flex-basis: 0;
+  min-width: 6px;
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.legend span {
+  flex: 1;
+  color: var(--ink-2);
+}
+
+.legend b {
+  font-variant-numeric: tabular-nums;
 }
 
 .queue-filter {
-  min-width: 12rem;
+  min-width: 170px;
 }
 
-.row-actions {
-  display: flex;
-  gap: 0.15rem;
-  justify-content: flex-end;
-}
-
-.error-cell {
+.error {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  max-width: 28rem;
-  line-height: 1.35;
-  color: color-mix(in srgb, var(--lavender-blush) 82%, transparent);
+  max-width: 44ch;
+  font-size: 13px;
+  color: var(--ink-2);
 }
 
-.empty {
-  margin: 0;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-  font-size: 0.9rem;
+.row-actions {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
 }
 
-code {
-  font-size: 0.85rem;
-}
-
-@media (max-width: 900px) {
-  .summary-grid,
-  .charts {
-    grid-template-columns: 1fr;
+@media (max-width: 960px) {
+  .cols {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

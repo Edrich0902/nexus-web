@@ -1,61 +1,47 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-
-const props = withDefaults(
+withDefaults(
   defineProps<{
     label: string
     tone?: 'neutral' | 'info' | 'success' | 'warn' | 'danger'
   }>(),
   { tone: 'neutral' },
 )
-
-const classes = computed(() => [`ndt-chip`, `ndt-chip--${props.tone}`])
 </script>
 
 <template>
-  <span :class="classes">{{ label }}</span>
+  <span class="chip" :class="`t-${tone}`">{{ label }}</span>
 </template>
 
 <style scoped>
-.ndt-chip {
+.chip {
   display: inline-flex;
   align-items: center;
-  padding: 0.15rem 0.5rem;
+  padding: 1px 8px;
   border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink-2);
+  background: var(--tint-2);
 }
 
-.ndt-chip--neutral {
-  color: color-mix(in srgb, var(--lavender-blush) 85%, transparent);
-  background: color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-  border-color: color-mix(in srgb, var(--lavender-blush) 16%, transparent);
+.t-info {
+  color: var(--acc);
+  background: color-mix(in srgb, var(--acc) 16%, transparent);
 }
 
-.ndt-chip--info {
-  color: #9ec9ea;
-  background: color-mix(in srgb, var(--admin-accent) 22%, transparent);
-  border-color: color-mix(in srgb, var(--admin-accent) 35%, transparent);
+.t-success {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
 }
 
-.ndt-chip--success {
-  color: #ace894;
-  background: color-mix(in srgb, var(--meadow-green) 22%, transparent);
-  border-color: color-mix(in srgb, var(--meadow-green) 35%, transparent);
+.t-warn {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
 }
 
-.ndt-chip--warn {
-  color: #fbbf24;
-  background: color-mix(in srgb, #fbbf24 18%, transparent);
-  border-color: color-mix(in srgb, #fbbf24 35%, transparent);
-}
-
-.ndt-chip--danger {
-  color: #fb7185;
-  background: color-mix(in srgb, #fb7185 18%, transparent);
-  border-color: color-mix(in srgb, #fb7185 35%, transparent);
+.t-danger {
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 16%, transparent);
 }
 </style>
