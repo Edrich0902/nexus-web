@@ -15,7 +15,7 @@ withDefaults(
 <template>
   <div class="skeleton-media" :aria-busy="true" aria-live="polite">
     <header class="hero">
-      <Skeleton width="100%" height="100%" border-radius="0.85rem" class="art" />
+      <Skeleton width="100%" height="100%" border-radius="var(--r-lg)" class="art" />
       <div class="copy">
         <Skeleton width="5rem" height="0.7rem" />
         <Skeleton width="80%" height="1.6rem" />
@@ -23,7 +23,7 @@ withDefaults(
         <Skeleton
           width="8rem"
           height="2.25rem"
-          border-radius="0.5rem"
+          border-radius="999px"
           class="cta"
         />
       </div>

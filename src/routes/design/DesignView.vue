@@ -5,6 +5,7 @@ import { useAmbient } from '@design/ambient'
 import { inkFor } from '@design/color'
 import { icons, type IconName } from '@design/icons'
 import NxIcon from '@design/components/NxIcon.vue'
+import DesignKitGallery from './DesignKitGallery.vue'
 
 const picked = ref<Ambient | null>(null)
 useAmbient(picked)
@@ -139,6 +140,12 @@ const toggle = ref(true)
         </div>
       </div>
     </section>
+
+    <header class="design-head">
+      <p class="nx-eyebrow">Component kit</p>
+      <h2 class="nx-serif kit-title">Fields, <em>stages</em> &amp; streams</h2>
+    </header>
+    <DesignKitGallery />
   </div>
 </template>
 
@@ -147,10 +154,18 @@ const toggle = ref(true)
   display: flex;
   flex-direction: column;
   gap: 48px;
-  padding: 32px var(--page-pad) var(--shell-dock-space);
-  max-width: var(--page-max);
-  margin: 0 auto;
-  width: 100%;
+  padding-top: 24px;
+}
+
+.kit-title {
+  font-size: clamp(40px, 5vw, 64px);
+  font-weight: 400;
+  line-height: 1;
+  margin: 12px 0 0;
+}
+
+.kit-title em {
+  color: var(--acc);
 }
 
 .design-head h1 {

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Chart from 'primevue/chart'
+import { useAmbientStore } from '@design/ambient'
+import { chartChrome } from '@lib/charts'
 
 const props = withDefaults(
   defineProps<{
@@ -41,7 +43,7 @@ const hasDrawableData = computed(() => {
 
 const chartKey = computed(() => {
   try {
-    return `${props.type}:${JSON.stringify(props.data)}`
+    return `${props.type}:${ambient.active.ink}:${JSON.stringify(props.data)}`
   } catch {
     return props.type
   }
@@ -49,48 +51,56 @@ const chartKey = computed(() => {
 
 let lastMountedKey: string | null = null
 
-const baseOptions = {
+const ambient = useAmbientStore()
+const chrome = computed(() => chartChrome(ambient.active))
+
+const baseOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   animation: false,
+  font: { family: "'Inter', system-ui, sans-serif" },
   plugins: {
     legend: {
       labels: {
-        color: '#f6e8ea',
-        boxWidth: 12,
-        font: { size: 12 },
+        color: chrome.value.text,
+        boxWidth: 10,
+        usePointStyle: true,
+        font: { size: 12, family: "'Inter', system-ui, sans-serif" },
       },
     },
     tooltip: {
-      backgroundColor: '#261318',
-      titleColor: '#f6e8ea',
-      bodyColor: '#f6e8ea',
-      borderColor: 'rgba(246, 232, 234, 0.12)',
+      backgroundColor: chrome.value.tooltipBg,
+      titleColor: chrome.value.text,
+      bodyColor: chrome.value.text,
+      borderColor: chrome.value.border,
       borderWidth: 1,
+      cornerRadius: 10,
+      padding: 10,
     },
   },
   scales: {
     x: {
-      ticks: { color: 'rgba(246, 232, 234, 0.7)' },
-      grid: { color: 'rgba(246, 232, 234, 0.08)' },
-      border: { color: 'rgba(246, 232, 234, 0.12)' },
+      ticks: { color: chrome.value.muted, font: { family: "'JetBrains Mono', monospace", size: 11 } },
+      grid: { color: chrome.value.grid },
+      border: { color: chrome.value.border },
     },
     y: {
       beginAtZero: true,
-      ticks: { color: 'rgba(246, 232, 234, 0.7)', precision: 0 },
-      grid: { color: 'rgba(246, 232, 234, 0.08)' },
-      border: { color: 'rgba(246, 232, 234, 0.12)' },
+      ticks: { color: chrome.value.muted, precision: 0, font: { family: "'JetBrains Mono', monospace", size: 11 } },
+      grid: { color: chrome.value.grid },
+      border: { display: false },
     },
   },
-}
+}))
 
 const mergedOptions = computed(() => {
+  const base = baseOptions.value
   const extra = props.options as Record<string, unknown>
   const hideScales = props.type === 'doughnut' || props.type === 'pie'
   const isRadar = props.type === 'radar' || props.type === 'polarArea'
   const extraPlugins = (extra.plugins as Record<string, unknown>) ?? {}
   const extraScales = (extra.scales as Record<string, unknown>) ?? {}
-  const baseScales = baseOptions.scales as Record<string, Record<string, unknown>>
+  const baseScales = base.scales as Record<string, Record<string, unknown>>
 
   const mergeScale = (key: 'x' | 'y') => {
     const base = baseScales[key] ?? {}
@@ -123,32 +133,32 @@ const mergedOptions = computed(() => {
         backdropColor: 'transparent',
       },
       pointLabels: {
-        color: 'rgba(246, 232, 234, 0.85)',
+        color: chrome.value.text,
         font: { size: 11 },
       },
-      grid: { color: 'rgba(246, 232, 234, 0.12)' },
-      angleLines: { color: 'rgba(246, 232, 234, 0.12)' },
+      grid: { color: chrome.value.border },
+      angleLines: { color: chrome.value.border },
       ...((extraScales.r as object) ?? {}),
     },
   }
 
   return {
-    ...baseOptions,
+    ...base,
     ...extra,
     layout: {
       padding: { bottom: 4 },
       ...((extra.layout as object) ?? {}),
     },
     plugins: {
-      ...baseOptions.plugins,
+      ...base.plugins,
       ...extraPlugins,
       legend: {
-        ...((baseOptions.plugins.legend as object) ?? {}),
+        ...((base.plugins.legend as object) ?? {}),
         ...((extraPlugins.legend as object) ?? {}),
         ...(isRadar ? { display: false } : {}),
       },
       tooltip: {
-        ...((baseOptions.plugins.tooltip as object) ?? {}),
+        ...((base.plugins.tooltip as object) ?? {}),
         ...((extraPlugins.tooltip as object) ?? {}),
       },
     },

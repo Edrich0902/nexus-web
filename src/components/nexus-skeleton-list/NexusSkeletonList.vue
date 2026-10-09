@@ -24,7 +24,7 @@ withDefaults(
         v-if="variant === 'track'"
         width="2.5rem"
         height="2.5rem"
-        border-radius="0.4rem"
+        border-radius="var(--r-xs)"
       />
       <Skeleton
         v-else-if="variant === 'session'"

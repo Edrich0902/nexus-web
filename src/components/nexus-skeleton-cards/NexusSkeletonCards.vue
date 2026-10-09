@@ -12,7 +12,7 @@ withDefaults(
 <template>
   <div class="skeleton-cards" :aria-busy="true" aria-live="polite">
     <div v-for="n in cards" :key="n" class="card">
-      <Skeleton width="100%" height="100%" border-radius="0.6rem" class="art" />
+      <Skeleton width="100%" height="100%" border-radius="var(--r-lg)" class="art" />
       <Skeleton width="70%" height="0.75rem" />
     </div>
   </div>
