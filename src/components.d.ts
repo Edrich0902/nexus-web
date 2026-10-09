@@ -65,7 +65,6 @@ declare module 'vue' {
     NexusRecipeCard: typeof import('./components/nexus-recipe-card/NexusRecipeCard.vue')['default']
     NexusRecipeDetail: typeof import('./components/nexus-recipe-detail/NexusRecipeDetail.vue')['default']
     NexusRecipeIcon: typeof import('./components/nexus-recipe-icon/NexusRecipeIcon.vue')['default']
-    NexusSidebar: typeof import('./components/nexus-sidebar/NexusSidebar.vue')['default']
     NexusSkeletonCards: typeof import('./components/nexus-skeleton-cards/NexusSkeletonCards.vue')['default']
     NexusSkeletonList: typeof import('./components/nexus-skeleton-list/NexusSkeletonList.vue')['default']
     NexusSkeletonMedia: typeof import('./components/nexus-skeleton-media/NexusSkeletonMedia.vue')['default']
@@ -78,10 +77,11 @@ declare module 'vue' {
     NexusSportsStandings: typeof import('./components/nexus-sports-standings/NexusSportsStandings.vue')['default']
     NexusSpotifyAddToPlaylist: typeof import('./components/nexus-spotify-add-to-playlist/NexusSpotifyAddToPlaylist.vue')['default']
     NexusSpotifyChrome: typeof import('./components/nexus-spotify-chrome/NexusSpotifyChrome.vue')['default']
-    NexusSpotifyDock: typeof import('./components/nexus-spotify-dock/NexusSpotifyDock.vue')['default']
     NexusSpotifyIcon: typeof import('./components/nexus-spotify-icon/NexusSpotifyIcon.vue')['default']
+    NexusSpotifyNowPlaying: typeof import('./components/nexus-spotify-now-playing/NexusSpotifyNowPlaying.vue')['default']
     NexusSpotifyOnRepeat: typeof import('./components/nexus-spotify-on-repeat/NexusSpotifyOnRepeat.vue')['default']
     NexusSpotifyPlayer: typeof import('./components/nexus-spotify-player/NexusSpotifyPlayer.vue')['default']
+    NexusSpotifyPlayerPanel: typeof import('./components/nexus-spotify-player-panel/NexusSpotifyPlayerPanel.vue')['default']
     NexusSpotifyPlayingIndicator: typeof import('./components/nexus-spotify-playing-indicator/NexusSpotifyPlayingIndicator.vue')['default']
     NexusSpotifyQueuePanel: typeof import('./components/nexus-spotify-queue-panel/NexusSpotifyQueuePanel.vue')['default']
     NexusSpotifyResumeCard: typeof import('./components/nexus-spotify-resume-card/NexusSpotifyResumeCard.vue')['default']
@@ -116,7 +116,6 @@ declare module 'vue' {
     ToggleSwitch: typeof import('primevue/toggleswitch')['default']
   }
   export interface GlobalDirectives {
-    Ripple: typeof import('primevue/ripple')['default']
     Tooltip: typeof import('primevue/tooltip')['default']
   }
 }

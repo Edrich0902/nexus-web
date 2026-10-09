@@ -10,6 +10,7 @@ import NexusTeamBadge from '@components/nexus-team-badge/NexusTeamBadge.vue'
 import { useSportsStore } from '@stores/sports/sports.store'
 import { formatDate } from '@lib/datetime'
 import { SPORT_ACCENT_VARS, SPORT_LABELS, type SportsSlug } from '@/types/sports/sports'
+import NxPillNav, { type PillNavItem } from '@design/components/NxPillNav.vue'
 
 const route = useRoute()
 const sports = useSportsStore()
@@ -20,6 +21,14 @@ const sportSlug = computed(
 const title = computed(() => SPORT_LABELS[sportSlug.value] ?? sportSlug.value)
 const sportAccent = computed(
   () => SPORT_ACCENT_VARS[sportSlug.value] ?? SPORT_ACCENT_VARS.hub,
+)
+
+const sportNav = computed<PillNavItem[]>(() =>
+  (Object.keys(SPORT_LABELS) as SportsSlug[]).map((slug) => ({
+    key: slug,
+    label: SPORT_LABELS[slug],
+    to: { name: 'sports-sport', params: { sport: slug } },
+  })),
 )
 
 const upcomingCount = computed(() => sports.overview?.upcoming.length ?? 0)
@@ -38,6 +47,7 @@ watch(sportSlug, (slug) => {
 <template>
   <NexusPageWrapper show-toolbar :title="title">
     <template #toolbar>
+      <NxPillNav :items="sportNav" label="Sports" />
       <Button
         label="Sync"
         icon="pi pi-sync"

@@ -1,53 +1,101 @@
 <script setup lang="ts">
-import { RouterView, useRoute } from 'vue-router'
-import NexusSidebar from '@components/nexus-sidebar/NexusSidebar.vue'
-import NexusSpotifyDock from '@components/nexus-spotify-dock/NexusSpotifyDock.vue'
-import { useLayoutStore } from '@stores/layout/layout.store'
+import { onBeforeUnmount, onMounted } from 'vue'
+import { RouterView, useRoute, useRouter } from 'vue-router'
+import NxTopBar from '@design/components/shell/NxTopBar.vue'
+import NxDock from '@design/components/shell/NxDock.vue'
+import NxCommandPalette from '@design/components/shell/NxCommandPalette.vue'
+import NexusSpotifyPlayerPanel from '@components/nexus-spotify-player-panel/NexusSpotifyPlayerPanel.vue'
+import { useCommandStore } from '@design/command/command.store'
+import { createNavigationSource } from '@design/command/navigation-source'
+import { useSpotifyStore } from '@stores/spotify/spotify.store'
 
 const route = useRoute()
-const layout = useLayoutStore()
+const router = useRouter()
+const command = useCommandStore()
+const spotify = useSpotifyStore()
+
+const unregisterNavigation = command.register(
+  createNavigationSource({
+    router,
+    extraActions: () =>
+      spotify.hasActiveTrack
+        ? [
+            {
+              id: 'player',
+              label: spotify.player?.is_playing ? 'Pause music' : 'Resume music',
+              hint: spotify.player?.item?.name ?? undefined,
+              group: 'Actions',
+              icon: spotify.player?.is_playing ? 'pause' : 'play',
+              color: '#1ed760',
+              keywords: ['play', 'pause', 'spotify'],
+              run: () => {
+                void spotify.togglePlayPause()
+              },
+            },
+          ]
+        : [],
+  }),
+)
+
+function onKeydown(event: KeyboardEvent): void {
+  if (!route.meta.shell) return
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    command.toggle()
+  }
+}
+
+onMounted(() => document.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown)
+  unregisterNavigation()
+})
 </script>
 
 <template>
   <Toast />
   <ConfirmPopup />
 
-  <div
-    class="flex flex-row items-stretch h-screen p-3 overflow-hidden bg-[var(--coffee-bean)]"
-  >
-    <div
-      v-if="route.meta.showMenu"
-      class="w-64 min-h-0 shrink-0 self-stretch transition-[margin,transform] duration-300 ease-in-out"
-      :class="
-        layout.sidebarVisible
-          ? 'ml-0 mr-3 translate-x-0'
-          : '-ml-64 mr-0 -translate-x-10'
-      "
-    >
-      <NexusSidebar />
-    </div>
+  <NxTopBar v-if="route.meta.shell" />
 
-    <RouterView v-slot="{ Component }">
-      <Transition name="fade" mode="out-in">
-        <component
-          :is="Component"
-          class="overflow-auto flex flex-col flex-1 min-w-0"
-        />
-      </Transition>
-    </RouterView>
-  </div>
+  <RouterView v-slot="{ Component }">
+    <Transition name="nx-page" mode="out-in">
+      <component :is="Component" :class="{ 'nx-page': route.meta.shell }" />
+    </Transition>
+  </RouterView>
 
-  <NexusSpotifyDock v-if="route.meta.showMenu" />
+  <template v-if="route.meta.shell">
+    <NxDock />
+    <NexusSpotifyPlayerPanel />
+    <NxCommandPalette />
+  </template>
 </template>
 
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.18s ease;
+<style>
+.nx-page {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 8px var(--page-pad) var(--shell-dock-space);
+  min-height: calc(100dvh - var(--shell-top));
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.nx-page-enter-active {
+  transition:
+    opacity 0.35s var(--ease),
+    transform 0.45s var(--ease);
+}
+
+.nx-page-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.nx-page-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.nx-page-leave-to {
   opacity: 0;
 }
 </style>

@@ -4,6 +4,9 @@ import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 import { useRouter } from 'vue-router'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import type { IconName } from '@design/icons'
+import { secondaryDestinations } from '@design/navigation'
 import { useAuthStore } from '@stores/auth/auth.store'
 import type { User } from '@/types/user/user'
 
@@ -11,7 +14,7 @@ const props = withDefaults(
   defineProps<{
     user?: User | null
     size?: 'normal' | 'large' | 'xlarge'
-    /** When true, click opens Profile + Logout popup menu */
+    /** When true, click opens the account menu */
     menu?: boolean
   }>(),
   {
@@ -25,6 +28,7 @@ const auth = useAuthStore()
 const confirm = useConfirm()
 const router = useRouter()
 const menuRef = ref()
+const faceRef = ref()
 
 const initials = computed(() => {
   const name = props.user?.name?.trim()
@@ -38,23 +42,22 @@ const initials = computed(() => {
 
 const hasImage = computed(() => Boolean(props.user?.media?.public_id))
 
-const menuItems = ref<MenuItem[]>([
+const menuItems = computed<(MenuItem & { nxIcon?: IconName })[]>(() => [
   {
-    label: 'Account',
+    label: props.user?.name ?? 'Account',
     items: [
-      {
-        label: 'Profile',
-        icon: 'pi pi-user',
+      ...secondaryDestinations.map((dest) => ({
+        label: dest.label,
+        nxIcon: dest.icon,
         command: () => {
-          void router.push({ name: 'profile' })
+          void router.push(dest.to)
         },
-      },
+      })),
+      { separator: true },
       {
-        label: 'Logout',
-        icon: 'pi pi-sign-out',
-        command: (event) => {
-          void handleSignOut(event)
-        },
+        label: 'Sign out',
+        nxIcon: 'log-out' as const,
+        command: () => handleSignOut(),
       },
     ],
   },
@@ -65,24 +68,12 @@ function onAvatarClick(event: Event): void {
   menuRef.value?.toggle(event)
 }
 
-async function handleSignOut(event: { originalEvent?: Event }): Promise<void> {
-  const target =
-    (event.originalEvent?.currentTarget as HTMLElement | undefined) ??
-    undefined
-
+function handleSignOut(): void {
   confirm.require({
-    target,
-    message: 'End this terminal session?',
-    icon: 'pi pi-info-circle',
-    rejectProps: {
-      label: 'Cancel',
-      severity: 'secondary',
-      outlined: true,
-    },
-    acceptProps: {
-      label: 'Logout',
-      severity: 'danger',
-    },
+    target: (faceRef.value?.$el as HTMLElement | undefined) ?? undefined,
+    message: 'Sign out of Nexus on this device?',
+    rejectProps: { label: 'Cancel', severity: 'secondary' },
+    acceptProps: { label: 'Sign out', severity: 'danger' },
     accept: async () => {
       await auth.logout()
       await router.replace({ name: 'login' })
@@ -94,12 +85,19 @@ async function handleSignOut(event: { originalEvent?: Event }): Promise<void> {
 <template>
   <div class="nexus-avatar inline-flex items-center">
     <Avatar
+      ref="faceRef"
       :label="hasImage ? undefined : initials"
       :size="size"
       shape="circle"
       class="nexus-avatar__face"
       :class="{ 'nexus-avatar__face--clickable': menu }"
+      :role="menu ? 'button' : undefined"
+      :tabindex="menu ? 0 : undefined"
+      :aria-label="menu ? 'Account menu' : undefined"
+      aria-haspopup="menu"
       @click="onAvatarClick"
+      @keydown.enter.prevent="onAvatarClick"
+      @keydown.space.prevent="onAvatarClick"
     >
       <NexusImage
         v-if="hasImage && user?.media"
@@ -111,20 +109,21 @@ async function handleSignOut(event: { originalEvent?: Event }): Promise<void> {
       />
     </Avatar>
 
-    <Menu
-      v-if="menu"
-      ref="menuRef"
-      :model="menuItems"
-      :popup="true"
-      class="nexus-avatar__menu"
-    />
+    <Menu v-if="menu" ref="menuRef" :model="menuItems" :popup="true" class="nexus-avatar__menu">
+      <template #item="{ item, props: itemProps }">
+        <a class="nexus-avatar__item" v-bind="itemProps.action">
+          <NxIcon v-if="item.nxIcon" :name="item.nxIcon" :size="16" />
+          <span>{{ item.label }}</span>
+        </a>
+      </template>
+    </Menu>
   </div>
 </template>
 
 <style scoped>
 .nexus-avatar__face {
-  background: color-mix(in srgb, var(--meadow-green) 22%, transparent);
-  color: var(--meadow-green);
+  background: color-mix(in srgb, var(--acc) 22%, transparent);
+  color: var(--acc);
   font-weight: 600;
   overflow: hidden;
 }
@@ -134,12 +133,21 @@ async function handleSignOut(event: { originalEvent?: Event }): Promise<void> {
 }
 
 .nexus-avatar__face--clickable:hover {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--meadow-green) 45%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--acc) 45%, transparent);
 }
 
 .nexus-avatar :deep(.nexus-image) {
   width: 100%;
   height: 100%;
   border-radius: 999px;
+}
+
+.nexus-avatar__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: var(--ink);
+  cursor: pointer;
 }
 </style>

@@ -1,11 +1,12 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@stores/auth/auth.store'
 import { useAmbientStore } from '@design/ambient'
+import { sectionForPath } from '@design/navigation'
 import type { SectionKey } from '@design/tokens'
 
 declare module 'vue-router' {
   interface RouteMeta {
-    showMenu: boolean
+    shell: boolean
     authed: boolean
     guest?: boolean
     title: string
@@ -14,12 +15,12 @@ declare module 'vue-router' {
 }
 
 const handleMeta = (
-  showMenu: boolean,
+  shell: boolean,
   authed: boolean,
   title: string,
   guest = false,
 ) => ({
-  showMenu,
+  shell,
   authed,
   guest,
   title,
@@ -324,7 +325,7 @@ router.beforeEach((to) => {
 })
 
 router.afterEach((to) => {
-  useAmbientStore().setSection(to.meta.section)
+  useAmbientStore().setSection(to.meta.section ?? sectionForPath(to.path))
 })
 
 /** `vite build --watch` rewrites hashed chunks; tab may still point at an old file. */

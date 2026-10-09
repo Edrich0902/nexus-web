@@ -1,5 +1,15 @@
 import type { Component } from 'vue'
 import {
+  ArrowUpRight,
+  Headphones,
+  Heart,
+  Monitor,
+  Repeat,
+  Repeat1,
+  Shuffle,
+  Smartphone,
+  Volume1,
+  VolumeX,
   ArrowRight,
   AudioLines,
   Beer,
@@ -75,7 +85,17 @@ export const icons = {
   next: SkipForward,
   previous: SkipBack,
   volume: Volume2,
+  'volume-low': Volume1,
+  'volume-off': VolumeX,
   glass: GlassWater,
+  heart: Heart,
+  shuffle: Shuffle,
+  repeat: Repeat,
+  'repeat-one': Repeat1,
+  monitor: Monitor,
+  smartphone: Smartphone,
+  'external-link': ArrowUpRight,
+  headphones: Headphones,
 } satisfies Record<string, Component>
 
 export type IconName = keyof typeof icons

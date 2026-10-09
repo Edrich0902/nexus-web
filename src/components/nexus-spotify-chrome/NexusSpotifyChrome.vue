@@ -7,7 +7,7 @@ import NexusSpotifyAddToPlaylist from '@components/nexus-spotify-add-to-playlist
 const spotify = useSpotifyStore()
 const route = useRoute()
 
-// Playback shortcuts are registered app-wide by NexusSpotifyDock.
+// Playback shortcuts are registered app-wide by NexusSpotifyPlayerPanel.
 
 const links = [
   { name: 'spotify', label: 'Home', match: (n: string) => n === 'spotify' },
