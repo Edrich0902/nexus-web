@@ -4,10 +4,14 @@ import DataTable from 'primevue/datatable'
 
 defineOptions({ inheritAttrs: false })
 
+/**
+ * Editorial data table: uppercase label headers, hairline rows and no fills.
+ * Rows sit directly on the ambient so tables read like the rest of the page.
+ */
 const props = withDefaults(
   defineProps<{
-    /** Preset name or any CSS color (hex / var()). */
-    accent?: 'admin' | 'f1' | 'spotify' | 'github' | 'sports' | (string & {})
+    /** Kept for call-site compatibility; tables follow the ambient accent. */
+    accent?: string
     value?: unknown[] | null
     loading?: boolean
     size?: 'small' | 'large' | undefined
@@ -19,14 +23,14 @@ const props = withDefaults(
     emptyMessage?: string
   }>(),
   {
-    accent: 'admin',
+    accent: undefined,
     value: () => [],
     loading: false,
     size: 'small',
     paginator: false,
     rows: 25,
     lazy: false,
-    stripedRows: true,
+    stripedRows: false,
     emptyMessage: 'No rows to show.',
   },
 )
@@ -37,26 +41,11 @@ const emit = defineEmits<{
 
 const attrs = useAttrs()
 
-const PRESETS: Record<string, string> = {
-  admin: 'var(--admin-accent)',
-  f1: 'var(--sport-f1)',
-  spotify: 'var(--spotify-green)',
-  github: 'var(--github-ink)',
-  sports: 'var(--sports-accent)',
-}
-
-const accentColor = computed(
-  () => PRESETS[props.accent] ?? props.accent ?? PRESETS.admin,
-)
-
 const tableValue = computed(() => props.value ?? [])
 </script>
 
 <template>
-  <div
-    class="nexus-data-table"
-    :style="{ '--nexus-table-accent': accentColor }"
-  >
+  <div class="nexus-data-table">
     <DataTable
       v-bind="attrs"
       :value="tableValue"
@@ -81,67 +70,57 @@ const tableValue = computed(() => props.value ?? [])
 
 <style scoped>
 .nexus-data-table {
-  --ndt-accent: var(--nexus-table-accent, var(--admin-accent));
-  --ndt-surface: color-mix(
-    in srgb,
-    var(--ndt-accent) 7%,
-    var(--coffee-bean-panel)
-  );
-  --ndt-border: color-mix(in srgb, var(--ndt-accent) 22%, transparent);
-  --ndt-row: color-mix(in srgb, var(--ndt-accent) 4%, transparent);
-  --ndt-row-alt: color-mix(in srgb, var(--ndt-accent) 9%, transparent);
-  --ndt-hover: color-mix(in srgb, var(--ndt-accent) 14%, transparent);
   width: 100%;
-  border-radius: 0.85rem;
-  border: 1px solid var(--ndt-border);
-  background: var(--ndt-surface);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
-.nexus-data-table :deep(.p-datatable) {
-  background: transparent;
-  border: 0;
-}
-
+.nexus-data-table :deep(.p-datatable),
 .nexus-data-table :deep(.p-datatable-table-container) {
-  border: 0;
   background: transparent;
+  border: 0;
 }
 
 .nexus-data-table :deep(.p-datatable-table) {
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   width: 100%;
 }
 
 .nexus-data-table :deep(.p-datatable-thead > tr > th) {
-  background: color-mix(in srgb, var(--ndt-accent) 12%, transparent) !important;
-  color: color-mix(in srgb, var(--lavender-blush) 78%, transparent) !important;
+  background: transparent !important;
+  color: var(--ink-3) !important;
   border: 0 !important;
-  border-bottom: 1px solid var(--ndt-border) !important;
-  font-size: 0.68rem !important;
-  font-weight: 700 !important;
+  border-bottom: 1px solid var(--line-strong) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 0.75rem 0.9rem !important;
+  padding: 10px 12px !important;
+  white-space: nowrap;
+}
+
+.nexus-data-table :deep(.p-datatable-thead > tr > th:first-child),
+.nexus-data-table :deep(.p-datatable-tbody > tr > td:first-child) {
+  padding-left: 0 !important;
+}
+
+.nexus-data-table :deep(.p-datatable-tbody > tr) {
+  background: transparent !important;
+  color: var(--ink);
 }
 
 .nexus-data-table :deep(.p-datatable-tbody > tr > td) {
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--ndt-accent) 10%, transparent) !important;
-  padding: 0.7rem 0.9rem !important;
-  color: var(--lavender-blush);
-  font-size: 0.9rem;
+  border-bottom: 1px solid var(--line) !important;
+  padding: 11px 12px !important;
+  color: var(--ink);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
   vertical-align: middle;
-  background: var(--ndt-row) !important;
-}
-
-.nexus-data-table :deep(.p-datatable-tbody > tr:nth-child(even) > td) {
-  background: var(--ndt-row-alt) !important;
+  background: transparent !important;
 }
 
 .nexus-data-table :deep(.p-datatable-tbody > tr:hover > td) {
-  background: var(--ndt-hover) !important;
+  background: var(--tint) !important;
 }
 
 .nexus-data-table :deep(.p-datatable-tbody > tr:last-child > td) {
@@ -150,29 +129,25 @@ const tableValue = computed(() => props.value ?? [])
 
 .nexus-data-table :deep(code) {
   display: inline-block;
-  padding: 0.15rem 0.45rem;
-  border-radius: 0.4rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--lavender-blush);
-  background: color-mix(in srgb, var(--ndt-accent) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ndt-accent) 28%, transparent);
+  padding: 2px 7px;
+  border-radius: var(--r-xs);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--tint-2);
 }
 
-.nexus-data-table :deep(.p-datatable-paginator-bottom),
 .nexus-data-table :deep(.p-paginator) {
-  background: color-mix(in srgb, var(--ndt-accent) 8%, transparent) !important;
+  background: transparent !important;
   border: 0 !important;
-  border-top: 1px solid var(--ndt-border) !important;
-  padding: 0.45rem 0.65rem !important;
-  color: var(--lavender-blush);
+  border-top: 1px solid var(--line) !important;
+  padding: 10px 0 0 !important;
+  color: var(--ink-2);
 }
 
-.nexus-data-table :deep(.p-paginator .p-paginator-page.p-paginator-page-selected),
-.nexus-data-table :deep(.p-paginator .p-highlight) {
-  background: color-mix(in srgb, var(--ndt-accent) 35%, transparent) !important;
-  color: var(--lavender-blush) !important;
+.nexus-data-table :deep(.p-paginator .p-paginator-page-selected) {
+  background: var(--ink) !important;
+  color: var(--amb) !important;
   border-color: transparent !important;
 }
 
@@ -181,20 +156,21 @@ const tableValue = computed(() => props.value ?? [])
 .nexus-data-table :deep(.p-paginator-prev),
 .nexus-data-table :deep(.p-paginator-next),
 .nexus-data-table :deep(.p-paginator-last) {
-  color: color-mix(in srgb, var(--lavender-blush) 80%, transparent) !important;
-  min-width: 2rem;
-  height: 2rem;
+  color: var(--ink-2) !important;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 50%;
 }
 
 .nexus-data-table :deep(.p-datatable-mask),
 .nexus-data-table :deep(.p-datatable-loading-overlay) {
-  background: color-mix(in srgb, var(--coffee-bean) 55%, transparent) !important;
+  background: color-mix(in srgb, var(--amb) 55%, transparent) !important;
 }
 
 .ndt-empty {
-  padding: 1.5rem 1rem;
+  padding: 24px 0;
   text-align: center;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-  font-size: 0.9rem;
+  color: var(--ink-3);
+  font-size: 14px;
 }
 </style>

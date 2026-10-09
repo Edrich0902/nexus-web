@@ -1,384 +1,295 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusSportIcon from '@components/nexus-sport-icon/NexusSportIcon.vue'
-import NexusSkeletonList from '@components/nexus-skeleton-list/NexusSkeletonList.vue'
-import NexusSportsEventCard from '@components/nexus-sports-event-card/NexusSportsEventCard.vue'
-import NexusSportsStandings from '@components/nexus-sports-standings/NexusSportsStandings.vue'
-import NexusTeamBadge from '@components/nexus-team-badge/NexusTeamBadge.vue'
-import { useSportsStore } from '@stores/sports/sports.store'
-import { formatDate } from '@lib/datetime'
-import { SPORT_ACCENT_VARS, SPORT_LABELS, type SportsSlug } from '@/types/sports/sports'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import NxStage from '@design/components/NxStage.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import NxSectionHeader from '@design/components/NxSectionHeader.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
 import NxPillNav, { type PillNavItem } from '@design/components/NxPillNav.vue'
+import type { ViewState } from '@design/templates/types'
+import NexusSportIcon from '@components/nexus-sport-icon/NexusSportIcon.vue'
+import NexusTeamBadge from '@components/nexus-team-badge/NexusTeamBadge.vue'
+import CollectionFields from '@routes/collections/CollectionFields.vue'
+import { plural, type CollectionField } from '@routes/collections/collectionFields'
+import { useSportsStore } from '@stores/sports/sports.store'
+import { SPORT_LABELS, type SportsSlug } from '@/types/sports/sports'
+import SportsEventRow from './SportsEventRow.vue'
+import SportsTable from './SportsTable.vue'
+import {
+  eventName,
+  eventWhen,
+  hasMatchup,
+  hasScore,
+  sizedImage,
+  tableRows,
+  teamLabel,
+} from './sports'
 
 const route = useRoute()
 const sports = useSportsStore()
 
-const sportSlug = computed(
-  () => String(route.params.sport ?? 'football') as SportsSlug,
-)
-const title = computed(() => SPORT_LABELS[sportSlug.value] ?? sportSlug.value)
-const sportAccent = computed(
-  () => SPORT_ACCENT_VARS[sportSlug.value] ?? SPORT_ACCENT_VARS.hub,
-)
+const slug = computed(() => String(route.params.sport ?? 'football') as SportsSlug)
+const label = computed(() => SPORT_LABELS[slug.value] ?? slug.value)
 
-const sportNav = computed<PillNavItem[]>(() =>
-  (Object.keys(SPORT_LABELS) as SportsSlug[]).map((slug) => ({
-    key: slug,
-    label: SPORT_LABELS[slug],
-    to: { name: 'sports-sport', params: { sport: slug } },
+watch(slug, (s) => void sports.loadSport(s), { immediate: true })
+
+const overview = computed(() => (sports.overview?.sport === slug.value ? sports.overview : null))
+
+const state = computed<ViewState>(() => {
+  if (!overview.value) return sports.overviewLoading ? 'loading' : 'error'
+  const o = overview.value
+  return o.leagues.length || o.upcoming.length || o.recent.length ? 'ready' : 'empty'
+})
+
+const nav = computed<PillNavItem[]>(() =>
+  (Object.keys(SPORT_LABELS) as SportsSlug[]).map((s) => ({
+    key: s,
+    label: SPORT_LABELS[s],
+    to: { name: 'sports-sport', params: { sport: s } },
   })),
 )
 
-const upcomingCount = computed(() => sports.overview?.upcoming.length ?? 0)
-const recentCount = computed(() => sports.overview?.recent.length ?? 0)
-const leagueCount = computed(() => sports.overview?.leagues.length ?? 0)
+const upcoming = computed(() => overview.value?.upcoming ?? [])
+const recent = computed(() => overview.value?.recent ?? [])
+const majors = computed(() => overview.value?.majors ?? [])
+const leagues = computed(() => overview.value?.leagues ?? [])
+const tables = computed(() => (overview.value?.standings ?? []).filter((b) => b.rows?.length))
 
-onMounted(() => {
-  void sports.loadSport(sportSlug.value)
+const hero = computed(() => {
+  const next = upcoming.value[0]
+  if (next) return { event: next, kind: 'Next up' }
+  const last = recent.value[0]
+  return last ? { event: last, kind: 'Latest' } : null
 })
 
-watch(sportSlug, (slug) => {
-  void sports.loadSport(slug)
+const heading = computed(() => {
+  const e = hero.value?.event
+  if (!e) return { title: label.value, accent: 'on hold' }
+  if (!hasMatchup(e)) return { title: eventName(e), accent: '' }
+  const home = teamLabel(e.home_team, slug.value)
+  const away = teamLabel(e.away_team, slug.value)
+  if (hasScore(e)) return { title: `${home} ${e.home_score ?? 0}–${e.away_score ?? 0}`, accent: away }
+  return { title: home, accent: `vs ${away}` }
+})
+
+const eyebrow = computed(() =>
+  [label.value, hero.value?.kind, hero.value?.event.series ?? hero.value?.event.league_name].filter(Boolean).join(' · '),
+)
+
+const lede = computed(() => {
+  const e = hero.value?.event
+  if (!e) return 'Nothing synced for this sport yet. Run a sync to pull fixtures and results from TheSportsDB.'
+  const where = [e.venue, e.country].filter(Boolean).join(', ')
+  return [eventWhen(e), where].filter(Boolean).join(' · ')
+})
+
+const heroThumb = computed(() => sizedImage(hero.value?.event.thumb_url || null, 'medium'))
+
+const fields = computed<CollectionField[]>(() => {
+  const next = upcoming.value[0]
+  const last = recent.value[0]
+  const out: CollectionField[] = [
+    {
+      key: 'upcoming',
+      label: 'Coming up',
+      value: upcoming.value.length,
+      sub: next ? eventWhen(next) : 'Nothing scheduled yet',
+      variant: 'solid',
+      span: 4,
+    },
+    {
+      key: 'recent',
+      label: 'Results',
+      value: recent.value.length,
+      sub: last ? `Latest: ${eventName(last)}` : undefined,
+      variant: 'tint',
+      span: 3,
+    },
+    {
+      key: 'leagues',
+      label: 'Competitions',
+      value: leagues.value.length,
+      sub: leagues.value.length ? undefined : 'Awaiting sync',
+      variant: 'outline',
+      span: 2,
+    },
+  ]
+  const table = tables.value[0]
+  const top = table ? tableRows(table, 1)[0] : undefined
+  if (table && top) {
+    out.push({
+      key: 'leader',
+      label: `Top of the ${table.league ?? 'table'}`,
+      title: top.team,
+      sub: `${top.points} pts · ${plural(Number(top.played) || 0, 'game')}`,
+      variant: 'tint',
+      span: 3,
+    })
+  } else {
+    out.push({
+      key: 'majors',
+      label: 'Majors',
+      value: majors.value.length,
+      sub: majors.value[0] ? (majors.value[0].series ?? eventName(majors.value[0])) : 'None on the calendar',
+      variant: 'tint',
+      span: 3,
+    })
+  }
+  return out
 })
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar :title="title">
+  <IndexTemplate
+    :state="state"
+    :empty-title="`No ${label.toLowerCase()} yet`"
+    empty-body="Run a sync to pull competitions, fixtures and results from TheSportsDB."
+    error-title="Could not load this sport"
+  >
+    <template #stage>
+      <NxStage :eyebrow="eyebrow" :title="heading.title" :accent="heading.accent" :lede="lede">
+        <template #visual>
+          <img v-if="heroThumb" :src="heroThumb" alt="" />
+          <div v-else-if="hero?.event.league_badge_url" class="plate">
+            <NexusTeamBadge :src="hero.event.league_badge_url" :label="hero.event.league_name" :size="120" />
+          </div>
+          <div v-else class="plate">
+            <NexusSportIcon :sport="slug" :size="72" />
+          </div>
+        </template>
+        <template #actions>
+          <Button
+            rounded
+            severity="secondary"
+            label="Sync"
+            :loading="sports.syncPending"
+            @click="sports.syncNow('all')"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="refresh" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
+    </template>
+
+    <template #fields>
+      <CollectionFields section="sports" :fields="fields" />
+    </template>
+
     <template #toolbar>
-      <NxPillNav :items="sportNav" label="Sports" />
-      <Button
-        label="Sync"
-        icon="pi pi-sync"
-        severity="secondary"
-        text
-        :loading="sports.syncPending"
-        @click="sports.syncNow('all')"
+      <NxPillNav :items="nav" label="Sports" />
+    </template>
+
+    <template #empty>
+      <NxEmptyState
+        :title="`No ${label.toLowerCase()} yet`"
+        body="Run a sync to pull competitions, fixtures and results from TheSportsDB."
+        icon="sports"
       />
     </template>
 
-    <div
-      class="sport-page"
-      :style="{ '--sports-accent': sportAccent }"
-    >
-      <header class="sport-hero">
-        <div class="hero-glow" aria-hidden="true" />
-        <div class="hero-main">
-          <div class="sport-hero-icon">
-            <NexusSportIcon :sport="sportSlug" :size="32" />
-          </div>
-          <div class="hero-copy">
-            <p class="eyebrow">Sports Hub</p>
-            <h2>{{ title }}</h2>
-            <p class="muted">
-              Whitelisted competitions · synced from TheSportsDB
-            </p>
-          </div>
+    <div class="blocks">
+      <section v-if="upcoming.length">
+        <NxSectionHeader title="Coming up" />
+        <div class="rows">
+          <SportsEventRow v-for="e in upcoming" :key="e.id" :event="e" />
         </div>
-        <div class="hero-stats">
-          <div class="stat">
-            <strong>{{ leagueCount }}</strong>
-            <span>Competitions</span>
-          </div>
-          <div class="stat">
-            <strong>{{ upcomingCount }}</strong>
-            <span>Upcoming</span>
-          </div>
-          <div class="stat">
-            <strong>{{ recentCount }}</strong>
-            <span>Recent</span>
-          </div>
+      </section>
+
+      <section>
+        <NxSectionHeader title="Results" />
+        <div v-if="recent.length" class="rows">
+          <SportsEventRow v-for="e in recent" :key="e.id" :event="e" />
         </div>
-      </header>
+        <p v-else class="nx-muted">No results cached yet.</p>
+      </section>
 
-      <NexusSkeletonList v-if="sports.overviewLoading" :rows="5" />
+      <section v-if="majors.length">
+        <NxSectionHeader title="Majors & signature events" />
+        <div class="rows">
+          <SportsEventRow v-for="e in majors" :key="e.id" :event="e" />
+        </div>
+      </section>
 
-      <template v-else-if="sports.overview">
-        <section class="sport-section">
-          <div class="section-head">
-            <h3>Competitions</h3>
-            <span class="section-count">{{ leagueCount }}</span>
-          </div>
-          <div class="league-grid">
-            <article
-              v-for="league in sports.overview.leagues"
-              :key="league.id"
-              class="league-chip"
-            >
-              <NexusTeamBadge
-                :src="league.badge_url"
-                :label="league.name"
-                size="md"
-              />
-              <div>
-                <p class="league-name">{{ league.name }}</p>
-                <p class="league-meta">
-                  {{
-                    league.last_synced_at
-                      ? `Synced ${formatDate(league.last_synced_at)}`
-                      : 'Awaiting sync'
-                  }}
-                </p>
-              </div>
-            </article>
-            <p v-if="sports.overview.leagues.length === 0" class="muted">
-              No leagues synced yet. Hit Sync.
-            </p>
-          </div>
-        </section>
+      <section v-if="tables.length">
+        <NxSectionHeader title="Tables" />
+        <div class="tables">
+          <SportsTable v-for="b in tables" :key="`${b.league_id}-${b.season}`" :block="b" />
+        </div>
+      </section>
 
-        <section class="sport-section">
-          <div class="section-head">
-            <h3>Upcoming</h3>
-            <span class="section-count">{{ upcomingCount }}</span>
-          </div>
-          <div v-if="sports.overview.upcoming.length" class="card-grid">
-            <NexusSportsEventCard
-              v-for="event in sports.overview.upcoming"
-              :key="event.id"
-              :event="event"
-            />
-          </div>
-          <p v-else class="muted">No upcoming fixtures in cache yet.</p>
-        </section>
-
-        <section class="sport-section">
-          <div class="section-head">
-            <h3>Recent results</h3>
-            <span class="section-count">{{ recentCount }}</span>
-          </div>
-          <div v-if="sports.overview.recent.length" class="card-grid">
-            <NexusSportsEventCard
-              v-for="event in sports.overview.recent"
-              :key="event.id"
-              :event="event"
-            />
-          </div>
-          <p v-else class="muted">No recent results in cache yet.</p>
-        </section>
-
-        <section
-          v-if="sports.overview.majors.length"
-          class="sport-section"
-        >
-          <div class="section-head">
-            <h3>Majors & signature events</h3>
-          </div>
-          <div class="card-grid">
-            <NexusSportsEventCard
-              v-for="event in sports.overview.majors"
-              :key="event.id"
-              :event="event"
-            />
-          </div>
-        </section>
-
-        <section
-          v-if="sports.overview.standings.length"
-          class="sport-section"
-        >
-          <div class="section-head">
-            <h3>League tables</h3>
-          </div>
-          <div class="standings-stack">
-            <NexusSportsStandings
-              v-for="block in sports.overview.standings"
-              :key="`${block.league_id}-${block.season}`"
-              :block="block"
-            />
-          </div>
-        </section>
-      </template>
+      <section v-if="leagues.length">
+        <NxSectionHeader title="Competitions we follow" />
+        <ul class="leagues">
+          <li v-for="l in leagues" :key="l.id">
+            <NexusTeamBadge :src="l.badge_url" :label="l.name" :size="22" />
+            {{ l.name }}
+          </li>
+        </ul>
+      </section>
     </div>
-  </NexusPageWrapper>
+  </IndexTemplate>
 </template>
 
 <style scoped>
-.sport-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.75rem;
-  max-width: 72rem;
-}
-
-.sport-hero {
-  position: relative;
-  overflow: hidden;
-  border-radius: 1.15rem;
-  padding: 1.25rem 1.35rem;
-  border: 1px solid color-mix(in srgb, var(--sports-accent) 28%, transparent);
-  background:
-    linear-gradient(
-      120deg,
-      color-mix(in srgb, var(--sports-accent) 22%, transparent),
-      transparent 50%
-    ),
-    color-mix(in srgb, var(--coffee-bean-panel) 92%, black);
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-}
-
-.hero-glow {
-  position: absolute;
-  inset: auto -10% -40% auto;
-  width: 16rem;
-  height: 16rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--sports-accent) 28%, transparent);
-  filter: blur(40px);
-  pointer-events: none;
-}
-
-.hero-main {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.sport-hero-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.4rem;
-  height: 3.4rem;
-  border-radius: 1rem;
-  color: var(--sports-accent);
-  background: color-mix(in srgb, var(--sports-accent) 18%, transparent);
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--sports-accent) 35%, transparent);
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sports-accent);
-}
-
-.hero-copy h2 {
-  margin: 0.15rem 0 0;
-  font-size: clamp(1.45rem, 2.4vw, 1.85rem);
-  color: var(--lavender-blush);
-}
-
-.muted {
-  margin: 0.25rem 0 0;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
-  font-size: 0.85rem;
-}
-
-.hero-stats {
-  position: relative;
+.plate {
+  width: 100%;
+  height: 100%;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
+  place-items: center;
+  background: var(--surface-2);
 }
 
-.stat {
+.plate :deep(.badge img) {
+  object-fit: contain;
+}
+
+.blocks {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.7rem 0.8rem;
-  border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--lavender-blush) 5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 8%, transparent);
+  gap: 44px;
 }
 
-.stat strong {
-  font-size: 1.2rem;
-  color: var(--lavender-blush);
+.rows > :first-child {
+  border-top: 0;
 }
 
-.stat span {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: color-mix(in srgb, var(--lavender-blush) 55%, transparent);
+.tables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 36px 56px;
 }
 
-.sport-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.section-head {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-}
-
-.section-head h3 {
+.leagues {
+  list-style: none;
   margin: 0;
-  font-size: 0.9rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--lavender-blush) 72%, transparent);
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.section-count {
+.leagues li {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 1.4rem;
-  height: 1.4rem;
-  padding: 0 0.35rem;
+  gap: 8px;
+  padding: 6px 14px 6px 8px;
   border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--sports-accent);
-  background: color-mix(in srgb, var(--sports-accent) 16%, transparent);
+  background: var(--tint);
+  font-size: 13px;
 }
 
-.league-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: 0.65rem;
-}
-
-.league-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: 0.8rem;
-  border: 1px solid color-mix(in srgb, var(--sports-accent) 18%, transparent);
-  background: color-mix(in srgb, var(--sports-accent) 8%, transparent);
-}
-
-.league-name {
-  margin: 0;
-  font-size: 0.86rem;
-  font-weight: 600;
-  color: var(--lavender-blush);
-}
-
-.league-meta {
-  margin: 0.15rem 0 0;
-  font-size: 0.72rem;
-  color: color-mix(in srgb, var(--lavender-blush) 50%, transparent);
-}
-
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
-  gap: 0.75rem;
-}
-
-.standings-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+@media (max-width: 960px) {
+  .tables {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
-  .hero-stats {
-    grid-template-columns: 1fr;
+  .blocks {
+    gap: 32px;
   }
 }
 </style>

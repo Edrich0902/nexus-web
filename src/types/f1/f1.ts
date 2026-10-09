@@ -192,5 +192,3 @@ export type F1SyncResponse = {
   type: string
   year?: number | null
 }
-
-export const F1_ACCENT = 'var(--sport-f1)'
