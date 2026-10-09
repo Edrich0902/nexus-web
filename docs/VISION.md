@@ -6,7 +6,14 @@ Business logic and persistence live in the API. The web client focuses on layout
 
 ## What the Web App Is
 
-A modular dashboard where each Nexus pillar is a route area under `src/routes/`, backed by `services` + Pinia stores, and navigable from a shared shell sidebar.
+A modular dashboard where each Nexus pillar is a route area under `src/routes/`, backed by `services` + Pinia stores, and reachable from a floating dock and the ⌘K command palette.
+
+## How it should feel
+
+- **Ambient** — every area has its own colour, and the page tints itself from what you are looking at (a wine label, a book cover, the album playing).
+- **Editorial** — each page leads with one serif headline that says what matters now ("Norris wins", "3 pull requests open"), then colour-field summaries, then calm hairline lists.
+- **Command-first** — ⌘K reaches any area, action or record; the dock is for the handful of places you visit daily.
+- **One language, two clients** — tokens, sections, icon names and page patterns are plain data in `src/design/`, so the mobile app can reproduce the same look natively.
 
 ## Pillars (milestones, not specs)
 
@@ -32,7 +39,8 @@ Same directional milestones as the API. UI work tracks API availability; when a 
 - **Thin client** — no direct third-party API calls from the browser.
 - **Module UI** — one folder per pillar; shared shell and design language.
 - **Pinia for shared state** — auth, preferences, and cross-view module state.
-- **Desktop-first** — optimized for wide screens; tablet later; mobile app separate.
+- **Desktop-first, phone-ready** — optimised for wide screens, verified at phone width; the native app reuses the design tokens.
+- **Accessible by default** — readable contrast on every ambient, labelled controls, reduced motion respected.
 - **Milestone docs stay high-level** — detailed UI specs when work begins.
 
 ## Related

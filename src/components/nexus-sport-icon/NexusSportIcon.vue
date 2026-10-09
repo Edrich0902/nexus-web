@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { accents } from '@design/tokens'
 import type { SportsSlug } from '@/types/sports/sports'
 
 /**
@@ -41,38 +42,8 @@ const props = withDefaults(
     aria-hidden="true"
     focusable="false"
     class="nexus-sport-icon"
-    :class="`nexus-sport-icon--${props.sport}`"
+    :style="{ color: props.sport === 'hub' ? 'var(--acc)' : accents.sport[props.sport] }"
   >
     <path :d="PATHS[props.sport]" />
   </svg>
 </template>
-
-<style scoped>
-.nexus-sport-icon--football {
-  color: var(--sport-football);
-}
-
-.nexus-sport-icon--tennis {
-  color: var(--sport-tennis);
-}
-
-.nexus-sport-icon--rugby {
-  color: var(--sport-rugby);
-}
-
-.nexus-sport-icon--golf {
-  color: var(--sport-golf);
-}
-
-.nexus-sport-icon--darts {
-  color: var(--sport-darts);
-}
-
-.nexus-sport-icon--field-hockey {
-  color: var(--sport-field-hockey);
-}
-
-.nexus-sport-icon--hub {
-  color: var(--sports-accent);
-}
-</style>

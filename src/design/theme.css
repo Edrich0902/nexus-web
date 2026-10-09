@@ -17,7 +17,7 @@
 
   /* Derived ink + surfaces */
   --ink-2: color-mix(in srgb, var(--ink) 70%, transparent);
-  --ink-3: color-mix(in srgb, var(--ink) 48%, transparent);
+  --ink-3: color-mix(in srgb, var(--ink) 56%, transparent);
   --ink-4: color-mix(in srgb, var(--ink) 30%, transparent);
   --line: color-mix(in srgb, var(--ink) 11%, transparent);
   --line-strong: color-mix(in srgb, var(--ink) 20%, transparent);
@@ -55,42 +55,6 @@
   --shell-dock-space: 120px;
   --page-max: 1440px;
   --page-pad: 48px;
-
-  /* ---------- Legacy aliases (pre-redesign components) ---------- */
-  --coffee-bean: var(--amb);
-  --coffee-bean-panel: var(--surface);
-  --lavender-blush: var(--ink);
-  --meadow-green: var(--acc);
-  --light-green: color-mix(in srgb, var(--acc) 70%, var(--ink));
-  --blue-slate: #3d5a6c;
-  --spotify-green: #1db954;
-  --github-black: #010409;
-  --github-ink: #e6edf3;
-  --sports-accent: #3d9b8f;
-  --sport-football: #5ecf8a;
-  --sport-tennis: #d4e157;
-  --sport-rugby: #e0a45a;
-  --sport-golf: #8fd16a;
-  --sport-darts: #e85d5d;
-  --sport-field-hockey: #4db8d0;
-  --sport-f1: #e10600;
-  --admin-accent: #5b9fd4;
-  --wine-accent: #c45c6a;
-  --beer-accent: #d4a017;
-  --spirit-accent: #c47a3a;
-  --library-accent: #7a8fbf;
-  --kitchen-accent: #6a9e6e;
-  --food-drink-accent: #b87a4b;
-  --spotify-card-surface: var(--surface);
-  --github-card-surface: var(--surface);
-  --sports-card-surface: var(--surface);
-  --admin-card-surface: var(--surface);
-  --wine-card-surface: var(--surface);
-  --beer-card-surface: var(--surface);
-  --spirit-card-surface: var(--surface);
-  --library-card-surface: var(--surface);
-  --kitchen-card-surface: var(--surface);
-  --food-drink-card-surface: var(--surface);
 
   color-scheme: dark;
   font-family: var(--font-sans);

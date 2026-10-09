@@ -101,7 +101,7 @@ function openPreview(event?: Event): void {
 <style scoped>
 .nexus-image {
   overflow: hidden;
-  background: color-mix(in srgb, var(--p-content-border-color) 40%, transparent);
+  background: var(--tint);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -154,7 +154,7 @@ function openPreview(event?: Event): void {
   height: 100%;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--kitchen-accent, #6a9e6e) 28%, transparent),
+    color-mix(in srgb, var(--acc) 28%, transparent),
     transparent
   );
 }

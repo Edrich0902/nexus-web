@@ -230,7 +230,7 @@ async function removeTrack(uri: string, position: number): Promise<void> {
   gap: 14px;
   padding: 14px 6px;
   font-size: 13px;
-  color: var(--ink-4);
+  color: var(--ink-3);
   border-bottom: 1px solid var(--line);
 }
 

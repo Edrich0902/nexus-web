@@ -1,6 +1,9 @@
 import type { Component } from 'vue'
 import {
   ArrowUpRight,
+  Camera,
+  CloudUpload,
+  FolderOpen,
   Headphones,
   Heart,
   Monitor,
@@ -112,6 +115,9 @@ export const icons = {
   headphones: Headphones,
   star: Star,
   image: ImagePlus,
+  upload: CloudUpload,
+  camera: Camera,
+  folder: FolderOpen,
   trash: Trash2,
   edit: PenLine,
   refresh: RefreshCw,

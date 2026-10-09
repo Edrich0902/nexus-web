@@ -273,7 +273,7 @@ h1 em {
 
 .foot {
   font-size: 11.5px;
-  color: var(--ink-4);
+  color: var(--ink-3);
   text-align: center;
 }
 

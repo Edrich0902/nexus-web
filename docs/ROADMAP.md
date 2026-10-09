@@ -22,7 +22,7 @@ Application skeleton and dashboard shell.
 - [x] Pinia + Pinia Colada (auth session, layout at minimum)
 - [x] Axios API client + `*.service.ts` layer
 - [x] Auth / login view against Sanctum bearer tokens
-- [x] Dashboard layout shell (sidebar + `RouterView`)
+- [x] Dashboard layout shell (top bar, floating dock, ⌘K palette + `RouterView`)
 - [x] Home view with placeholder content
 - [x] Account area — `NexusAvatar` toolbar menu, profile details, active sessions
 
@@ -137,6 +137,17 @@ Auth and the layout shell should land before private module UIs. Module order ca
 
 ---
 
+## Redesign (2026-10) — ambient / editorial UI
+
+- [x] Tokens, ambient engine, Lucide icons, PrimeVue preset on ambient variables, `/design` gallery
+- [x] Shell: top bar, floating dock with Spotify mini player, ⌘K navigation + search, phone tab bar
+- [x] Kit + templates (Index / Detail / Stats / Workbench), skeletons, chart theme
+- [x] Login, Home (activity stream, now, search)
+- [x] Every module rebuilt on the kit: collections, Listening, F1, Sports, Library, Code, Media, Profile, Admin
+- [x] Polish: contrast-tuned ink, reduced motion, accessible icon buttons, PrimeIcons + legacy styles removed
+
+---
+
 ## Out of web scope
 
 - Camera / barcode capture for cellar & library
@@ -159,3 +170,4 @@ Those belong to the future mobile client consuming the same API.
 | 2026-07-12 | Expanded vision pillars | GitHub, media vaults, optional Instagram, mobile photo intake |
 | 2026-07-12 | Spotify M1 UI ships | Remote control + aggregates + Home resume widget against `/api/v1/spotify` |
 | 2026-07-12 | Spotify M1.1 surfaces | Search, queue, library, artist/album, add-to-playlist, heuristics v2 |
+| 2026-10-09 | Ambient / editorial redesign | One design language (tokens + kit) shared with the future mobile app; command-first nav replaces the sidebar |

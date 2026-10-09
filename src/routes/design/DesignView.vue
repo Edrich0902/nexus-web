@@ -91,7 +91,7 @@ const toggle = ref(true)
       <h2 class="nx-label">Text on colour (inkFor)</h2>
       <div class="ink-row">
         <span
-          v-for="bg in ['#e3261b', '#e5ad1f', '#9cb0e0', '#6b1a2b', '#1ed760', '#f3ebe6', '#2f6f66']"
+          v-for="bg in ['#d42218', '#e5ad1f', '#9cb0e0', '#6b1a2b', '#1ed760', '#f3ebe6', '#2f6f66']"
           :key="bg"
           class="ink-chip"
           :style="{ background: bg, color: inkFor(bg) }"

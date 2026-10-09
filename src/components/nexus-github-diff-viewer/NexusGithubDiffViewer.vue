@@ -253,7 +253,7 @@ const hasFiles = computed(() => props.files.length > 0)
   z-index: 1;
   padding: 0 8px;
   text-align: right;
-  color: var(--ink-4);
+  color: var(--ink-3);
   user-select: none;
   border-right: 1px solid var(--line);
   white-space: nowrap;

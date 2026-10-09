@@ -240,7 +240,7 @@ const hasArt = computed(() => Boolean(props.media || props.src))
 
 .meta {
   font-size: 12px;
-  color: var(--ink-4);
+  color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

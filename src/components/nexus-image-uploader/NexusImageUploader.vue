@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import NxIcon from '@design/components/NxIcon.vue'
 import { computed, ref, watch } from 'vue'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
 import { downscaleImageFile } from '@lib/media'
@@ -190,8 +191,8 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
               @dragover.prevent
               @drop="onDrop"
             >
-              <i class="pi pi-cloud-upload text-2xl mb-2" />
-              <p class="m-0 text-sm text-surface-300">
+              <NxIcon name="upload" :size="28" class="drop-icon" />
+              <p class="drop-text">
                 Drop an image here or choose from your device.
               </p>
               <input
@@ -203,22 +204,25 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
                 @change="onDeviceSelect"
               />
               <Button
-                class="browse-btn mt-3"
+                class="browse-btn"
                 label="Browse files"
-                icon="pi pi-folder-open"
                 severity="secondary"
-                outlined
+                rounded
                 size="small"
                 :disabled="busy"
                 @click.stop="browseDeviceFiles"
-              />
+              >
+                <template #icon="{ class: iconClass }">
+                  <NxIcon name="folder" :size="16" :class="iconClass" />
+                </template>
+              </Button>
             </div>
           </TabPanel>
 
           <TabPanel v-if="isCoarsePointer" value="1">
             <div class="dropzone">
-              <i class="pi pi-camera text-2xl mb-2" />
-              <p class="m-0 text-sm text-surface-300">
+              <NxIcon name="camera" :size="28" class="drop-icon" />
+              <p class="drop-text">
                 Capture a photo with your camera.
               </p>
               <input
@@ -231,32 +235,41 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
                 @change="onDeviceSelect"
               />
               <Button
-                class="browse-btn mt-3"
+                class="browse-btn"
                 label="Open camera"
-                icon="pi pi-camera"
+                rounded
                 size="small"
                 :disabled="busy"
                 @click.stop="openCameraCapture"
-              />
+              >
+                <template #icon="{ class: iconClass }">
+                  <NxIcon name="camera" :size="16" :class="iconClass" />
+                </template>
+              </Button>
             </div>
           </TabPanel>
 
           <TabPanel value="2">
-            <div class="flex gap-2 mb-2">
+            <div class="lookup">
               <InputText
                 v-model="unsplashQuery"
-                class="flex-1"
+                class="lookup-input"
                 placeholder="Search Unsplash"
                 @keyup.enter="onUnsplashSearch"
               />
               <Button
-                icon="pi pi-search"
+                aria-label="Search Unsplash"
+                severity="secondary"
                 :loading="media.unsplashLoading"
                 :disabled="busy"
                 @click="onUnsplashSearch"
-              />
+              >
+                <template #icon="{ class: iconClass }">
+                  <NxIcon name="search" :size="16" :class="iconClass" />
+                </template>
+              </Button>
             </div>
-            <div class="unsplash-quality mb-3">
+            <div class="unsplash-quality">
               <label class="unsplash-quality__label" for="unsplash-quality">
                 Import size
               </label>
@@ -289,7 +302,7 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
                 </span>
               </button>
             </div>
-            <p class="m-0 mt-2 text-xs text-surface-500">
+            <p class="note">
               Photos via
               <a href="https://unsplash.com" target="_blank" rel="noreferrer"
                 >Unsplash</a
@@ -305,14 +318,15 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
                 type="button"
                 class="grid-item"
                 :disabled="busy"
+                :aria-label="`Use ${asset.alt_text || asset.public_id}`"
                 @click="onVaultPick(asset)"
               >
-                <NexusImage :media="asset.media" variant="thumb" size="fill" fit="cover" />
+                <NexusImage :media="asset.media" variant="thumb" size="fill" fit="cover" alt="" />
               </button>
             </div>
             <p
               v-if="!media.listLoading && media.assets.length === 0"
-              class="m-0 text-sm text-surface-400"
+              class="note"
             >
               No vault images yet.
             </p>
@@ -322,7 +336,7 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
 
       <ProgressBar
         v-if="busy && progress > 0"
-        class="mt-3"
+        class="progress"
         :value="progress"
         :show-value="true"
       />
@@ -337,11 +351,47 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 10rem;
-  padding: 1.25rem;
-  border: 1px dashed var(--p-content-border-color);
-  border-radius: 0.75rem;
+  padding: 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
   text-align: center;
+  transition: background-color 0.15s;
+}
+
+.dropzone:hover {
+  background: var(--tint);
+}
+
+.drop-icon {
+  color: var(--ink-3);
+}
+
+.drop-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.lookup {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.lookup-input {
+  flex: 1;
+}
+
+.note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.progress {
+  margin-top: 14px;
 }
 
 .file-input {
@@ -359,7 +409,7 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
-  gap: 0.5rem;
+  gap: 8px;
   max-height: 18rem;
   overflow: auto;
 }
@@ -369,10 +419,15 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
   aspect-ratio: 1;
   padding: 0;
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--r-sm);
   overflow: hidden;
-  background: color-mix(in srgb, var(--p-content-border-color) 35%, transparent);
+  background: var(--tint);
   cursor: pointer;
+}
+
+.grid-item:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
 }
 
 .grid-item img {
@@ -400,13 +455,14 @@ async function onVaultPick(asset: MediaAsset): Promise<void> {
 .unsplash-quality {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .unsplash-quality__label {
   flex-shrink: 0;
-  font-size: 0.8rem;
-  color: var(--p-text-muted-color, var(--p-surface-400));
+  font-size: 13px;
+  color: var(--ink-3);
 }
 
 .unsplash-quality__select {

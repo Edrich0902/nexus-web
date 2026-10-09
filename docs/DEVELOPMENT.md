@@ -77,10 +77,10 @@ Before scaffolding: confirm the matching API milestone is underway (see [VISION.
 1. Add types under `src/types/<feature>/`
 2. Add `src/services/<feature>.service.ts` for API calls
 3. Add `src/stores/<feature>/<feature>.store.ts` (+ Colada mutations as needed)
-4. Add screen(s) under `src/routes/<feature>/`
+4. Add screen(s) under `src/routes/<feature>/`, built on a page template from `src/design/templates/` (see the design system section in [ARCHITECTURE.md](ARCHITECTURE.md#design-system))
 5. Register the route in `src/router/index.ts` with correct `meta`
-6. Add a sidebar nav item in `NexusSidebar`
-7. Build and verify at `nexus.test/{path}`
+6. Add a destination to `src/design/navigation.ts` (dock group or sub-destination) and, if it is a new area, a section with ambient + field colours in `src/design/tokens.ts`
+7. Build and verify at `nexus.test/{path}` on desktop and at phone width (390px)
 
 ## PrimeVue Theming
 

@@ -34,7 +34,7 @@ withDefaults(
   flex-shrink: 0;
   /* Optical nudge: uppercase label sits slightly high in its em box. */
   transform: translateY(-0.06em);
-  color: var(--light-green);
+  color: var(--acc);
   line-height: 0;
 }
 

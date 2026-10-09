@@ -8,10 +8,11 @@ Desktop dashboard for **Nexus Hub** — a Vue 3 SPA that consumes the Nexus API 
 
 - Vue 3 (Composition API, `<script setup>`)
 - Vite 8
-- Pinia (planned / primary client state)
-- Vue Router (planned)
-- PrimeVue 4 with Aura theme
-- PrimeIcons
+- Pinia + Pinia Colada (client state, API mutations)
+- Vue Router
+- PrimeVue 4 (Aura base, `NexusPreset` mapped onto the ambient design tokens)
+- Tailwind CSS 4 (utilities; layout styling lives in scoped CSS)
+- Lucide icons (`NxIcon`)
 
 ## Vision (short)
 
@@ -58,9 +59,10 @@ VITE_API_BASE_URL=http://api.nexus.test
 ```
 src/
 ├── main.ts                 # Bootstrap: Pinia → Colada → auth.initialise → router
-├── App.vue                 # Shell: sidebar + RouterView
+├── App.vue                 # Shell: top bar, dock, ⌘K palette + RouterView
+├── design/                 # Design system: tokens, theme, ambient, Nx* kit, templates
 ├── routes/                 # Route screens (*View.vue)
-├── components/             # Nexus* reusable UI (nexus-avatar, nexus-sidebar, …)
+├── components/             # Shared Nexus* feature components (image, Spotify player, …)
 ├── stores/                 # Pinia stores + Colada mutations
 ├── services/               # <model>.service.ts (axios)
 ├── types/                  # TypeScript types
@@ -77,7 +79,7 @@ Layering: `routes → stores → (Pinia Colada) → services → axios → API`.
 |----------|-------------|
 | [docs/VISION.md](docs/VISION.md) | Product vision and pillars |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | UI milestones aligned with API |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Shell, modules, API consumption |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Shell, design system, modules, API consumption |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Build workflow, PrimeVue, local dev |
 
 ## Related

@@ -122,7 +122,7 @@ export const sections: Record<SectionKey, Section> = {
     key: 'f1',
     label: 'Formula 1',
     ambient: { amb: '#170707', amb2: '#2a0c0a', acc: '#ff4a3d', ink: '#fff1ec' },
-    field: { bg: '#e3261b', ink: '#fff4ef' },
+    field: { bg: '#d42218', ink: '#fff4ef' },
   },
   sports: {
     key: 'sports',

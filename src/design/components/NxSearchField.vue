@@ -101,7 +101,7 @@ input {
 }
 
 input::placeholder {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
 input::-webkit-search-cancel-button {

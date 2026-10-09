@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import NxIcon from '@design/components/NxIcon.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { mediaDeliveryUrl } from '@lib/media'
 import type { MediaImage, MediaVariant } from '@/types/media/media'
@@ -151,16 +152,16 @@ onBeforeUnmount(() => {
     >
       <div class="toolbar">
         <button type="button" class="tool" aria-label="Zoom out" @click="zoomBy(-ZOOM_STEP)">
-          <i class="pi pi-minus" />
+          <NxIcon name="minus" :size="16" />
         </button>
         <button type="button" class="tool tool--reset" aria-label="Reset zoom" @click="resetView">
           {{ Math.round(zoom * 100) }}%
         </button>
         <button type="button" class="tool" aria-label="Zoom in" @click="zoomBy(ZOOM_STEP)">
-          <i class="pi pi-plus" />
+          <NxIcon name="plus" :size="16" />
         </button>
         <button type="button" class="tool tool--close" aria-label="Close" @click="close">
-          <i class="pi pi-times" />
+          <NxIcon name="close" :size="16" />
         </button>
       </div>
 
@@ -228,13 +229,6 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font-size: 0.85rem;
   line-height: 1;
-}
-
-.tool :deep(.pi),
-.tool i {
-  display: block;
-  line-height: 1;
-  font-size: 0.95rem;
 }
 
 .tool--reset {
