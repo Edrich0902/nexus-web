@@ -58,7 +58,7 @@ withDefaults(
         aria-valuemin="0"
         aria-valuemax="100"
       >
-        <i :style="{ width: `${Math.max(0, Math.min(1, progress)) * 100}%` }" />
+        <i :style="{ transform: `scaleX(${Math.max(0, Math.min(1, progress))})` }" />
       </div>
       <div v-if="$slots.actions" class="actions">
         <slot name="actions" />
@@ -161,11 +161,13 @@ withDefaults(
   overflow: hidden;
 }
 
+/* Live positions tick every 250ms; a matching linear glide keeps the rail moving continuously. */
 .bar i {
   display: block;
   height: 100%;
   background: var(--ink);
-  transition: width 0.6s var(--ease);
+  transform-origin: left center;
+  transition: transform 0.25s linear;
 }
 
 .actions {

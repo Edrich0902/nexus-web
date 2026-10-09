@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { useHubStore } from '@stores/hub/hub.store'
+import { useSpotifyStore } from '@stores/spotify/spotify.store'
+import { useSpotifyProgress } from '@/composables/useSpotifyProgress'
 import { ambientFromPalette, useAmbient } from '@design/ambient'
 import { moments, sections, type Ambient, type SectionKey } from '@design/tokens'
 import NxStage from '@design/components/NxStage.vue'
@@ -21,6 +23,8 @@ import type { ActivityEvent, NowPayload } from '@/types/hub/hub'
 import { useHomeModules } from './useHomeModules'
 
 const hub = useHubStore()
+const spotify = useSpotifyStore()
+const { progressMs, durationMs } = useSpotifyProgress()
 const modules = useHomeModules()
 
 const NOW_POLL_MS = 30_000
@@ -67,6 +71,15 @@ useAmbient(() => {
 })
 
 const now = computed(() => hub.now)
+
+/** `/now` reports progress at fetch time; follow the live player clock while it's the same track. */
+const stageProgress = computed(() => {
+  const n = now.value
+  if (!n) return null
+  const item = spotify.player?.item
+  const sameTrack = n.moment === 'music' && n.subject?.type === 'spotify_track' && item?.id === n.subject.id
+  return sameTrack && durationMs.value > 0 ? progressMs.value / durationMs.value : n.progress
+})
 
 /* ── Stream ─────────────────────────────────────────────── */
 
@@ -170,7 +183,7 @@ function timeLabel(iso: string): string {
       :title="now.title"
       :accent="now.accent ?? undefined"
       :lede="now.lede ?? undefined"
-      :progress="now.progress"
+      :progress="stageProgress"
     >
       <template v-if="now.image" #visual>
         <img :src="now.image" alt="" />

@@ -16,7 +16,6 @@ import type {
   SpotifyLibraryTracksResponse,
   SpotifyListeningHeartbeatResponse,
   SpotifyListeningProfile,
-  SpotifyListeningSettings,
   SpotifyPlayPayload,
   SpotifyPlaybackState,
   SpotifyPlaylist,
@@ -390,34 +389,6 @@ export async function getTrackFeatures(
 export async function getListeningProfile(): Promise<SpotifyListeningProfile> {
   const { data } = await http.get<SpotifyListeningProfile>(
     `${BASE}/listening/profile`,
-  )
-  return data
-}
-
-export async function getListeningSettings(): Promise<SpotifyListeningSettings> {
-  const { data } = await http.get<SpotifyListeningSettings>(
-    `${BASE}/listening/settings`,
-  )
-  return data
-}
-
-export async function updateListeningSettings(
-  payload: Partial<SpotifyListeningSettings>,
-): Promise<SpotifyListeningSettings> {
-  const { data } = await http.put<SpotifyListeningSettings>(
-    `${BASE}/listening/settings`,
-    payload,
-  )
-  return data
-}
-
-export async function getSimilarRecommendations(
-  seed: string,
-  limit = 12,
-): Promise<SpotifySuggestionsResponse> {
-  const { data } = await http.get<SpotifySuggestionsResponse>(
-    `${BASE}/recommendations/similar`,
-    { params: { seed, limit } },
   )
   return data
 }

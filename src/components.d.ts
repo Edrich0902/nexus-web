@@ -44,7 +44,6 @@ declare module 'vue' {
     NexusSpotifyPlayerPanel: typeof import('./components/nexus-spotify-player-panel/NexusSpotifyPlayerPanel.vue')['default']
     NexusSpotifyPlayingIndicator: typeof import('./components/nexus-spotify-playing-indicator/NexusSpotifyPlayingIndicator.vue')['default']
     NexusSpotifyQueuePanel: typeof import('./components/nexus-spotify-queue-panel/NexusSpotifyQueuePanel.vue')['default']
-    NexusSpotifySimilarRecs: typeof import('./components/nexus-spotify-similar-recs/NexusSpotifySimilarRecs.vue')['default']
     NexusSpotifyTrackMetrics: typeof import('./components/nexus-spotify-track-metrics/NexusSpotifyTrackMetrics.vue')['default']
     NexusSpotifyTrackRow: typeof import('./components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue')['default']
     NexusTableChip: typeof import('./components/nexus-data-table/NexusTableChip.vue')['default']

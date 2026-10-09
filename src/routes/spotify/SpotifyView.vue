@@ -16,7 +16,6 @@ import NxSkeletonRows from '@design/components/skeletons/NxSkeletonRows.vue'
 import { usePaletteAmbient } from '@design/usePaletteAmbient'
 import NexusSpotifyIcon from '@components/nexus-spotify-icon/NexusSpotifyIcon.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
-import NexusSpotifySimilarRecs from '@components/nexus-spotify-similar-recs/NexusSpotifySimilarRecs.vue'
 import NexusSpotifyTrackMetrics from '@components/nexus-spotify-track-metrics/NexusSpotifyTrackMetrics.vue'
 import CollectionFields from '@routes/collections/CollectionFields.vue'
 import { plural, type CollectionField } from '@routes/collections/collectionFields'
@@ -291,7 +290,6 @@ async function submitCreatePlaylist(): Promise<void> {
         </section>
         <div class="stack">
           <NxPanel v-if="spotify.player?.item"><NexusSpotifyTrackMetrics /></NxPanel>
-          <NexusSpotifySimilarRecs />
         </div>
       </div>
 
