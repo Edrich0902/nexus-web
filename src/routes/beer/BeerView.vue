@@ -1,18 +1,54 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusBeerIcon from '@components/nexus-beer-icon/NexusBeerIcon.vue'
-import NexusBeerCard from '@components/nexus-beer-card/NexusBeerCard.vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxSearchField from '@design/components/NxSearchField.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxIcon from '@design/components/NxIcon.vue'
 import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
-import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import { useBeerStore } from '@stores/food-drink/beer.store'
+import CollectionFields from '@routes/collections/CollectionFields.vue'
+import { drinkFields } from '@routes/collections/collectionFields'
 import type { BeerBrewery } from '@/types/food-drink/beer'
 
 const beer = useBeerStore()
 const router = useRouter()
+
+const query = ref('')
+const searched = ref('')
+
+onMounted(() => {
+  void beer.loadBeers()
+  void beer.loadStyles()
+})
+
+async function search(q: string): Promise<void> {
+  searched.value = q
+  await beer.loadBeers(q || undefined)
+}
+
+const state = computed<ViewState>(() => {
+  if (beer.beersLoading && !beer.beers.length) return 'loading'
+  return beer.beers.length ? 'ready' : 'empty'
+})
+
+const fields = computed(() =>
+  drinkFields({
+    items: beer.beers,
+    total: beer.beers.length,
+    countLabel: 'Beers logged',
+    noun: 'beer',
+    to: (b) => ({ name: 'beer-detail', params: { beerId: b.id } }),
+  }),
+)
+
+/* ── Create ─────────────────────────────────────────────── */
+
 const showCreate = ref(false)
-const filter = ref('')
 const breweryQuery = ref('')
 const selectedBrewery = ref<BeerBrewery | null>(null)
 const form = reactive({
@@ -27,25 +63,24 @@ const form = reactive({
   manual_country: 'South Africa',
 })
 
-onMounted(async () => {
-  await beer.loadBeers()
-  await beer.loadStyles()
-})
-
-async function search(): Promise<void> {
-  await beer.loadBeers(filter.value || undefined)
-}
+const formats = [
+  { label: 'Can', value: 'can' },
+  { label: 'Bottle', value: 'bottle' },
+  { label: 'Draught', value: 'draught' },
+]
 
 function resetCreateForm(): void {
-  form.name = ''
-  form.beer_style_id = null
-  form.abv = null
-  form.rating = null
-  form.notes = ''
-  form.format = 'can'
-  form.manual_brewery_name = ''
-  form.manual_city = ''
-  form.manual_country = 'South Africa'
+  Object.assign(form, {
+    name: '',
+    beer_style_id: null,
+    abv: null,
+    rating: null,
+    notes: '',
+    format: 'can',
+    manual_brewery_name: '',
+    manual_city: '',
+    manual_country: 'South Africa',
+  })
   selectedBrewery.value = null
   breweryQuery.value = ''
   beer.clearBreweryResults()
@@ -56,22 +91,16 @@ function openCreate(): void {
   showCreate.value = true
 }
 
-function clearBrewerySearch(): void {
-  breweryQuery.value = ''
-  beer.clearBreweryResults()
-}
-
 async function searchBreweries(): Promise<void> {
-  if (breweryQuery.value.trim()) {
-    await beer.searchBreweries(breweryQuery.value.trim())
-  }
+  if (breweryQuery.value.trim()) await beer.searchBreweries(breweryQuery.value.trim())
 }
 
 async function pickUpstream(obdbId: string): Promise<void> {
   const imported = await beer.importBrewery(obdbId)
   if (imported) {
     selectedBrewery.value = imported
-    clearBrewerySearch()
+    breweryQuery.value = ''
+    beer.clearBreweryResults()
   }
 }
 
@@ -86,12 +115,8 @@ async function createManualBrewery(): Promise<void> {
     selectedBrewery.value = created
     form.manual_brewery_name = ''
     form.manual_city = ''
-    clearBrewerySearch()
+    beer.clearBreweryResults()
   }
-}
-
-function clearSelectedBrewery(): void {
-  selectedBrewery.value = null
 }
 
 async function submit(): Promise<void> {
@@ -110,154 +135,231 @@ async function submit(): Promise<void> {
     await router.push({ name: 'beer-detail', params: { beerId: created.id } })
   }
 }
+
+const place = (b: { city?: string | null; country?: string | null }): string =>
+  [b.city, b.country].filter(Boolean).join(', ')
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Beer">
-    <template #toolbar>
-      <Button label="Log beer" icon="pi pi-plus" @click="openCreate" />
+  <IndexTemplate :state="searched && state === 'empty' ? 'ready' : state">
+    <template #stage>
+      <NxStage
+        size="compact"
+        eyebrow="Taproom"
+        title="Beer"
+        accent="log"
+        lede="Every can, bottle and pour — linked to its brewery, with AI notes on style and bitterness."
+      >
+        <template #actions>
+          <Button rounded severity="contrast" label="Log a beer" @click="openCreate">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="plus" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
     </template>
 
-    <div class="beer-page">
-      <header class="hero">
-        <div class="icon-wrap"><NexusBeerIcon :size="28" /></div>
-        <div>
-          <p class="eyebrow">Cellar & Kitchen</p>
-          <h2>Beer log</h2>
-          <p class="muted">
-            Capture beers you drink and link them to a brewery — Open Brewery DB
-            or your own entry when coverage is thin.
-          </p>
+    <template v-if="beer.beers.length || state === 'loading'" #fields>
+      <CollectionFields section="beer" :fields="fields" />
+    </template>
+
+    <template #toolbar>
+      <NxSearchField v-model="query" placeholder="Search beers and breweries…" :debounce="350" @search="search" />
+    </template>
+
+    <template #empty>
+      <NxEmptyState
+        title="No beers logged yet"
+        body="Log what you are drinking and link it to a brewery from Open Brewery DB, or add your own."
+        icon="beer"
+      >
+        <Button rounded label="Log your first beer" @click="openCreate" />
+      </NxEmptyState>
+    </template>
+
+    <NxEmptyState
+      v-if="!beer.beers.length"
+      :title="`Nothing matches “${searched}”`"
+      body="Try a brewery or a style."
+      icon="search"
+    />
+    <NxCoverGrid v-else :class="{ dim: beer.beersLoading }">
+      <NxCoverCard
+        v-for="b in beer.beers"
+        :key="b.id"
+        :to="{ name: 'beer-detail', params: { beerId: b.id } }"
+        :title="b.name"
+        :sub="b.brewery?.name"
+        :meta="[b.style?.name, b.abv != null ? `${b.abv}%` : null].filter(Boolean).join(' · ')"
+        :media="b.media"
+        :src="b.image_url"
+        :rating="b.rating"
+        :badge="b.analysis_status === 'pending' ? 'Analysing' : null"
+        icon="beer"
+      />
+    </NxCoverGrid>
+  </IndexTemplate>
+
+  <Dialog
+    v-model:visible="showCreate"
+    modal
+    header="Log a beer"
+    style="width: min(520px, 94vw)"
+    @hide="resetCreateForm"
+  >
+    <form class="nx-form" @submit.prevent="submit">
+      <label class="f">
+        <span>Name</span>
+        <InputText v-model="form.name" autofocus />
+      </label>
+      <div class="row">
+        <label class="f">
+          <span>Style</span>
+          <Select
+            v-model="form.beer_style_id"
+            :options="beer.styles"
+            option-label="name"
+            option-value="id"
+            placeholder="Choose a style"
+            filter
+            show-clear
+          />
+        </label>
+        <label class="f">
+          <span>ABV %</span>
+          <InputNumber v-model="form.abv" :min-fraction-digits="1" :max-fraction-digits="1" :min="0" :max="70" />
+        </label>
+      </div>
+      <div class="row">
+        <div class="f">
+          <span>Format</span>
+          <SelectButton v-model="form.format" :options="formats" option-label="label" option-value="value" :allow-empty="false" />
         </div>
-      </header>
-
-      <div class="filters">
-        <InputText
-          v-model="filter"
-          placeholder="Filter beers…"
-          class="grow"
-          @keyup.enter="search"
-        />
-        <Button label="Search" icon="pi pi-search" severity="secondary" @click="search" />
+        <div class="f">
+          <span>Rating</span>
+          <NexusRatingInput v-model="form.rating" />
+        </div>
       </div>
-
-      <NexusSkeletonCards v-if="beer.beersLoading" :cards="4" />
-      <div v-else-if="beer.beers.length" class="grid">
-        <NexusBeerCard v-for="b in beer.beers" :key="b.id" :beer="b" />
-      </div>
-      <p v-else class="empty">No beers logged yet.</p>
-    </div>
-
-    <Dialog
-      v-model:visible="showCreate"
-      modal
-      header="Log beer"
-      style="width: min(520px, 94vw)"
-      @hide="resetCreateForm"
-    >
-      <div class="form">
-        <label>Name</label>
-        <InputText v-model="form.name" />
-        <label>Style</label>
-        <Select
-          v-model="form.beer_style_id"
-          :options="beer.styles"
-          option-label="name"
-          option-value="id"
-          placeholder="Select style"
-          show-clear
-        />
-        <label>ABV</label>
-        <InputNumber v-model="form.abv" :min-fraction-digits="1" :max-fraction-digits="1" />
-        <label>Rating</label>
-        <NexusRatingInput v-model="form.rating" />
-        <label>Notes</label>
+      <label class="f">
+        <span>Notes</span>
         <Textarea v-model="form.notes" rows="2" auto-resize />
+      </label>
 
-        <h4>Brewery</h4>
-        <div v-if="selectedBrewery" class="picked-row">
-          <p class="picked">
-            Linked: {{ selectedBrewery.name }}
-            <small v-if="selectedBrewery.city || selectedBrewery.country">
-              {{ [selectedBrewery.city, selectedBrewery.country].filter(Boolean).join(', ') }}
-            </small>
-          </p>
-          <Button label="Change" text size="small" @click="clearSelectedBrewery" />
+      <div class="f">
+        <span>Brewery</span>
+        <div v-if="selectedBrewery" class="picked">
+          <div>
+            <strong>{{ selectedBrewery.name }}</strong>
+            <small v-if="place(selectedBrewery)">{{ place(selectedBrewery) }}</small>
+          </div>
+          <Button label="Change" text size="small" @click="selectedBrewery = null" />
         </div>
         <template v-else>
-          <div class="row">
+          <div class="lookup">
             <InputText
               v-model="breweryQuery"
               placeholder="Search Open Brewery DB…"
-              class="grow"
-              @keyup.enter="searchBreweries"
+              @keydown.enter.prevent="searchBreweries"
             />
-            <Button icon="pi pi-search" @click="searchBreweries" />
+            <Button label="Find" severity="secondary" rounded @click="searchBreweries" />
           </div>
           <ul v-if="beer.breweryResults.length" class="results">
             <li v-for="r in beer.breweryResults" :key="r.obdb_id">
               <button type="button" @click="pickUpstream(r.obdb_id)">
                 {{ r.name }}
-                <small>{{ [r.city, r.country].filter(Boolean).join(', ') }}</small>
+                <small>{{ place(r) }}</small>
               </button>
             </li>
           </ul>
-
-          <p class="hint">Not in OBDB? Create a local brewery:</p>
+          <p class="hint">Not listed? Add it yourself:</p>
           <InputText v-model="form.manual_brewery_name" placeholder="Brewery name" />
           <div class="row">
             <InputText v-model="form.manual_city" placeholder="City" />
             <InputText v-model="form.manual_country" placeholder="Country" />
           </div>
-          <Button label="Create local brewery" severity="secondary" size="small" @click="createManualBrewery" />
+          <Button
+            label="Add brewery"
+            severity="secondary"
+            size="small"
+            rounded
+            class="self-start"
+            :disabled="!form.manual_brewery_name.trim()"
+            @click="createManualBrewery"
+          />
         </template>
       </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showCreate = false" />
-        <Button label="Save" :loading="beer.saving" :disabled="!form.name.trim()" @click="submit" />
-      </template>
-    </Dialog>
-  </NexusPageWrapper>
+    </form>
+    <template #footer>
+      <Button label="Cancel" text severity="secondary" @click="showCreate = false" />
+      <Button label="Save beer" rounded :loading="beer.saving" :disabled="!form.name.trim()" @click="submit" />
+    </template>
+  </Dialog>
 </template>
 
 <style scoped>
-.beer-page { display: flex; flex-direction: column; gap: 1.1rem; }
-.hero {
-  display: flex; gap: 0.9rem; padding: 1.2rem; border-radius: 1rem;
-  background: var(--beer-card-surface);
+.dim {
+  opacity: 0.55;
+  transition: opacity 0.2s;
 }
-.icon-wrap {
-  width: 3rem; height: 3rem; border-radius: 0.75rem; display: grid; place-items: center;
-  background: color-mix(in srgb, var(--beer-accent) 22%, transparent); color: var(--beer-accent);
-}
-.eyebrow { margin: 0; font-size: 0.75rem; text-transform: uppercase; opacity: 0.65; }
-h2 { margin: 0.15rem 0; }
-.muted { margin: 0; opacity: 0.7; }
-.filters {
-  display: flex;
-  gap: 0.5rem;
-}
-.grow { flex: 1; }
-.grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr)); gap: 1rem;
-}
-.empty { opacity: 0.7; }
-.form { display: flex; flex-direction: column; gap: 0.4rem; }
-.form label, .hint { font-size: 0.8rem; opacity: 0.7; margin-top: 0.35rem; }
-.row { display: flex; gap: 0.5rem; }
-.grow { flex: 1; }
-.results { list-style: none; margin: 0.4rem 0; padding: 0; max-height: 160px; overflow: auto; }
-.results button {
-  width: 100%; text-align: left; padding: 0.45rem 0.55rem; border-radius: 0.45rem;
-  border: 0; background: color-mix(in srgb, var(--coffee-bean) 40%, transparent); color: inherit; cursor: pointer;
-}
-.results small { display: block; opacity: 0.65; }
-.picked-row {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;
-  margin-top: 0.25rem;
-}
+
 .picked {
-  margin: 0; color: var(--beer-accent); font-size: 0.9rem; font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--acc) 14%, transparent);
 }
-.picked small { display: block; font-weight: 400; opacity: 0.75; margin-top: 0.15rem; }
+
+.picked small {
+  display: block;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+.lookup {
+  display: flex;
+  gap: 8px;
+}
+
+.lookup :deep(.p-inputtext) {
+  flex: 1;
+}
+
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 180px;
+  overflow: auto;
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.results button {
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.results button:hover {
+  background: var(--tint-2);
+}
+
+.results small {
+  display: block;
+  color: var(--ink-3);
+}
+
+.self-start {
+  align-self: flex-start;
+}
 </style>

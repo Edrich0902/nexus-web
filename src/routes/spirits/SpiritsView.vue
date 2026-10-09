@@ -1,20 +1,54 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusSpiritIcon from '@components/nexus-spirit-icon/NexusSpiritIcon.vue'
-import NexusSpiritCard from '@components/nexus-spirit-card/NexusSpiritCard.vue'
-import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
-import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxSearchField from '@design/components/NxSearchField.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxIcon from '@design/components/NxIcon.vue'
 import NexusQuotaBadge from '@components/nexus-quota-badge/NexusQuotaBadge.vue'
+import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
 import { useSpiritsStore } from '@stores/food-drink/spirits.store'
 import { useAnalysisStore } from '@stores/analysis/analysis.store'
+import CollectionFields from '@routes/collections/CollectionFields.vue'
+import { drinkFields } from '@routes/collections/collectionFields'
 
 const spirits = useSpiritsStore()
 const analysis = useAnalysisStore()
 const router = useRouter()
+
+const query = ref('')
+const searched = ref('')
+
+onMounted(() => {
+  void spirits.loadSpirits()
+  void analysis.loadQuota()
+})
+
+async function search(q: string): Promise<void> {
+  searched.value = q
+  await spirits.loadSpirits(q || undefined)
+}
+
+const state = computed<ViewState>(() => {
+  if (spirits.spiritsLoading && !spirits.spirits.length) return 'loading'
+  return spirits.spirits.length ? 'ready' : 'empty'
+})
+
+const fields = computed(() =>
+  drinkFields({
+    items: spirits.spirits,
+    total: spirits.spirits.length,
+    countLabel: 'Bottles',
+    noun: 'spirit',
+    to: (s) => ({ name: 'spirit-detail', params: { spiritId: s.id } }),
+  }),
+)
+
 const showCreate = ref(false)
-const filter = ref('')
 const form = reactive({
   name: '',
   producer: '',
@@ -25,27 +59,18 @@ const form = reactive({
   notes: '',
 })
 
-onMounted(() => {
-  void spirits.loadSpirits()
-  void analysis.loadQuota()
-})
-
-async function search(): Promise<void> {
-  await spirits.loadSpirits(filter.value || undefined)
-}
-
-function resetCreateForm(): void {
-  form.name = ''
-  form.producer = ''
-  form.category = ''
-  form.age_statement = ''
-  form.abv = null
-  form.rating = null
-  form.notes = ''
-}
+const categories = ['Whisky', 'Gin', 'Rum', 'Brandy', 'Tequila', 'Vodka', 'Liqueur']
 
 function openCreate(): void {
-  resetCreateForm()
+  Object.assign(form, {
+    name: '',
+    producer: '',
+    category: '',
+    age_statement: '',
+    abv: null,
+    rating: null,
+    notes: '',
+  })
   showCreate.value = true
 }
 
@@ -68,152 +93,123 @@ async function submitCreate(): Promise<void> {
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Spirits">
-    <template #toolbar>
-      <NexusQuotaBadge :quota="analysis.quota" />
-      <Button label="Add spirit" icon="pi pi-plus" @click="openCreate" />
+  <IndexTemplate :state="searched && state === 'empty' ? 'ready' : state">
+    <template #stage>
+      <NxStage
+        size="compact"
+        eyebrow="Bar cart"
+        title="Spirits"
+        accent="shelf"
+        lede="Whisky, gin, rum and the rest — bottle photos, age statements and AI notes on nose and finish."
+      >
+        <template #actions>
+          <Button rounded severity="contrast" label="Add a bottle" @click="openCreate">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="plus" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
     </template>
 
-    <div class="spirits-page">
-      <header class="hero">
-        <div class="icon-wrap">
-          <NexusSpiritIcon :size="28" />
-        </div>
-        <div>
-          <p class="eyebrow">Cellar & Kitchen</p>
-          <h2>Spirits journal</h2>
-          <p class="muted">
-            Log whiskey, gin, rum and more — upload a bottle photo and run AI analysis
-            for structured tasting notes.
-          </p>
-        </div>
-      </header>
+    <template v-if="spirits.spirits.length || state === 'loading'" #fields>
+      <CollectionFields section="spirits" :fields="fields" />
+    </template>
 
-      <div class="filters">
-        <InputText
-          v-model="filter"
-          placeholder="Filter spirits…"
-          class="grow"
-          @keyup.enter="search"
-        />
-        <Button label="Search" icon="pi pi-search" severity="secondary" @click="search" />
-      </div>
+    <template #toolbar>
+      <NxSearchField v-model="query" placeholder="Search spirits and distilleries…" :debounce="350" @search="search" />
+      <span class="grow" />
+      <NexusQuotaBadge :quota="analysis.quota" />
+    </template>
 
-      <NexusSkeletonCards v-if="spirits.spiritsLoading" :cards="6" />
-      <div v-else-if="spirits.spirits.length" class="grid">
-        <NexusSpiritCard v-for="item in spirits.spirits" :key="item.id" :spirit="item" />
-      </div>
-      <p v-else class="empty">No spirits logged yet — add your first bottle.</p>
-    </div>
+    <template #empty>
+      <NxEmptyState
+        title="The shelf is bare"
+        body="Add a bottle and a label photo; AI will fill in the nose, palate and finish."
+        icon="spirits"
+      >
+        <Button rounded label="Add your first bottle" @click="openCreate" />
+      </NxEmptyState>
+    </template>
 
-    <Dialog
-      v-model:visible="showCreate"
-      modal
-      header="Log spirit"
-      style="width: min(440px, 94vw)"
-      @hide="resetCreateForm"
-    >
-      <div class="form">
-        <label>Name</label>
-        <InputText v-model="form.name" />
-        <label>Distillery / producer</label>
+    <NxEmptyState
+      v-if="!spirits.spirits.length"
+      :title="`Nothing matches “${searched}”`"
+      body="Try a distillery or a category."
+      icon="search"
+    />
+    <NxCoverGrid v-else :class="{ dim: spirits.spiritsLoading }">
+      <NxCoverCard
+        v-for="s in spirits.spirits"
+        :key="s.id"
+        :to="{ name: 'spirit-detail', params: { spiritId: s.id } }"
+        :title="s.name"
+        :sub="s.producer"
+        :meta="[s.category, s.age_statement, s.abv != null ? `${s.abv}%` : null].filter(Boolean).join(' · ')"
+        :media="s.media"
+        :src="s.image_url"
+        :rating="s.rating"
+        :badge="s.analysis_status === 'pending' ? 'Analysing' : null"
+        icon="spirits"
+      />
+    </NxCoverGrid>
+  </IndexTemplate>
+
+  <Dialog v-model:visible="showCreate" modal header="Add a bottle" style="width: min(480px, 94vw)">
+    <form class="nx-form" @submit.prevent="submitCreate">
+      <label class="f">
+        <span>Name</span>
+        <InputText v-model="form.name" autofocus />
+      </label>
+      <label class="f">
+        <span>Distillery</span>
         <InputText v-model="form.producer" />
-        <label>Category</label>
-        <InputText v-model="form.category" placeholder="whiskey, gin, rum…" />
-        <label>Age statement</label>
-        <InputText v-model="form.age_statement" />
-        <label>ABV</label>
-        <InputNumber v-model="form.abv" :min-fraction-digits="0" :max-fraction-digits="1" />
-        <label>Rating</label>
-        <NexusRatingInput v-model="form.rating" />
-        <label>Notes</label>
-        <Textarea v-model="form.notes" rows="3" auto-resize />
+      </label>
+      <div class="row">
+        <label class="f">
+          <span>Category</span>
+          <Select v-model="form.category" :options="categories" editable placeholder="Whisky, gin…" />
+        </label>
+        <label class="f">
+          <span>Age statement</span>
+          <InputText v-model="form.age_statement" placeholder="12 years" />
+        </label>
       </div>
-      <template #footer>
-        <Button label="Cancel" text severity="secondary" @click="showCreate = false" />
-        <Button
-          label="Save"
-          :loading="spirits.saving"
-          :disabled="!form.name.trim()"
-          @click="submitCreate"
-        />
-      </template>
-    </Dialog>
-  </NexusPageWrapper>
+      <div class="row">
+        <label class="f">
+          <span>ABV %</span>
+          <InputNumber v-model="form.abv" :min-fraction-digits="0" :max-fraction-digits="1" :min="0" :max="100" />
+        </label>
+        <div class="f">
+          <span>Rating</span>
+          <NexusRatingInput v-model="form.rating" />
+        </div>
+      </div>
+      <label class="f">
+        <span>Notes</span>
+        <Textarea v-model="form.notes" rows="3" auto-resize />
+      </label>
+    </form>
+    <template #footer>
+      <Button label="Cancel" text severity="secondary" @click="showCreate = false" />
+      <Button
+        label="Save bottle"
+        rounded
+        :loading="spirits.saving"
+        :disabled="!form.name.trim()"
+        @click="submitCreate"
+      />
+    </template>
+  </Dialog>
 </template>
 
 <style scoped>
-.spirits-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-}
-
-.hero {
-  display: flex;
-  gap: 0.9rem;
-  padding: 1.2rem;
-  border-radius: 1rem;
-  background: var(--spirit-card-surface);
-}
-
-.icon-wrap {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--spirit-accent) 22%, transparent);
-  color: var(--spirit-accent);
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.65;
-}
-
-h2 {
-  margin: 0.15rem 0;
-}
-
-.muted {
-  margin: 0;
-  opacity: 0.7;
-  font-size: 0.92rem;
-}
-
-.filters {
-  display: flex;
-  gap: 0.5rem;
-}
-
 .grow {
   flex: 1;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
-  gap: 1rem;
-}
-
-.empty {
-  opacity: 0.7;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.form label {
-  font-size: 0.8rem;
-  opacity: 0.7;
-  margin-top: 0.35rem;
+.dim {
+  opacity: 0.55;
+  transition: opacity 0.2s;
 }
 </style>

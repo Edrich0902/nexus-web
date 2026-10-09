@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, type VNode } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import NxTopBar from '@design/components/shell/NxTopBar.vue'
 import NxDock from '@design/components/shell/NxDock.vue'
@@ -47,6 +47,26 @@ function onKeydown(event: KeyboardEvent): void {
   }
 }
 
+/**
+ * Views may render dialogs next to their template, so the page frame is a
+ * wrapper element. It is keyed by view component (not path) so param changes
+ * within a view don't replay the entrance. The entrance is a CSS animation
+ * rather than an out-in <Transition>: a leave that never finishes (hidden
+ * tab, throttled frames) would otherwise block the next page indefinitely.
+ */
+const pageKeys = new WeakMap<object, number>()
+let pageKeySeq = 0
+
+function pageKey(vnode: VNode): number {
+  const type = vnode.type as object
+  let key = pageKeys.get(type)
+  if (key === undefined) {
+    key = ++pageKeySeq
+    pageKeys.set(type, key)
+  }
+  return key
+}
+
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
@@ -62,9 +82,9 @@ onBeforeUnmount(() => {
   <NxTopBar v-if="route.meta.shell" />
 
   <RouterView v-slot="{ Component }">
-    <Transition name="nx-page" mode="out-in">
-      <component :is="Component" :class="{ 'nx-page': route.meta.shell }" />
-    </Transition>
+    <div v-if="Component" :key="pageKey(Component)" :class="{ 'nx-page': route.meta.shell }">
+      <component :is="Component" />
+    </div>
   </RouterView>
 
   <template v-if="route.meta.shell">
@@ -81,24 +101,14 @@ onBeforeUnmount(() => {
   margin: 0 auto;
   padding: 8px var(--page-pad) var(--shell-dock-space);
   min-height: calc(100dvh - var(--shell-top));
+  /* No fill-mode: a lingering transform would trap position: fixed children. */
+  animation: nx-page-in 0.45s var(--ease);
 }
 
-.nx-page-enter-active {
-  transition:
-    opacity 0.35s var(--ease),
-    transform 0.45s var(--ease);
-}
-
-.nx-page-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.nx-page-enter-from {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.nx-page-leave-to {
-  opacity: 0;
+@keyframes nx-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 </style>

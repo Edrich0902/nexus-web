@@ -201,3 +201,49 @@
   outline: 2px solid var(--acc);
   outline-offset: 2px;
 }
+
+/* ---------- Forms (dialogs, inline editors) ----------
+   <div class="nx-form"><label class="f"><span>Name</span><InputText /></label></div> */
+.nx-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nx-form .f {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nx-form .f > span:first-child,
+.nx-form .legend {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.nx-form .row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nx-form .hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.nx-form :is(.p-inputtext, .p-inputnumber, .p-select, .p-textarea, .p-datepicker) {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .nx-form .row {
+    grid-template-columns: 1fr;
+  }
+}

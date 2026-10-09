@@ -1,339 +1,256 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
+import DetailTemplate from '@design/templates/DetailTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPanel from '@design/components/NxPanel.vue'
+import NxSectionHeader from '@design/components/NxSectionHeader.vue'
+import NxChips from '@design/components/NxChips.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import { usePaletteAmbient } from '@design/usePaletteAmbient'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
+import { mediaDeliveryUrl } from '@lib/media'
 import type { MealDetail } from '@/types/food-drink/kitchen'
 import type { MediaImage } from '@/types/media/media'
 
-const props = defineProps<{
-  meal: MealDetail
-  eyebrow?: string
-  media?: MediaImage | null
-  imageUrl?: string | null
-}>()
-
-const heroSrc = computed(
-  () => props.imageUrl ?? props.meal.thumb_url ?? null,
+/**
+ * A recipe page: dish photo and serif name on the stage, the method in the
+ * main column and ingredients in a sticky aside. Used for saved recipes and
+ * TheMealDB previews.
+ */
+const props = withDefaults(
+  defineProps<{
+    state: ViewState
+    meal?: MealDetail | null
+    backTo: RouteLocationRaw
+    backLabel: string
+    eyebrow?: string
+    media?: MediaImage | null
+    imageUrl?: string | null
+  }>(),
+  { meal: null, eyebrow: undefined, media: null, imageUrl: null },
 )
 
+const heroSrc = computed(() => props.imageUrl ?? props.meal?.thumb_url ?? null)
+
+usePaletteAmbient(() => mediaDeliveryUrl(props.media, 'thumb') ?? heroSrc.value)
+
 const steps = computed(() => {
-  const raw = (props.meal.instructions ?? '').trim()
+  const raw = (props.meal?.instructions ?? '').trim()
   if (!raw) return []
 
   const byBreak = raw
     .split(/\r?\n+/)
     .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.replace(/^\d+[\).\-:]\s*/, ''))
+    .filter((line) => line && !/^step\s*\d+:?$/i.test(line))
+    .map((line) => line.replace(/^(step\s*)?\d+[).\-:]?\s+/i, ''))
 
   if (byBreak.length > 1) return byBreak
 
-  const sentenceSplit = raw
+  const sentences = raw
     .split(/(?<=[.!?])\s+(?=[A-Z])/)
     .map((s) => s.trim())
     .filter((s) => s.length > 12)
 
-  return sentenceSplit.length > 1 ? sentenceSplit : [raw]
+  return sentences.length > 1 ? sentences : [raw]
 })
 
-const tags = computed(() => props.meal.tags?.filter(Boolean) ?? [])
+const tags = computed(() => props.meal?.tags?.filter(Boolean).slice(0, 4) ?? [])
+
+const lede = computed(() => {
+  const m = props.meal
+  if (!m) return undefined
+  const parts = [m.area ? `${m.area} cooking` : null, m.category, `${m.ingredients.length} ingredients`]
+  return parts.filter(Boolean).join(' · ')
+})
 </script>
 
 <template>
-  <div class="recipe-detail">
-    <header class="hero">
-      <div class="hero-media">
-        <NexusImage
-          :media="media"
-          :src="heroSrc"
-          :alt="meal.name"
-          variant="hero"
-          size="fill"
-          fit="cover"
-          previewable
-        />
-      </div>
-
-      <div class="hero-body">
-        <div class="hero-info">
-          <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
-          <h2>{{ meal.name }}</h2>
-          <div class="chips">
-            <span v-if="meal.category" class="chip">{{ meal.category }}</span>
-            <span v-if="meal.area" class="chip">{{ meal.area }}</span>
-            <span
-              v-for="tag in tags.slice(0, 3)"
-              :key="tag"
-              class="chip chip-muted"
-            >
-              {{ tag }}
-            </span>
-          </div>
-          <div v-if="$slots.meta" class="meta-slot">
-            <slot name="meta" />
-          </div>
-        </div>
-
-        <div v-if="$slots.actions" class="hero-actions">
+  <DetailTemplate
+    :state="state"
+    :back-to="backTo"
+    :back-label="backLabel"
+    error-title="Recipe not found"
+    aside-first
+  >
+    <template #stage>
+      <NxStage :eyebrow="eyebrow" :title="meal?.name" :lede="lede">
+        <template #visual>
+          <NexusImage
+            :media="media"
+            :src="heroSrc"
+            :alt="meal?.name ?? ''"
+            variant="hero"
+            size="fill"
+            fit="cover"
+            previewable
+          />
+        </template>
+        <template v-if="$slots.actions" #actions>
           <slot name="actions" />
+        </template>
+        <div v-if="$slots.meta || tags.length" class="meta">
+          <slot name="meta" />
+          <NxChips :items="tags" label="Tags" />
         </div>
-      </div>
-    </header>
+      </NxStage>
+    </template>
 
-    <div class="layout">
-      <aside class="ingredients">
-        <div class="section-head">
-          <h3>Ingredients</h3>
-          <span class="count">{{ meal.ingredients.length }}</span>
-        </div>
+    <section aria-labelledby="method-title">
+      <NxSectionHeader id="method-title" :title="`Method · ${steps.length} steps`" />
+      <ol class="steps">
+        <li v-for="(step, i) in steps" :key="i">
+          <span class="n num" aria-hidden="true">{{ String(i + 1).padStart(2, '0') }}</span>
+          <p>{{ step }}</p>
+        </li>
+      </ol>
+    </section>
+
+    <template #aside>
+      <NxPanel :title="`Ingredients · ${meal?.ingredients.length ?? 0}`" class="ingredients">
         <ul>
-          <li
-            v-for="ing in meal.ingredients"
-            :key="`${ing.id}-${ing.position}`"
-          >
-            <span class="measure">{{ ing.measure || '—' }}</span>
+          <li v-for="ing in meal?.ingredients ?? []" :key="`${ing.id}-${ing.position}`">
             <span class="name">{{ ing.name }}</span>
+            <span class="measure">{{ ing.measure || '—' }}</span>
           </li>
         </ul>
-      </aside>
-
-      <section class="method">
-        <div class="section-head">
-          <h3>Method</h3>
-          <span class="count">{{ steps.length }} steps</span>
-        </div>
-        <ol>
-          <li v-for="(step, index) in steps" :key="index">
-            <span class="step-num" aria-hidden="true">{{ index + 1 }}</span>
-            <p>{{ step }}</p>
-          </li>
-        </ol>
-      </section>
-    </div>
-  </div>
+      </NxPanel>
+      <div v-if="meal?.youtube_url || meal?.source_url" class="links">
+        <a v-if="meal.youtube_url" :href="meal.youtube_url" target="_blank" rel="noopener noreferrer">
+          Watch it made <NxIcon name="external-link" :size="14" />
+        </a>
+        <a v-if="meal.source_url" :href="meal.source_url" target="_blank" rel="noopener noreferrer">
+          Original recipe <NxIcon name="external-link" :size="14" />
+        </a>
+      </div>
+      <slot name="aside" />
+    </template>
+  </DetailTemplate>
 </template>
 
 <style scoped>
-.recipe-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.hero {
-  display: grid;
-  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
-  gap: 1.35rem;
-  padding: 1.15rem;
-  overflow: hidden;
-  border-radius: 1.1rem;
-  background: var(--kitchen-card-surface);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 8%, transparent);
-  align-items: stretch;
-}
-
-.hero-media {
-  min-height: 18rem;
-  border-radius: 0.85rem;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--kitchen-accent) 18%, transparent);
-}
-
-.hero-media :deep(.nexus-image) {
-  width: 100%;
-  height: 100%;
-  min-height: 18rem;
-}
-
-.hero-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: start;
-  min-width: 0;
-}
-
-.hero-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding-top: 0.15rem;
-  min-width: 0;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.65;
-}
-
-.chips {
+.meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
 }
 
-.chip {
-  font-size: 0.72rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  padding: 0.28rem 0.55rem;
-  border-radius: 0.4rem;
-  background: color-mix(in srgb, var(--kitchen-accent) 22%, transparent);
-  color: color-mix(in srgb, var(--kitchen-accent) 80%, var(--lavender-blush));
-}
-
-.chip-muted {
-  background: color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-  color: color-mix(in srgb, var(--lavender-blush) 75%, transparent);
-}
-
-h2 {
+.steps {
+  list-style: none;
   margin: 0;
-  font-size: clamp(1.55rem, 2.6vw, 2rem);
-  line-height: 1.15;
-  font-weight: 700;
-}
-
-.hero-actions {
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding-top: 0.1rem;
 }
 
-.meta-slot {
-  margin-top: 0.1rem;
-}
-
-.layout {
+.steps li {
   display: grid;
-  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.4fr);
-  gap: 1rem;
-  align-items: start;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 16px;
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
 }
 
-.ingredients,
-.method {
-  border-radius: 1rem;
-  padding: 1.15rem 1.2rem 1.25rem;
-  background: color-mix(in srgb, var(--coffee-bean-panel) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 7%, transparent);
+.steps li:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+.n {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 28px;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--acc);
+}
+
+.steps p {
+  margin: 0;
+  font-size: 16.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  max-width: 68ch;
 }
 
 .ingredients {
   position: sticky;
-  top: 0.75rem;
-}
-
-.section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.9rem;
-  padding-bottom: 0.65rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
-}
-
-.section-head h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.count {
-  font-size: 0.75rem;
-  opacity: 0.55;
+  top: calc(var(--shell-top, 72px) + 12px);
 }
 
 .ingredients ul {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
 }
 
 .ingredients li {
-  display: grid;
-  grid-template-columns: minmax(4.5rem, 35%) 1fr;
-  gap: 0.75rem;
-  padding: 0.55rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--lavender-blush) 6%, transparent);
-  font-size: 0.92rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14.5px;
 }
 
-.ingredients li:last-child {
-  border-bottom: 0;
-}
-
-.measure {
-  color: color-mix(in srgb, var(--kitchen-accent) 75%, var(--lavender-blush));
-  font-variant-numeric: tabular-nums;
+.ingredients li:first-child {
+  border-top: 0;
 }
 
 .name {
-  opacity: 0.92;
+  color: var(--ink);
 }
 
-.method ol {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.measure {
+  flex-shrink: 0;
+  max-width: 50%;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--acc);
+}
+
+.links {
   display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 0 4px;
 }
 
-.method li {
-  display: grid;
-  grid-template-columns: 2rem 1fr;
-  gap: 0.85rem;
-  align-items: start;
+.links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink-2);
 }
 
-.step-num {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.55rem;
-  display: grid;
-  place-items: center;
-  font-size: 0.85rem;
-  font-weight: 650;
-  background: color-mix(in srgb, var(--kitchen-accent) 20%, transparent);
-  color: color-mix(in srgb, var(--kitchen-accent) 85%, var(--lavender-blush));
+.links a:hover {
+  color: var(--ink);
 }
 
-.method p {
-  margin: 0.15rem 0 0;
-  line-height: 1.65;
-  font-size: 0.98rem;
-  color: color-mix(in srgb, var(--lavender-blush) 92%, transparent);
-}
-
-@media (max-width: 900px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-media,
-  .hero-media :deep(.nexus-image) {
-    min-height: 14rem;
-    aspect-ratio: 4 / 3;
-  }
-
-  .hero-actions {
-    flex-direction: row;
-  }
-
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
+@media (max-width: 960px) {
   .ingredients {
     position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .steps li {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .n {
+    font-size: 22px;
+  }
+
+  .steps p {
+    font-size: 15.5px;
   }
 }
 </style>

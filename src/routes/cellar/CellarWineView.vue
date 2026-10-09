@@ -1,29 +1,66 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusImage from '@components/nexus-image/NexusImage.vue'
-import NexusRatingDisplay from '@components/nexus-rating-display/NexusRatingDisplay.vue'
+import NxSectionHeader from '@design/components/NxSectionHeader.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import type { Ambient } from '@design/tokens'
 import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
-import NexusQuotaBadge from '@components/nexus-quota-badge/NexusQuotaBadge.vue'
-import NexusDrinkAnalysisPanel from '@components/nexus-drink-analysis-panel/NexusDrinkAnalysisPanel.vue'
 import NexusTastingTimeline from '@components/nexus-tasting-timeline/NexusTastingTimeline.vue'
-import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
-import NexusImageUploader from '@components/nexus-image-uploader/NexusImageUploader.vue'
 import { useCellarStore } from '@stores/food-drink/cellar.store'
-import { useAnalysisStore } from '@stores/analysis/analysis.store'
+import DrinkDetail from '@routes/collections/DrinkDetail.vue'
+import { useDrinkDetail } from '@routes/collections/useDrinkDetail'
 import type { MediaImage } from '@/types/media/media'
 
 const cellar = useCellarStore()
-const analysis = useAnalysisStore()
 const route = useRoute()
 const router = useRouter()
 
 const wineId = computed(() => Number(route.params.wineId))
-const showTasting = ref(false)
-const showImageUploader = ref(false)
-let pollTimer: ReturnType<typeof setInterval> | null = null
 
+const { state, onAnalyse, quota } = useDrinkDetail({
+  id: () => wineId.value,
+  item: () => cellar.wine,
+  loading: () => cellar.wineLoading,
+  load: cellar.loadWine,
+  analyse: cellar.analyseWine,
+})
+
+const wine = computed(() => (state.value === 'ready' ? cellar.wine : null))
+
+/** Until the label palette arrives, tint by style rather than always red. */
+const STYLE_AMBIENTS: [RegExp, Partial<Ambient>][] = [
+  [/sparkl|champ|cap class|cava|prosecco/i, { amb: '#17150c', amb2: '#262213', acc: '#ecd58a', ink: '#fbf7e6' }],
+  [/ros[eé]|blush/i, { amb: '#1f0d12', amb2: '#33161e', acc: '#f2a0b0', ink: '#fdeef1' }],
+  [/white|blanc|chard|chenin|riesling|sauv/i, { amb: '#18170c', amb2: '#28261a', acc: '#e3cf7f', ink: '#fbf7e8' }],
+  [/dessert|fortified|port|sherry|noble/i, { amb: '#1d0f07', amb2: '#2f1a0c', acc: '#eaa35a', ink: '#fcf0e3' }],
+]
+
+const styleAmbient = computed(() => {
+  const type = wine.value?.wine_type
+  if (!type) return null
+  return STYLE_AMBIENTS.find(([re]) => re.test(type))?.[1] ?? null
+})
+
+const lede = computed(() => {
+  const w = wine.value
+  if (!w) return undefined
+  return [w.wine_type, w.region_name, w.country].filter(Boolean).join(' · ') || undefined
+})
+
+const facts = computed(() => {
+  const w = wine.value
+  if (!w) return []
+  return [
+    { label: 'Producer', value: w.producer_name },
+    { label: 'Vintage', value: w.vintage },
+    { label: 'Style', value: w.wine_type },
+    { label: 'Region', value: w.region_name },
+    { label: 'Country', value: w.country },
+    { label: 'Tastings', value: w.tastings?.length ?? w.tastings_count },
+  ]
+})
+
+const showTasting = ref(false)
 const tastingForm = reactive({
   tasted_on: new Date().toISOString().slice(0, 10),
   rating: null as number | null,
@@ -32,37 +69,13 @@ const tastingForm = reactive({
   location: '',
 })
 
-function stopPoll(): void {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-
-function startPollIfPending(): void {
-  stopPoll()
-  if (cellar.wine?.analysis_status !== 'pending') return
-  pollTimer = setInterval(() => {
-    void cellar.loadWine(wineId.value, { silent: true }).then(() => {
-      if (cellar.wine?.analysis_status !== 'pending') stopPoll()
-    })
-  }, 2500)
-}
-
-async function load(): Promise<void> {
-  if (!Number.isFinite(wineId.value)) return
-  await Promise.all([cellar.loadWine(wineId.value), analysis.loadQuota()])
-  startPollIfPending()
-}
-
-onMounted(load)
-onUnmounted(stopPoll)
-watch(wineId, load)
-
-async function onAnalyse(force?: boolean): Promise<void> {
-  await cellar.analyseWine(wineId.value, Boolean(force))
-  await analysis.loadQuota()
-  startPollIfPending()
+function openTasting(): void {
+  tastingForm.tasted_on = new Date().toISOString().slice(0, 10)
+  tastingForm.rating = null
+  tastingForm.notes = ''
+  tastingForm.occasion = ''
+  tastingForm.location = ''
+  showTasting.value = true
 }
 
 async function saveTasting(): Promise<void> {
@@ -82,258 +95,85 @@ async function removeWine(): Promise<void> {
   }
 }
 
-function onImageUploaded(image: MediaImage | null): void {
-  if (!cellar.wine || !image) return
+function onImage(image: MediaImage): void {
+  if (!cellar.wine) return
   cellar.wine.media = image
   cellar.wine.image_url = image.url
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Wine detail">
-    <template #toolbar>
-      <NexusQuotaBadge :quota="analysis.quota" />
-      <Button
-        label="Back"
-        icon="pi pi-arrow-left"
-        text
-        severity="secondary"
-        @click="router.push({ name: 'cellar' })"
-      />
+  <DrinkDetail
+    :state="state"
+    :back-to="{ name: 'cellar' }"
+    back-label="Wine"
+    noun="wine"
+    :eyebrow="wine?.producer_name || 'Wine'"
+    :title="wine?.name"
+    :accent="wine?.vintage ? String(wine.vintage) : undefined"
+    :lede="lede"
+    :media="wine?.media"
+    :image-url="wine?.image_url"
+    :rating="wine?.rating"
+    :facts="facts"
+    :notes="wine?.notes"
+    :status="wine?.analysis_status"
+    :analysis="wine?.ai_analysis"
+    :analysis-error="wine?.analysis_error"
+    :analysing="cellar.analysing"
+    :quota="quota"
+    upload-collection="cellar"
+    :attach-to="wine ? { type: 'cellar_wine', id: wine.id } : null"
+    :fallback-ambient="styleAmbient"
+    @analyse="onAnalyse"
+    @remove="removeWine"
+    @image="onImage"
+  >
+    <template #actions>
+      <Button rounded severity="contrast" label="Log tasting" @click="openTasting">
+        <template #icon="{ class: iconClass }">
+          <NxIcon name="edit" :size="16" :class="iconClass" />
+        </template>
+      </Button>
     </template>
 
-    <NexusSkeletonMedia v-if="cellar.wineLoading" />
-
-    <div v-else-if="cellar.wine" class="detail">
-      <header class="hero">
-        <div class="hero-media">
-          <NexusImage
-            :media="cellar.wine.media"
-            :src="cellar.wine.image_url"
-            :alt="cellar.wine.name"
-            variant="hero"
-            size="fill"
-            fit="cover"
-            previewable
-          />
-        </div>
-
-        <div class="hero-body">
-          <div class="hero-info">
-            <p class="eyebrow">{{ cellar.wine.producer_name || 'Wine journal' }}</p>
-            <h2>{{ cellar.wine.name }}</h2>
-            <p class="meta">
-              <span v-if="cellar.wine.vintage">{{ cellar.wine.vintage }}</span>
-              <span v-if="cellar.wine.wine_type"> · {{ cellar.wine.wine_type }}</span>
-              <span v-if="cellar.wine.region_name || cellar.wine.country">
-                · {{ cellar.wine.region_name || cellar.wine.country }}
-              </span>
-            </p>
-            <NexusRatingDisplay :model-value="cellar.wine.rating" />
-          </div>
-
-          <div class="hero-actions" role="toolbar" aria-label="Wine actions">
-            <Button
-              icon="pi pi-image"
-              severity="secondary"
-              text
-              rounded
-              aria-label="Change image"
-              v-tooltip.left="'Label photo'"
-              @click="showImageUploader = true"
-            />
-            <Button
-              icon="pi pi-pencil"
-              severity="secondary"
-              text
-              rounded
-              aria-label="Log tasting"
-              v-tooltip.left="'Log tasting'"
-              @click="showTasting = true"
-            />
-            <Button
-              icon="pi pi-trash"
-              severity="danger"
-              text
-              rounded
-              aria-label="Delete wine"
-              v-tooltip.left="'Delete'"
-              @click="removeWine"
-            />
-          </div>
-        </div>
-      </header>
-
-      <NexusDrinkAnalysisPanel
-        :status="cellar.wine.analysis_status"
-        :analysis="cellar.wine.ai_analysis"
-        :error="cellar.wine.analysis_error"
-        :analysing="cellar.analysing"
-        @analyse="onAnalyse"
+    <section aria-labelledby="tastings-title">
+      <NxSectionHeader id="tastings-title" title="Tasting history" />
+      <NexusTastingTimeline
+        :tastings="wine?.tastings ?? []"
+        @remove="(id) => cellar.removeTasting(id, wineId)"
       />
+    </section>
+  </DrinkDetail>
 
-      <section class="panel">
-        <div class="band-head">
-          <h3>Tasting history</h3>
+  <Dialog v-model:visible="showTasting" modal header="Log a tasting" style="width: min(440px, 94vw)">
+    <form class="nx-form" @submit.prevent="saveTasting">
+      <div class="row">
+        <label class="f">
+          <span>Date</span>
+          <InputText v-model="tastingForm.tasted_on" type="date" />
+        </label>
+        <div class="f">
+          <span>Rating</span>
+          <NexusRatingInput v-model="tastingForm.rating" />
         </div>
-        <NexusTastingTimeline
-          :tastings="cellar.wine.tastings ?? []"
-          @remove="(id) => cellar.removeTasting(id, wineId)"
-        />
-      </section>
-
-      <section v-if="cellar.wine.notes" class="panel">
-        <h3>Notes</h3>
-        <p>{{ cellar.wine.notes }}</p>
-      </section>
-    </div>
-
-    <Dialog
-      v-model:visible="showTasting"
-      modal
-      header="Log tasting"
-      style="width: min(420px, 94vw)"
-    >
-      <div class="form">
-        <label>Date</label>
-        <InputText v-model="tastingForm.tasted_on" type="date" />
-        <label>Rating</label>
-        <NexusRatingInput v-model="tastingForm.rating" />
-        <label>Occasion</label>
-        <InputText v-model="tastingForm.occasion" />
-        <label>Location</label>
-        <InputText v-model="tastingForm.location" />
-        <label>Notes</label>
-        <Textarea v-model="tastingForm.notes" rows="3" auto-resize />
       </div>
-      <template #footer>
-        <Button label="Cancel" text @click="showTasting = false" />
-        <Button label="Save" :loading="cellar.saving" @click="saveTasting" />
-      </template>
-    </Dialog>
-
-    <NexusImageUploader
-      v-if="cellar.wine"
-      v-model:visible="showImageUploader"
-      :model-value="cellar.wine.media ?? null"
-      collection="cellar"
-      :attach-to="{ type: 'cellar_wine', id: cellar.wine.id }"
-      header="Wine label photo"
-      @update:model-value="onImageUploaded"
-    />
-  </NexusPageWrapper>
+      <label class="f">
+        <span>Occasion</span>
+        <InputText v-model="tastingForm.occasion" placeholder="Sunday braai, anniversary…" />
+      </label>
+      <label class="f">
+        <span>Where</span>
+        <InputText v-model="tastingForm.location" />
+      </label>
+      <label class="f">
+        <span>How it showed</span>
+        <Textarea v-model="tastingForm.notes" rows="3" auto-resize />
+      </label>
+    </form>
+    <template #footer>
+      <Button label="Cancel" text severity="secondary" @click="showTasting = false" />
+      <Button label="Save tasting" rounded :loading="cellar.saving" @click="saveTasting" />
+    </template>
+  </Dialog>
 </template>
-
-<style scoped>
-.detail {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-}
-
-.hero {
-  display: grid;
-  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
-  gap: 1.35rem;
-  padding: 1.15rem;
-  border-radius: 1.1rem;
-  background: var(--wine-card-surface);
-  align-items: stretch;
-}
-
-.hero-media {
-  min-height: 18rem;
-  border-radius: 0.85rem;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--wine-accent) 18%, transparent);
-}
-
-.hero-media :deep(.nexus-image) {
-  width: 100%;
-  height: 100%;
-  min-height: 18rem;
-}
-
-.hero-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: start;
-  min-width: 0;
-}
-
-.hero-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  padding-top: 0.15rem;
-  min-width: 0;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.65;
-}
-
-h2 {
-  margin: 0;
-  font-size: clamp(1.55rem, 2.6vw, 2rem);
-  line-height: 1.15;
-  font-weight: 700;
-}
-
-.meta {
-  margin: 0;
-  opacity: 0.72;
-  font-size: 0.95rem;
-}
-
-.hero-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding-top: 0.1rem;
-}
-
-.panel {
-  padding: 1rem 1.1rem;
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--coffee-bean-panel) 90%, transparent);
-}
-
-.panel h3 {
-  margin: 0 0 0.6rem;
-  font-size: 1.05rem;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.form label {
-  font-size: 0.8rem;
-  opacity: 0.7;
-  margin-top: 0.3rem;
-}
-
-@media (max-width: 720px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-media,
-  .hero-media :deep(.nexus-image) {
-    min-height: 14rem;
-    aspect-ratio: 4 / 3;
-  }
-
-  .hero-actions {
-    flex-direction: row;
-  }
-}
-</style>

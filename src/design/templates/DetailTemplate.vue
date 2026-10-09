@@ -17,11 +17,14 @@ withDefaults(
     backLabel?: string
     errorTitle?: string
     errorBody?: string
+    /** When the aside drops below on narrow screens, show it first instead. */
+    asideFirst?: boolean
   }>(),
   {
     state: 'ready',
     backTo: undefined,
     backLabel: 'Back',
+    asideFirst: false,
     errorTitle: 'Could not load this',
     errorBody: 'It may have been removed, or the connection dropped.',
   },
@@ -45,7 +48,7 @@ withDefaults(
     </slot>
     <template v-else>
       <slot name="stage" />
-      <div class="body" :class="{ 'has-aside': $slots.aside }">
+      <div class="body" :class="{ 'has-aside': $slots.aside, 'aside-first': asideFirst }">
         <div class="main"><slot /></div>
         <aside v-if="$slots.aside" class="aside"><slot name="aside" /></aside>
       </div>
@@ -96,6 +99,10 @@ withDefaults(
 @media (max-width: 960px) {
   .body.has-aside {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .aside-first .aside {
+    order: -1;
   }
 }
 

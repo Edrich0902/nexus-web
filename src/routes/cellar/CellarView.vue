@@ -1,21 +1,54 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusWineIcon from '@components/nexus-wine-icon/NexusWineIcon.vue'
-import NexusWineCard from '@components/nexus-wine-card/NexusWineCard.vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxSearchField from '@design/components/NxSearchField.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxIcon from '@design/components/NxIcon.vue'
 import NexusQuotaBadge from '@components/nexus-quota-badge/NexusQuotaBadge.vue'
-import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
 import { useCellarStore } from '@stores/food-drink/cellar.store'
 import { useAnalysisStore } from '@stores/analysis/analysis.store'
+import CollectionFields from '@routes/collections/CollectionFields.vue'
+import { drinkFields } from '@routes/collections/collectionFields'
 
 const cellar = useCellarStore()
 const analysis = useAnalysisStore()
 const router = useRouter()
 
+const query = ref('')
+const searched = ref('')
+
+onMounted(() => {
+  void cellar.loadWines()
+  void analysis.loadQuota()
+})
+
+async function search(q: string): Promise<void> {
+  searched.value = q
+  await cellar.loadWines({ q: q || undefined })
+}
+
+const state = computed<ViewState>(() => {
+  if (cellar.winesLoading && !cellar.wines.length) return 'loading'
+  return cellar.wines.length ? 'ready' : 'empty'
+})
+
+const fields = computed(() =>
+  drinkFields({
+    items: cellar.wines,
+    total: cellar.winesTotal,
+    countLabel: 'Bottles',
+    noun: 'wine',
+    to: (w) => ({ name: 'cellar-wine', params: { wineId: w.id } }),
+  }),
+)
+
 const showCreate = ref(false)
-const filter = ref('')
 const form = reactive({
   name: '',
   producer_name: '',
@@ -27,13 +60,18 @@ const form = reactive({
   notes: '',
 })
 
-onMounted(() => {
-  void cellar.loadWines()
-  void analysis.loadQuota()
-})
-
-async function search(): Promise<void> {
-  await cellar.loadWines({ q: filter.value || undefined })
+function openCreate(): void {
+  Object.assign(form, {
+    name: '',
+    producer_name: '',
+    vintage: null,
+    wine_type: '',
+    region_name: '',
+    country: '',
+    rating: null,
+    notes: '',
+  })
+  showCreate.value = true
 }
 
 async function submitCreate(): Promise<void> {
@@ -50,239 +88,144 @@ async function submitCreate(): Promise<void> {
   })
   if (created) {
     showCreate.value = false
-    form.name = ''
-    form.producer_name = ''
-    form.vintage = null
-    form.wine_type = ''
-    form.region_name = ''
-    form.country = ''
-    form.rating = null
-    form.notes = ''
     await router.push({ name: 'cellar-wine', params: { wineId: created.id } })
   }
+}
+
+function badge(status?: string): string | null {
+  if (status === 'pending') return 'Analysing'
+  if (status === 'failed') return 'Analysis failed'
+  return null
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Wine">
-    <template #toolbar>
-      <NexusQuotaBadge :quota="analysis.quota" />
-      <Button
-        label="Add wine"
-        icon="pi pi-plus"
-        @click="showCreate = true"
-      />
+  <IndexTemplate :state="searched && state === 'empty' ? 'ready' : state">
+    <template #stage>
+      <NxStage
+        size="compact"
+        eyebrow="Cellar"
+        title="Wine"
+        accent="journal"
+        lede="Every bottle you open — label photos, tastings and AI notes on structure and pairings."
+      >
+        <template #actions>
+          <Button rounded severity="contrast" label="Add wine" @click="openCreate">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="plus" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
     </template>
 
-    <div class="cellar-page">
-      <header class="hero">
-        <div class="glow" aria-hidden="true" />
-        <div class="hero-main">
-          <div class="icon-wrap">
-            <NexusWineIcon :size="28" />
-          </div>
-          <div>
-            <p class="eyebrow">Cellar & Kitchen</p>
-            <h2>Wine journal</h2>
-            <p class="muted">
-              Capture what you drink, upload a label photo, and run AI analysis for
-              structured tasting notes.
-            </p>
-          </div>
-        </div>
-        <div class="stats">
-          <div class="stat">
-            <strong>{{ cellar.winesTotal }}</strong>
-            <span>Wines</span>
-          </div>
-          <div class="stat">
-            <strong>{{ analysis.quota?.models.filter((m) => m.available).length ?? '—' }}</strong>
-            <span>AI models</span>
-          </div>
-        </div>
-      </header>
+    <template v-if="cellar.wines.length || state === 'loading'" #fields>
+      <CollectionFields section="cellar" :fields="fields" />
+    </template>
 
-      <div class="filters">
-        <InputText
-          v-model="filter"
-          placeholder="Filter wines…"
-          class="grow"
-          @keyup.enter="search"
-        />
-        <Button label="Search" icon="pi pi-search" severity="secondary" @click="search" />
-      </div>
+    <template #toolbar>
+      <NxSearchField
+        v-model="query"
+        placeholder="Search wines, producers, regions…"
+        :debounce="350"
+        @search="search"
+      />
+      <span class="grow" />
+      <NexusQuotaBadge :quota="analysis.quota" />
+    </template>
 
-      <NexusSkeletonCards v-if="cellar.winesLoading" :cards="6" />
-      <div v-else-if="cellar.wines.length" class="grid">
-        <NexusWineCard v-for="w in cellar.wines" :key="w.id" :wine="w" />
-      </div>
-      <p v-else class="empty">No wines yet — add your first bottle.</p>
-    </div>
+    <template #empty>
+      <NxEmptyState
+        title="Your cellar is empty"
+        body="Add the bottle you are drinking tonight. A label photo lets AI write the tasting notes for you."
+        icon="wine"
+      >
+        <Button rounded label="Add your first wine" @click="openCreate" />
+      </NxEmptyState>
+    </template>
 
-    <Dialog
-      v-model:visible="showCreate"
-      modal
-      header="Add wine"
-      style="width: min(480px, 94vw)"
-    >
-      <div class="form">
-        <label>Name</label>
-        <InputText v-model="form.name" />
-        <label>Producer</label>
+    <NxEmptyState
+      v-if="!cellar.wines.length"
+      :title="`Nothing matches “${searched}”`"
+      body="Try a producer, a region or part of the name."
+      icon="search"
+    />
+    <NxCoverGrid v-else :class="{ dim: cellar.winesLoading }">
+      <NxCoverCard
+        v-for="w in cellar.wines"
+        :key="w.id"
+        :to="{ name: 'cellar-wine', params: { wineId: w.id } }"
+        :title="w.name"
+        :sub="w.producer_name"
+        :meta="[w.vintage, w.region_name || w.country].filter(Boolean).join(' · ')"
+        :media="w.media"
+        :src="w.image_url"
+        :rating="w.rating"
+        :badge="badge(w.analysis_status)"
+        icon="wine"
+      />
+    </NxCoverGrid>
+  </IndexTemplate>
+
+  <Dialog v-model:visible="showCreate" modal header="Add a wine" style="width: min(500px, 94vw)">
+    <form class="nx-form" @submit.prevent="submitCreate">
+      <label class="f">
+        <span>Name</span>
+        <InputText v-model="form.name" autofocus placeholder="Winemakers Selection Cape Blend" />
+      </label>
+      <label class="f">
+        <span>Producer</span>
         <InputText v-model="form.producer_name" />
-        <div class="row">
-          <div>
-            <label>Vintage</label>
-            <InputNumber v-model="form.vintage" :use-grouping="false" />
-          </div>
-          <div>
-            <label>Type</label>
-            <InputText v-model="form.wine_type" placeholder="Red / White…" />
-          </div>
-        </div>
-        <label>Region</label>
-        <InputText v-model="form.region_name" />
-        <label>Country</label>
-        <InputText v-model="form.country" />
-        <label>Rating</label>
-        <NexusRatingInput v-model="form.rating" />
-        <label>Notes</label>
-        <Textarea v-model="form.notes" rows="3" auto-resize />
+      </label>
+      <div class="row">
+        <label class="f">
+          <span>Vintage</span>
+          <InputNumber v-model="form.vintage" :use-grouping="false" :min="1800" :max="2100" />
+        </label>
+        <label class="f">
+          <span>Style</span>
+          <InputText v-model="form.wine_type" placeholder="Red, white, rosé…" />
+        </label>
       </div>
-      <template #footer>
-        <Button label="Cancel" text severity="secondary" @click="showCreate = false" />
-        <Button
-          label="Save"
-          :loading="cellar.saving"
-          :disabled="!form.name.trim()"
-          @click="submitCreate"
-        />
-      </template>
-    </Dialog>
-  </NexusPageWrapper>
+      <div class="row">
+        <label class="f">
+          <span>Region</span>
+          <InputText v-model="form.region_name" />
+        </label>
+        <label class="f">
+          <span>Country</span>
+          <InputText v-model="form.country" />
+        </label>
+      </div>
+      <div class="f">
+        <span>Rating</span>
+        <NexusRatingInput v-model="form.rating" />
+      </div>
+      <label class="f">
+        <span>Notes</span>
+        <Textarea v-model="form.notes" rows="3" auto-resize />
+      </label>
+    </form>
+    <template #footer>
+      <Button label="Cancel" text severity="secondary" @click="showCreate = false" />
+      <Button
+        label="Save wine"
+        rounded
+        :loading="cellar.saving"
+        :disabled="!form.name.trim()"
+        @click="submitCreate"
+      />
+    </template>
+  </Dialog>
 </template>
 
 <style scoped>
-.cellar-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.hero {
-  position: relative;
-  overflow: hidden;
-  border-radius: 1rem;
-  padding: 1.25rem 1.4rem;
-  background: var(--wine-card-surface);
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.glow {
-  position: absolute;
-  inset: -40% auto auto -10%;
-  width: 220px;
-  height: 220px;
-  background: color-mix(in srgb, var(--wine-accent) 28%, transparent);
-  filter: blur(40px);
-  pointer-events: none;
-}
-
-.hero-main {
-  position: relative;
-  display: flex;
-  gap: 0.9rem;
-  max-width: 42rem;
-}
-
-.icon-wrap {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--wine-accent) 22%, transparent);
-  color: var(--wine-accent);
-  flex-shrink: 0;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.65;
-}
-
-h2 {
-  margin: 0.15rem 0;
-  font-size: 1.55rem;
-}
-
-.muted {
-  margin: 0;
-  opacity: 0.72;
-  font-size: 0.92rem;
-}
-
-.stats {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.stat strong {
-  font-size: 1.35rem;
-}
-
-.stat span {
-  font-size: 0.75rem;
-  opacity: 0.65;
-}
-
-.filters {
-  display: flex;
-  gap: 0.5rem;
-}
-
 .grow {
   flex: 1;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
-  gap: 1rem;
-}
-
-.empty {
-  opacity: 0.65;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.form label {
-  font-size: 0.8rem;
-  opacity: 0.75;
-  margin-top: 0.35rem;
-}
-
-.row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+.dim {
+  opacity: 0.55;
+  transition: opacity 0.2s;
 }
 </style>

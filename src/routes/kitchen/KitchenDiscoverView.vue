@@ -1,21 +1,28 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusDiscoverMealCard from '@components/nexus-discover-meal-card/NexusDiscoverMealCard.vue'
-import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
-import NexusRecipeIcon from '@components/nexus-recipe-icon/NexusRecipeIcon.vue'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPillNav from '@design/components/NxPillNav.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxSearchField from '@design/components/NxSearchField.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxIcon from '@design/components/NxIcon.vue'
 import { useKitchenStore } from '@stores/food-drink/kitchen.store'
+import { kitchenNav } from './kitchenNav'
 
 const kitchen = useKitchenStore()
 const router = useRouter()
+
+const DEFAULT_CATEGORY = 'Seafood'
 const q = ref('')
-const category = ref<string | null>(null)
+const category = ref<string | null>(DEFAULT_CATEGORY)
 const area = ref<string | null>(null)
 
 onMounted(async () => {
-  await kitchen.loadFilters()
-  await kitchen.browseDiscover({ category: 'Seafood' })
+  await Promise.all([kitchen.loadFilters(), kitchen.browseDiscover({ category: DEFAULT_CATEGORY })])
 })
 
 async function search(): Promise<void> {
@@ -29,192 +36,125 @@ async function search(): Promise<void> {
   })
 }
 
-function viewMeal(mealdbId: string): void {
-  void router.push({
-    name: 'kitchen-meal-preview',
-    params: { mealdbId },
-  })
+async function browse(): Promise<void> {
+  q.value = ''
+  await search()
 }
 
-async function loadRandomAndView(): Promise<void> {
+async function surprise(): Promise<void> {
   await kitchen.loadRandom()
-  if (kitchen.randomMeal?.mealdb_id) {
-    viewMeal(kitchen.randomMeal.mealdb_id)
-  }
+  const id = kitchen.randomMeal?.mealdb_id
+  if (id) await router.push({ name: 'kitchen-meal-preview', params: { mealdbId: id } })
 }
+
+const heading = computed(() => {
+  if (q.value.trim()) return `Results for “${q.value.trim()}”`
+  return [area.value, category.value].filter(Boolean).join(' ') || 'Everything'
+})
+
+const state = computed<ViewState>(() => {
+  if (kitchen.discoverLoading && !kitchen.discover.length) return 'loading'
+  return 'ready'
+})
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Discover recipes">
+  <IndexTemplate :state="state">
+    <template #stage>
+      <NxStage
+        size="compact"
+        eyebrow="Kitchen · TheMealDB"
+        title="What should we"
+        accent="cook?"
+        lede="Browse by category or cuisine, open anything that looks good, and save the keepers."
+      >
+        <template #actions>
+          <Button rounded severity="contrast" label="Surprise me" @click="surprise">
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="dice" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
+    </template>
+
     <template #toolbar>
-      <Button
-        label="My recipes"
-        icon="pi pi-bookmark"
-        text
-        @click="router.push({ name: 'kitchen' })"
+      <NxPillNav :items="kitchenNav" label="Recipes" />
+      <NxSearchField v-model="q" placeholder="Search meals…" @search="search" />
+      <Select
+        v-model="category"
+        :options="kitchen.filters?.categories ?? []"
+        placeholder="Category"
+        show-clear
+        class="filter"
+        aria-label="Category"
+        @change="browse"
       />
-      <Button
-        label="Surprise me"
-        icon="pi pi-sparkles"
-        severity="secondary"
-        @click="loadRandomAndView"
+      <Select
+        v-model="area"
+        :options="kitchen.filters?.areas ?? []"
+        placeholder="Cuisine"
+        show-clear
+        filter
+        class="filter"
+        aria-label="Cuisine"
+        @change="browse"
       />
     </template>
 
-    <div class="discover">
-      <header class="hero">
-        <div class="icon-wrap">
-          <NexusRecipeIcon :size="26" />
-        </div>
-        <div>
-          <p class="eyebrow">Cellar & Kitchen</p>
-          <h2>Discover recipes</h2>
-          <p class="muted">
-            Browse TheMealDB, open a recipe to read it, then save the ones you
-            want to keep.
-          </p>
-        </div>
-      </header>
+    <h2 class="nx-label heading">{{ heading }}</h2>
 
-      <div class="filters">
-        <IconField class="grow">
-          <InputIcon class="pi pi-search" />
-          <InputText
-            v-model="q"
-            placeholder="Search meals…"
-            class="w-full"
-            @keyup.enter="search"
-          />
-        </IconField>
-        <Select
-          v-model="category"
-          :options="kitchen.filters?.categories ?? []"
-          placeholder="Category"
-          show-clear
-          class="filter-select"
-        />
-        <Select
-          v-model="area"
-          :options="kitchen.filters?.areas ?? []"
-          placeholder="Cuisine"
-          show-clear
-          class="filter-select"
-        />
-        <Button label="Search" @click="search" />
-      </div>
-
-      <NexusSkeletonCards v-if="kitchen.discoverLoading" :cards="8" />
-      <div v-else-if="kitchen.discover.length" class="grid">
-        <NexusDiscoverMealCard
-          v-for="m in kitchen.discover"
-          :key="m.mealdb_id"
-          :meal="m"
-          @select="viewMeal"
-        />
-      </div>
-      <div v-else class="empty-panel">
-        <p>No meals found for that search.</p>
-        <Button
-          label="Browse seafood"
-          severity="secondary"
-          @click="
-            category = 'Seafood';
-            area = null;
-            q = '';
-            search();
-          "
-        />
-      </div>
-    </div>
-  </NexusPageWrapper>
+    <NxEmptyState
+      v-if="!kitchen.discover.length"
+      title="No meals found"
+      body="Try a different search, or clear the filters to browse everything in a category."
+      icon="search"
+    >
+      <Button
+        rounded
+        severity="secondary"
+        label="Browse seafood"
+        @click="
+          category = DEFAULT_CATEGORY;
+          area = null;
+          browse()
+        "
+      />
+    </NxEmptyState>
+    <NxCoverGrid v-else :class="{ dim: kitchen.discoverLoading }">
+      <NxCoverCard
+        v-for="m in kitchen.discover"
+        :key="m.mealdb_id"
+        :to="{ name: 'kitchen-meal-preview', params: { mealdbId: m.mealdb_id } }"
+        :title="m.name ?? 'Meal'"
+        :sub="[m.category, m.area].filter(Boolean).join(' · ') || null"
+        :src="m.thumb_url"
+        aspect="square"
+        icon="kitchen"
+      />
+    </NxCoverGrid>
+  </IndexTemplate>
 </template>
 
 <style scoped>
-.discover {
-  display: flex;
-  flex-direction: column;
-  gap: 1.15rem;
+.filter {
+  width: 168px;
+  border-radius: 999px;
 }
 
-.hero {
-  display: flex;
-  gap: 0.95rem;
-  padding: 1.15rem 1.25rem;
-  border-radius: 1rem;
-  background: var(--kitchen-card-surface);
+.heading {
+  margin: 0 0 18px;
 }
 
-.icon-wrap {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--kitchen-accent) 22%, transparent);
-  color: var(--kitchen-accent);
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  opacity: 0.65;
-}
-
-h2 {
-  margin: 0.15rem 0;
-  font-size: 1.45rem;
-}
-
-.muted {
-  margin: 0;
-  opacity: 0.72;
-  font-size: 0.92rem;
-  max-width: 36rem;
-}
-
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  align-items: center;
-}
-
-.grow {
-  flex: 1 1 14rem;
-  min-width: 12rem;
-}
-
-.filter-select {
-  width: 11rem;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1rem;
-}
-
-.empty-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1.25rem;
-  border-radius: 1rem;
-  background: color-mix(in srgb, var(--coffee-bean-panel) 90%, transparent);
-}
-
-.empty-panel p {
-  margin: 0;
-  opacity: 0.7;
+.dim {
+  opacity: 0.55;
+  transition: opacity 0.2s;
 }
 
 @media (max-width: 640px) {
-  .filter-select {
-    width: 100%;
+  .filter {
+    flex: 1 1 140px;
+    width: auto;
   }
 }
 </style>

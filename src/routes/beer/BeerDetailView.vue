@@ -1,57 +1,50 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusImage from '@components/nexus-image/NexusImage.vue'
-import NexusImageUploader from '@components/nexus-image-uploader/NexusImageUploader.vue'
-import NexusRatingDisplay from '@components/nexus-rating-display/NexusRatingDisplay.vue'
-import NexusSkeletonMedia from '@components/nexus-skeleton-media/NexusSkeletonMedia.vue'
-import NexusDrinkAnalysisPanel from '@components/nexus-drink-analysis-panel/NexusDrinkAnalysisPanel.vue'
-import NexusQuotaBadge from '@components/nexus-quota-badge/NexusQuotaBadge.vue'
 import { useBeerStore } from '@stores/food-drink/beer.store'
-import { useAnalysisStore } from '@stores/analysis/analysis.store'
+import DrinkDetail from '@routes/collections/DrinkDetail.vue'
+import { useDrinkDetail } from '@routes/collections/useDrinkDetail'
 import type { MediaImage } from '@/types/media/media'
 
 const beer = useBeerStore()
-const analysis = useAnalysisStore()
 const route = useRoute()
 const router = useRouter()
+
 const beerId = computed(() => Number(route.params.beerId))
-const showImageUploader = ref(false)
-let pollTimer: ReturnType<typeof setInterval> | null = null
 
-function stopPoll(): void {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
+const { state, onAnalyse, quota } = useDrinkDetail({
+  id: () => beerId.value,
+  item: () => beer.beer,
+  loading: () => beer.beerLoading,
+  load: beer.loadBeer,
+  analyse: beer.analyseBeer,
+})
 
-function startPollIfPending(): void {
-  stopPoll()
-  if (beer.beer?.analysis_status !== 'pending') return
-  pollTimer = setInterval(() => {
-    void beer.loadBeer(beerId.value, { silent: true }).then(() => {
-      if (beer.beer?.analysis_status !== 'pending') stopPoll()
-    })
-  }, 2500)
-}
+const item = computed(() => (state.value === 'ready' ? beer.beer : null))
 
-async function load(): Promise<void> {
-  if (!Number.isFinite(beerId.value)) return
-  await Promise.all([beer.loadBeer(beerId.value), analysis.loadQuota()])
-  startPollIfPending()
-}
+const lede = computed(() => {
+  const b = item.value
+  if (!b) return undefined
+  const parts = [
+    b.abv != null ? `${b.abv}% ABV` : null,
+    b.ibu != null ? `${b.ibu} IBU` : null,
+    b.format ? b.format.charAt(0).toUpperCase() + b.format.slice(1) : null,
+  ]
+  return parts.filter(Boolean).join(' · ') || undefined
+})
 
-onMounted(load)
-onUnmounted(stopPoll)
-watch(beerId, load)
-
-async function onAnalyse(force?: boolean): Promise<void> {
-  await beer.analyseBeer(beerId.value, Boolean(force))
-  await analysis.loadQuota()
-  startPollIfPending()
-}
+const facts = computed(() => {
+  const b = item.value
+  if (!b) return []
+  return [
+    { label: 'Style', value: b.style?.name },
+    { label: 'Family', value: b.style?.family },
+    { label: 'ABV', value: b.abv != null ? `${b.abv}%` : null },
+    { label: 'IBU', value: b.ibu },
+    { label: 'Format', value: b.format },
+    { label: 'Origin', value: [b.brewery?.city, b.brewery?.country].filter(Boolean).join(', ') },
+  ]
+})
 
 async function remove(): Promise<void> {
   if (await beer.removeBeer(beerId.value)) {
@@ -59,174 +52,59 @@ async function remove(): Promise<void> {
   }
 }
 
-function onImageUploaded(image: MediaImage | null): void {
-  if (!beer.beer || !image) return
+function onImage(image: MediaImage): void {
+  if (!beer.beer) return
   beer.beer.media = image
   beer.beer.image_url = image.url
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Beer detail">
-    <template #toolbar>
-      <NexusQuotaBadge :quota="analysis.quota" />
-      <Button label="Back" icon="pi pi-arrow-left" text @click="router.push({ name: 'beer' })" />
+  <DrinkDetail
+    :state="state"
+    :back-to="{ name: 'beer' }"
+    back-label="Beer"
+    noun="beer"
+    :eyebrow="item?.style?.name || 'Beer'"
+    :title="item?.name"
+    :media="item?.media"
+    :image-url="item?.image_url"
+    :rating="item?.rating"
+    :facts="facts"
+    :notes="item?.notes"
+    :status="item?.analysis_status"
+    :analysis="item?.ai_analysis"
+    :analysis-error="item?.analysis_error"
+    :analysing="beer.analysing"
+    :quota="quota"
+    upload-collection="beer"
+    :attach-to="item ? { type: 'beer_beer', id: item.id } : null"
+    @analyse="onAnalyse"
+    @remove="remove"
+    @image="onImage"
+  >
+    <template v-if="item" #lede>
+      <RouterLink
+        v-if="item.brewery"
+        class="brewery"
+        :to="{ name: 'beer-brewery', params: { breweryId: item.brewery.id } }"
+      >
+        {{ item.brewery.name }}
+      </RouterLink>
+      <template v-if="item.brewery && lede"> · </template>{{ lede }}
     </template>
-
-    <NexusSkeletonMedia v-if="beer.beerLoading" />
-    <div v-else-if="beer.beer" class="detail">
-      <header class="hero">
-        <div class="hero-media">
-          <NexusImage
-            :media="beer.beer.media"
-            :src="beer.beer.image_url"
-            :alt="beer.beer.name"
-            variant="hero"
-            size="fill"
-            fit="cover"
-            previewable
-          />
-        </div>
-        <div class="hero-body">
-          <div class="hero-info">
-            <p class="eyebrow">{{ beer.beer.style?.name || 'Beer' }}</p>
-            <h2>{{ beer.beer.name }}</h2>
-            <p class="meta">
-              <RouterLink
-                v-if="beer.beer.brewery"
-                :to="{ name: 'beer-brewery', params: { breweryId: beer.beer.brewery.id } }"
-              >
-                {{ beer.beer.brewery.name }}
-              </RouterLink>
-              <span v-if="beer.beer.abv != null"> · {{ beer.beer.abv }}% ABV</span>
-              <span v-if="beer.beer.ibu != null"> · {{ beer.beer.ibu }} IBU</span>
-            </p>
-            <NexusRatingDisplay
-              :model-value="beer.beer.rating"
-              accent="var(--beer-accent, #d8a13a)"
-            />
-          </div>
-          <div class="hero-actions" role="toolbar" aria-label="Beer actions">
-            <Button
-              icon="pi pi-image"
-              severity="secondary"
-              text
-              rounded
-              aria-label="Change image"
-              v-tooltip.left="'Label photo'"
-              @click="showImageUploader = true"
-            />
-            <Button
-              icon="pi pi-trash"
-              severity="danger"
-              text
-              rounded
-              aria-label="Delete beer"
-              v-tooltip.left="'Delete'"
-              @click="remove"
-            />
-          </div>
-        </div>
-      </header>
-
-      <NexusDrinkAnalysisPanel
-        :status="beer.beer.analysis_status"
-        :analysis="beer.beer.ai_analysis"
-        :error="beer.beer.analysis_error"
-        :analysing="beer.analysing"
-        @analyse="onAnalyse"
-      />
-
-      <section v-if="beer.beer.notes" class="panel">
-        <h3>Notes</h3>
-        <p>{{ beer.beer.notes }}</p>
-      </section>
-    </div>
-
-    <NexusImageUploader
-      v-if="beer.beer"
-      v-model:visible="showImageUploader"
-      :model-value="beer.beer.media ?? null"
-      collection="beer"
-      :attach-to="{ type: 'beer_beer', id: beer.beer.id }"
-      header="Beer label photo"
-      @update:model-value="onImageUploaded"
-    />
-  </NexusPageWrapper>
+  </DrinkDetail>
 </template>
 
 <style scoped>
-.detail {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
+.brewery {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 4px;
 }
 
-.hero {
-  display: grid;
-  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
-  gap: 1.35rem;
-  padding: 1.15rem;
-  border-radius: 1.1rem;
-  background: color-mix(in srgb, var(--beer-accent, #d8a13a) 12%, transparent);
-}
-
-.hero-media {
-  min-height: 18rem;
-  border-radius: 0.85rem;
-  overflow: hidden;
-}
-
-.hero-media :deep(.nexus-image) {
-  width: 100%;
-  height: 100%;
-  min-height: 18rem;
-}
-
-.hero-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.75rem;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.65;
-}
-
-h2 {
-  margin: 0;
-  font-size: clamp(1.55rem, 2.6vw, 2rem);
-  font-weight: 700;
-}
-
-.meta {
-  margin: 0;
-  opacity: 0.72;
-}
-
-.hero-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.panel {
-  padding: 1rem 1.1rem;
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--coffee-bean-panel) 90%, transparent);
-}
-
-@media (max-width: 720px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-actions {
-    flex-direction: row;
-  }
+.brewery:hover {
+  text-decoration-color: var(--acc);
 }
 </style>

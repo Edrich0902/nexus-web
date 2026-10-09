@@ -20,6 +20,11 @@ import NxEmptyState from '@design/components/NxEmptyState.vue'
 import NxFacts from '@design/components/NxFacts.vue'
 import NxPanel from '@design/components/NxPanel.vue'
 import NxIcon from '@design/components/NxIcon.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxSearchField from '@design/components/NxSearchField.vue'
+import NxRating from '@design/components/NxRating.vue'
+import NxChips from '@design/components/NxChips.vue'
 import NxSkeletonStage from '@design/components/skeletons/NxSkeletonStage.vue'
 import NxSkeletonFields from '@design/components/skeletons/NxSkeletonFields.vue'
 import NxSkeletonStream from '@design/components/skeletons/NxSkeletonStream.vue'
@@ -39,6 +44,7 @@ const stateOptions: { value: ViewState; label: string }[] = [
 
 const range = ref<'4w' | '6m' | 'all'>('4w')
 const template = ref<'index' | 'detail' | 'stats' | 'workbench'>('index')
+const demoQuery = ref('')
 
 const s = sections
 
@@ -226,6 +232,22 @@ const doughnut = toDoughnutChartData([
     </section>
 
     <section>
+      <h2 class="nx-label">Collections</h2>
+      <div class="collection-tools">
+        <NxSearchField v-model="demoQuery" placeholder="Search wines, producers, regions…" />
+        <NxRating :value="4.5" />
+        <NxRating :value="null" />
+        <NxChips :items="['Blackcurrant', 'Cedar', 'Graphite']" tone="accent" />
+      </div>
+      <NxCoverGrid :min="160">
+        <NxCoverCard title="Paul Sauer" sub="Kanonkop" meta="2016 · Stellenbosch" :rating="4.8" icon="wine" />
+        <NxCoverCard title="Crystal Weiss" sub="Cape Brewing Co." meta="Hefeweizen · 5%" :rating="3.5" badge="Analysing" icon="beer" />
+        <NxCoverCard title="Inverroche Amber" sub="Inverroche" meta="Gin · 43%" icon="spirits" />
+        <NxCoverCard title="Teriyaki Chicken Casserole" sub="Chicken · Japanese" aspect="square" favourite :rating="4" icon="kitchen" />
+      </NxCoverGrid>
+    </section>
+
+    <section>
       <div class="row-head">
         <h2 class="nx-label">Templates</h2>
         <NxPillGroup
@@ -353,6 +375,14 @@ section > h2 {
   gap: 28px;
   flex-wrap: wrap;
   align-items: flex-end;
+}
+
+.collection-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
 }
 
 .row-head {

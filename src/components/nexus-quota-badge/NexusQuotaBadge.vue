@@ -1,23 +1,25 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import NxIcon from '@design/components/NxIcon.vue'
 import type { AnalysisQuota } from '@/types/analysis/drink-analysis'
 
-defineProps<{
+const props = defineProps<{
   quota: AnalysisQuota | null
 }>()
+
+const available = computed(() => props.quota?.models.filter((m) => m.available).length ?? 0)
 </script>
 
 <template>
   <div
     v-if="quota"
     class="quota-badge"
-    :title="quota.any_available ? 'Gemini model pool available' : 'All models exhausted'"
+    :class="{ limited: !quota.any_available }"
+    :title="quota.any_available ? 'AI analysis is available' : 'All AI models are rate-limited right now'"
   >
-    <i class="pi pi-sparkles" aria-hidden="true" />
-    <span v-if="quota.any_available">AI ready</span>
-    <span v-else>AI limited</span>
-    <small>
-      {{ quota.models.filter((m) => m.available).length }}/{{ quota.models.length }} models
-    </small>
+    <NxIcon name="sparkles" :size="14" />
+    <span>{{ quota.any_available ? 'AI ready' : 'AI limited' }}</span>
+    <small class="num">{{ available }}/{{ quota.models.length }}</small>
   </div>
 </template>
 
@@ -25,16 +27,27 @@ defineProps<{
 .quota-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.65rem;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--lavender-blush, #c8b8d8) 18%, transparent);
-  color: var(--text-color, inherit);
-  font-size: 0.8rem;
+  background: var(--tint);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
-.quota-badge small {
-  opacity: 0.7;
+.quota-badge :deep(svg) {
+  color: var(--acc);
+}
+
+.limited :deep(svg) {
+  color: var(--ink-4);
+}
+
+small {
+  color: var(--ink-4);
+  font-size: 12px;
 }
 </style>

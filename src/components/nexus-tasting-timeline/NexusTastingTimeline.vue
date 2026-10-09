@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import NexusRatingInput from '@components/nexus-rating-input/NexusRatingInput.vue'
+import NxStream from '@design/components/NxStream.vue'
+import NxStreamItem from '@design/components/NxStreamItem.vue'
+import NxIconButton from '@design/components/NxIconButton.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
 import type { CellarWineTasting } from '@/types/food-drink/cellar'
 
 defineProps<{
@@ -9,76 +12,72 @@ defineProps<{
 const emit = defineEmits<{
   remove: [tastingId: number]
 }>()
+
+function shortDate(iso: string): string {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return d.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: '2-digit' }),
+  })
+}
+
+function chips(t: CellarWineTasting): string[] {
+  return t.rating != null ? [`★ ${t.rating.toFixed(1)}`] : []
+}
 </script>
 
 <template>
-  <div class="timeline">
-    <p v-if="!tastings.length" class="empty">No tastings logged yet.</p>
-    <article v-for="t in tastings" :key="t.id" class="entry">
-      <div class="when">
-        <strong>{{ t.tasted_on }}</strong>
-        <span v-if="t.occasion">{{ t.occasion }}</span>
-      </div>
-      <div class="body">
-        <NexusRatingInput :model-value="t.rating" readonly />
-        <p v-if="t.notes">{{ t.notes }}</p>
-        <p v-if="t.location" class="loc">{{ t.location }}</p>
-      </div>
-      <Button
-        icon="pi pi-trash"
-        text
-        severity="danger"
-        aria-label="Delete tasting"
+  <NxEmptyState
+    v-if="!tastings.length"
+    title="No tastings yet"
+    body="Log each time you open a bottle — the date, who you shared it with and how it showed."
+  />
+  <NxStream v-else>
+    <NxStreamItem
+      v-for="t in tastings"
+      :key="t.id"
+      :time="shortDate(t.tasted_on)"
+      kind="Tasting"
+      :meta="t.location ?? undefined"
+      :title="t.occasion || 'Opened a bottle'"
+      :body="t.notes ?? undefined"
+      :chips="chips(t)"
+    >
+      <NxIconButton
+        class="remove"
+        icon="trash"
+        label="Delete tasting"
+        size="sm"
         @click="emit('remove', t.id)"
       />
-    </article>
-  </div>
+    </NxStreamItem>
+  </NxStream>
 </template>
 
 <style scoped>
-.timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+.remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
-.entry {
-  display: grid;
-  grid-template-columns: 8rem 1fr auto;
-  gap: 0.75rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--lavender-blush) 10%, transparent);
+:deep(.card) {
+  position: relative;
 }
 
-.when {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.85rem;
+:deep(.card:hover) .remove,
+.remove:focus-visible {
+  opacity: 1;
 }
 
-.when span,
-.loc {
-  opacity: 0.65;
-  font-size: 0.8rem;
-}
-
-.body p {
-  margin: 0.35rem 0 0;
-  font-size: 0.9rem;
-}
-
-.empty {
-  opacity: 0.65;
-}
-
-@media (max-width: 640px) {
-  .entry {
-    grid-template-columns: 1fr auto;
-  }
-
-  .when {
-    grid-column: 1 / -1;
+@media (hover: none) {
+  .remove {
+    opacity: 1;
   }
 }
 </style>

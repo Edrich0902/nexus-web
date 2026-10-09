@@ -1,749 +1,382 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
-import NexusFoodDrinkChrome from '@components/nexus-food-drink-chrome/NexusFoodDrinkChrome.vue'
+import type { RouteLocationRaw } from 'vue-router'
+import IndexTemplate from '@design/templates/IndexTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxPillNav from '@design/components/NxPillNav.vue'
+import NxBento from '@design/components/NxBento.vue'
+import NxField from '@design/components/NxField.vue'
+import NxPanel from '@design/components/NxPanel.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxIcon from '@design/components/NxIcon.vue'
+import { sections, type SectionKey } from '@design/tokens'
+import type { IconName } from '@design/icons'
 import NexusImage from '@components/nexus-image/NexusImage.vue'
 import NexusChart from '@components/nexus-chart/NexusChart.vue'
 import NexusQuotaBadge from '@components/nexus-quota-badge/NexusQuotaBadge.vue'
-import NexusSkeletonCards from '@components/nexus-skeleton-cards/NexusSkeletonCards.vue'
 import { toDoughnutChartData } from '@lib/charts'
 import { useFoodDrinkStore } from '@stores/food-drink/food-drink.store'
+import type { FoodDrinkSuggestion } from '@/types/food-drink/food-drink'
 import type { MediaImage } from '@/types/media/media'
+import { plural } from '@routes/collections/collectionFields'
+import { foodDrinkNav } from './foodDrinkNav'
 
 const store = useFoodDrinkStore()
-const router = useRouter()
 
 onMounted(() => {
   void store.loadDashboard()
 })
 
-type MosaicTile = {
+const dash = computed(() => store.dashboard)
+
+const state = computed<ViewState>(() => {
+  if (store.dashboardLoading && !dash.value) return 'loading'
+  return dash.value ? 'ready' : 'error'
+})
+
+interface RecentItem {
   key: string
-  label: string
+  kind: string
+  icon: IconName
+  title: string
+  sub: string | null
   media?: MediaImage | null
   src?: string | null
-  accent: string
+  rating: number | null
+  to: RouteLocationRaw
 }
 
-const mosaicTiles = computed((): MosaicTile[] => {
-  const dash = store.dashboard
-  if (!dash) return []
+const recent = computed<RecentItem[]>(() => {
+  const d = dash.value
+  if (!d) return []
+  const wines = d.recent_wines.map<RecentItem>((w) => ({
+    key: `wine-${w.id}`,
+    kind: 'Wine',
+    icon: 'wine',
+    title: w.name,
+    sub: w.producer_name,
+    media: w.media,
+    src: w.image_url,
+    rating: w.rating,
+    to: { name: 'cellar-wine', params: { wineId: w.id } },
+  }))
+  const beers = d.recent_beers.map<RecentItem>((b) => ({
+    key: `beer-${b.id}`,
+    kind: 'Beer',
+    icon: 'beer',
+    title: b.name,
+    sub: b.brewery?.name ?? null,
+    media: b.media,
+    src: b.image_url,
+    rating: b.rating,
+    to: { name: 'beer-detail', params: { beerId: b.id } },
+  }))
+  const spirits = (d.recent_spirits ?? []).map<RecentItem>((s) => ({
+    key: `spirit-${s.id}`,
+    kind: 'Spirit',
+    icon: 'spirits',
+    title: s.name,
+    sub: s.producer,
+    media: s.media,
+    src: s.image_url,
+    rating: s.rating,
+    to: { name: 'spirit-detail', params: { spiritId: s.id } },
+  }))
+  const recipes = d.top_recipes.map<RecentItem>((r) => ({
+    key: `recipe-${r.id}`,
+    kind: 'Recipe',
+    icon: 'kitchen',
+    title: r.meal?.name ?? 'Recipe',
+    sub: r.cooked_count ? `Cooked ${r.cooked_count}×` : null,
+    media: r.media,
+    src: r.image_url ?? r.meal?.thumb_url,
+    rating: r.rating,
+    to: { name: 'kitchen-recipe', params: { recipeId: r.id } },
+  }))
 
-  const tiles: MosaicTile[] = []
-
-  for (const wine of dash.recent_wines) {
-    tiles.push({
-      key: `wine-${wine.id}`,
-      label: wine.name,
-      media: wine.media,
-      src: wine.image_url,
-      accent: 'var(--wine-accent)',
-    })
+  // Interleave so one busy module doesn't crowd out the rest.
+  const lanes = [wines, beers, spirits, recipes]
+  const out: RecentItem[] = []
+  for (let i = 0; out.length < 8 && lanes.some((l) => l[i]); i++) {
+    for (const lane of lanes) if (lane[i] && out.length < 8) out.push(lane[i]!)
   }
-  for (const beer of dash.recent_beers) {
-    tiles.push({
-      key: `beer-${beer.id}`,
-      label: beer.name,
-      media: beer.media,
-      src: beer.image_url,
-      accent: 'var(--beer-accent)',
-    })
-  }
-  for (const recipe of dash.top_recipes) {
-    tiles.push({
-      key: `recipe-${recipe.id}`,
-      label: recipe.meal?.name ?? 'Recipe',
-      media: recipe.media,
-      src: recipe.image_url ?? recipe.meal?.thumb_url,
-      accent: 'var(--kitchen-accent)',
-    })
-  }
-
-  return tiles.slice(0, 8)
+  return out
 })
 
-const portalCovers = computed(() => {
-  const dash = store.dashboard
-  return {
-    cellar: {
-      media: dash?.recent_wines[0]?.media ?? null,
-      src: dash?.recent_wines[0]?.image_url ?? null,
-    },
-    beer: {
-      media: dash?.recent_beers[0]?.media ?? null,
-      src: dash?.recent_beers[0]?.image_url ?? null,
-    },
-    kitchen: {
-      media: dash?.top_recipes[0]?.media ?? null,
-      src:
-        dash?.top_recipes[0]?.image_url ??
-        dash?.top_recipes[0]?.meal?.thumb_url ??
-        null,
-    },
-  }
+const mosaic = computed(() => recent.value.filter((r) => r.media || r.src).slice(0, 4))
+
+const fields = computed(() => {
+  const c = dash.value?.counts
+  if (!c) return []
+  const f = (section: SectionKey, label: string, value: number, sub: string, span: number, to: RouteLocationRaw) => ({
+    key: section,
+    section,
+    label,
+    value,
+    sub,
+    span,
+    to,
+  })
+  return [
+    f('cellar', 'Wine', c.wines, plural(c.wines, 'bottle'), 3, { name: 'cellar' }),
+    f('beer', 'Beer', c.beers, plural(c.beers, 'beer') + ' logged', 3, { name: 'beer' }),
+    f('spirits', 'Spirits', c.spirits ?? 0, 'on the shelf', 2, { name: 'spirits' }),
+    f('kitchen', 'Recipes', c.recipes, 'saved', 2, { name: 'kitchen' }),
+    f('food-drink', 'Pairings', c.pairings, 'that worked', 2, { name: 'food-drink-pairings' }),
+  ]
 })
 
-const mixChartData = computed(() => {
-  const counts = store.dashboard?.counts
-  if (!counts) {
-    return toDoughnutChartData([])
-  }
+const lede = computed(() => {
+  const c = dash.value?.counts
+  if (!c) return 'Your cellar, beer log, spirits shelf and kitchen in one place.'
+  const total = c.wines + c.beers + (c.spirits ?? 0)
+  return `${plural(total, 'drink')} and ${plural(c.recipes, 'recipe')} so far — here is what goes together.`
+})
 
-  const items = [
-    { label: 'Wines', count: counts.wines },
-    { label: 'Beers', count: counts.beers },
-    { label: 'Spirits', count: counts.spirits ?? 0 },
-    { label: 'Recipes', count: counts.recipes },
-  ].filter((item) => item.count > 0)
+const mixItems = computed(() => {
+  const c = dash.value?.counts
+  if (!c) return []
+  return [
+    { label: 'Wine', count: c.wines, color: sections.cellar.field.bg },
+    { label: 'Beer', count: c.beers, color: sections.beer.field.bg },
+    { label: 'Spirits', count: c.spirits ?? 0, color: sections.spirits.field.bg },
+    { label: 'Recipes', count: c.recipes, color: sections.kitchen.field.bg },
+  ].filter((i) => i.count > 0)
+})
 
-  const base = toDoughnutChartData(items, 'Collection')
-  const colors = ['#c45c6a', '#d4a017', '#8b6914', '#6a9e6e']
-
+const mixChart = computed(() => {
+  const base = toDoughnutChartData(mixItems.value, 'Collection')
   return {
     ...base,
-    datasets: base.datasets.map((dataset) => ({
-      ...dataset,
-      backgroundColor: items.map((_, index) => colors[index % colors.length]),
+    datasets: base.datasets.map((d) => ({
+      ...d,
+      backgroundColor: mixItems.value.map((i) => i.color),
+      borderWidth: 0,
     })),
   }
 })
 
-const hasMix = computed(() => {
-  const counts = store.dashboard?.counts
-  if (!counts) return false
-  return counts.wines + counts.beers + (counts.spirits ?? 0) + counts.recipes > 0
-})
-
-function openSuggestion(suggestion: {
-  drinkable_type: string
-  drinkable_id: number
-  recipe_id: number
-}): void {
-  if (suggestion.drinkable_type === 'beer') {
-    void router.push({
-      name: 'beer-detail',
-      params: { beerId: suggestion.drinkable_id },
-    })
-    return
-  }
-  void router.push({
-    name: 'cellar-wine',
-    params: { wineId: suggestion.drinkable_id },
-  })
+function suggestionTo(s: FoodDrinkSuggestion): RouteLocationRaw {
+  return s.drinkable_type === 'beer'
+    ? { name: 'beer-detail', params: { beerId: s.drinkable_id } }
+    : { name: 'cellar-wine', params: { wineId: s.drinkable_id } }
 }
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Food & Drink">
-    <template #toolbar>
-      <NexusQuotaBadge :quota="store.dashboard?.quota ?? null" />
+  <IndexTemplate :state="state" error-title="Could not load Food & Drink">
+    <template #stage>
+      <NxStage eyebrow="Food & Drink" title="What you" accent="taste" :lede="lede">
+        <template v-if="mosaic.length" #visual>
+          <div class="mosaic" :class="`n-${mosaic.length}`">
+            <NexusImage
+              v-for="m in mosaic"
+              :key="m.key"
+              :media="m.media"
+              :src="m.src"
+              alt=""
+              variant="card"
+              size="fill"
+              fit="cover"
+            />
+          </div>
+        </template>
+      </NxStage>
     </template>
 
-    <NexusFoodDrinkChrome />
+    <template #fields>
+      <NxBento :row-height="132">
+        <NxField
+          v-for="f in fields"
+          :key="f.key"
+          :bg="sections[f.section].field.bg"
+          :ink="sections[f.section].field.ink"
+          :label="f.label"
+          :value="f.value"
+          :value-size="44"
+          :sub="f.sub"
+          :span="f.span"
+          :to="f.to"
+        />
+      </NxBento>
+    </template>
 
-    <NexusSkeletonCards v-if="store.dashboardLoading" :cards="4" />
+    <template #toolbar>
+      <NxPillNav :items="foodDrinkNav" label="Food and drink" />
+      <span class="grow" />
+      <NexusQuotaBadge :quota="dash?.quota ?? null" />
+    </template>
 
-    <div v-else-if="store.dashboard" class="atelier">
-      <header class="mosaic-hero">
-        <div class="mosaic" aria-hidden="true">
-          <div
-            v-for="(tile, index) in mosaicTiles"
-            :key="tile.key"
-            class="mosaic__cell"
-            :class="`mosaic__cell--${index}`"
-            :style="{ '--tile-accent': tile.accent }"
-          >
-            <NexusImage
-              v-if="tile.media || tile.src"
-              :media="tile.media"
-              :src="tile.src"
-              :alt="tile.label"
-              variant="card"
-              size="fill"
-              fit="cover"
-            />
-            <div v-else class="mosaic__fallback" />
-          </div>
-          <div
-            v-for="n in Math.max(0, 6 - mosaicTiles.length)"
-            :key="`empty-${n}`"
-            class="mosaic__cell mosaic__cell--empty"
-          />
-        </div>
-        <div class="mosaic-copy">
-          <p class="eyebrow">Collection Atelier</p>
-          <h2>Food & Drink</h2>
-          <p class="lede">
-            Your cellar, beer log, and kitchen — one studio for what you taste.
-          </p>
-        </div>
-      </header>
-
-      <section class="portals" aria-label="Modules">
-        <button
-          type="button"
-          class="portal portal--wine"
-          @click="router.push({ name: 'cellar' })"
-        >
-          <div class="portal__media">
-            <NexusImage
-              v-if="portalCovers.cellar.media || portalCovers.cellar.src"
-              :media="portalCovers.cellar.media"
-              :src="portalCovers.cellar.src"
-              alt=""
-              variant="card"
-              size="fill"
-              fit="cover"
-            />
-          </div>
-          <div class="portal__copy">
-            <span class="portal__label">Cellar</span>
-            <strong>{{ store.dashboard.counts.wines }}</strong>
-            <span class="portal__hint">wines in journal</span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          class="portal portal--beer"
-          @click="router.push({ name: 'beer' })"
-        >
-          <div class="portal__media">
-            <NexusImage
-              v-if="portalCovers.beer.media || portalCovers.beer.src"
-              :media="portalCovers.beer.media"
-              :src="portalCovers.beer.src"
-              alt=""
-              variant="card"
-              size="fill"
-              fit="cover"
-            />
-          </div>
-          <div class="portal__copy">
-            <span class="portal__label">Beer</span>
-            <strong>{{ store.dashboard.counts.beers }}</strong>
-            <span class="portal__hint">beers logged</span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          class="portal portal--kitchen"
-          @click="router.push({ name: 'kitchen' })"
-        >
-          <div class="portal__media">
-            <NexusImage
-              v-if="portalCovers.kitchen.media || portalCovers.kitchen.src"
-              :media="portalCovers.kitchen.media"
-              :src="portalCovers.kitchen.src"
-              alt=""
-              variant="card"
-              size="fill"
-              fit="cover"
-            />
-          </div>
-          <div class="portal__copy">
-            <span class="portal__label">Kitchen</span>
-            <strong>{{ store.dashboard.counts.recipes }}</strong>
-            <span class="portal__hint">saved recipes</span>
-          </div>
-        </button>
-      </section>
-
-      <button
-        type="button"
-        class="pairings-strip"
-        @click="router.push({ name: 'food-drink-pairings' })"
-      >
-        <span>
-          <strong>{{ store.dashboard.counts.pairings }}</strong> pairings saved
-        </span>
-        <span class="pairings-strip__cta">Open pairings →</span>
-      </button>
-
-      <div class="analytics">
-        <section class="panel panel--chart">
-          <h3>Collection mix</h3>
-          <NexusChart
-            v-if="hasMix"
-            type="doughnut"
-            :data="mixChartData"
-            height="14rem"
-            :options="{
-              plugins: { legend: { position: 'bottom' } },
-            }"
-          />
-          <p v-else class="empty">Add wines, beers, or recipes to see the mix.</p>
-        </section>
-
-        <section class="panel panel--runway">
-          <div class="panel__head">
-            <h3>Suggested pairings</h3>
-          </div>
-          <div
-            v-if="store.dashboard.suggestions.length"
-            class="runway"
-          >
-            <button
-              v-for="(s, i) in store.dashboard.suggestions"
-              :key="`${s.drinkable_type}-${s.drinkable_id}-${s.recipe_id}-${i}`"
-              type="button"
-              class="runway-card"
-              :class="`runway-card--${s.drinkable_type}`"
-              @click="openSuggestion(s)"
-            >
-              <span class="runway-card__kind">
-                {{ s.drinkable_type === 'beer' ? 'Beer' : 'Wine' }} × Recipe
+    <div v-if="dash" class="lower">
+      <NxPanel title="Try tonight" action-label="All pairings" :to="{ name: 'food-drink-pairings' }">
+        <ul v-if="dash.suggestions.length" class="suggestions">
+          <li v-for="(s, i) in dash.suggestions.slice(0, 5)" :key="`${s.drinkable_type}-${s.drinkable_id}-${s.recipe_id}-${i}`">
+            <RouterLink :to="suggestionTo(s)" class="suggestion">
+              <span class="kind" :class="s.drinkable_type">
+                <NxIcon :name="s.drinkable_type === 'beer' ? 'beer' : 'wine'" :size="16" />
               </span>
-              <strong>{{ s.drink_name }}</strong>
-              <span class="runway-card__recipe">{{ s.recipe_name }}</span>
-              <small v-if="s.reasons[0]">{{ s.reasons[0] }}</small>
-            </button>
-          </div>
-          <p v-else class="empty">
-            Save a few wines, beers, and recipes to unlock suggestions.
-          </p>
-        </section>
-      </div>
+              <span class="copy">
+                <span class="pair">
+                  {{ s.drink_name }} <em>with</em> {{ s.recipe_name }}
+                </span>
+                <span v-if="s.reasons[0]" class="why">{{ s.reasons[0] }}</span>
+              </span>
+              <NxIcon name="chevron-right" :size="16" class="go" />
+            </RouterLink>
+          </li>
+        </ul>
+        <NxEmptyState
+          v-else
+          title="No suggestions yet"
+          body="Save a few wines or beers and some recipes, and matches will show up here."
+        />
+      </NxPanel>
 
-      <section class="recent" aria-label="Recent items">
-        <div class="recent__col">
-          <h3>Recent wines</h3>
-          <div v-if="store.dashboard.recent_wines?.length" class="chips">
-            <button
-              v-for="w in store.dashboard.recent_wines"
-              :key="w.id"
-              type="button"
-              class="chip"
-              @click="router.push({ name: 'cellar-wine', params: { wineId: w.id } })"
-            >
-              <NexusImage
-                :media="w.media"
-                :src="w.image_url"
-                :alt="w.name"
-                variant="thumb"
-                size="fill"
-                fit="cover"
-              />
-              <span>{{ w.name }}</span>
-            </button>
-          </div>
-          <p v-else class="empty">
-            No wines yet.
-            <Button label="Add a wine" link @click="router.push({ name: 'cellar' })" />
-          </p>
-        </div>
-
-        <div class="recent__col">
-          <h3>Recent beers</h3>
-          <div v-if="store.dashboard.recent_beers?.length" class="chips">
-            <button
-              v-for="b in store.dashboard.recent_beers"
-              :key="b.id"
-              type="button"
-              class="chip"
-              @click="router.push({ name: 'beer-detail', params: { beerId: b.id } })"
-            >
-              <NexusImage
-                :media="b.media"
-                :src="b.image_url"
-                :alt="b.name"
-                variant="thumb"
-                size="fill"
-                fit="cover"
-              />
-              <span>{{ b.name }}</span>
-            </button>
-          </div>
-          <p v-else class="empty">
-            No beers yet.
-            <Button label="Log a beer" link @click="router.push({ name: 'beer' })" />
-          </p>
-        </div>
-
-        <div class="recent__col">
-          <h3>Top recipes</h3>
-          <div v-if="store.dashboard.top_recipes?.length" class="chips">
-            <button
-              v-for="r in store.dashboard.top_recipes"
-              :key="r.id"
-              type="button"
-              class="chip"
-              @click="router.push({ name: 'kitchen-recipe', params: { recipeId: r.id } })"
-            >
-              <NexusImage
-                :media="r.media"
-                :src="r.image_url ?? r.meal?.thumb_url"
-                :alt="r.meal?.name ?? 'Recipe'"
-                variant="thumb"
-                size="fill"
-                fit="cover"
-              />
-              <span>{{ r.meal?.name }}</span>
-            </button>
-          </div>
-          <p v-else class="empty">
-            No saved recipes yet.
-            <Button
-              label="Discover recipes"
-              link
-              @click="router.push({ name: 'kitchen-discover' })"
-            />
-          </p>
-        </div>
-      </section>
+      <NxPanel title="Collection mix">
+        <NexusChart v-if="mixItems.length" type="doughnut" :data="mixChart" height="15rem" />
+        <NxEmptyState v-else title="Nothing to chart yet" body="Add a bottle or a recipe to start." />
+      </NxPanel>
     </div>
-  </NexusPageWrapper>
+
+    <section v-if="recent.length" class="recent" aria-labelledby="recent-title">
+      <h2 id="recent-title" class="nx-label">Recently added</h2>
+      <NxCoverGrid :min="160">
+        <NxCoverCard
+          v-for="r in recent"
+          :key="r.key"
+          :to="r.to"
+          :title="r.title"
+          :sub="r.sub"
+          :media="r.media"
+          :src="r.src"
+          :rating="r.rating"
+          :badge="r.kind"
+          :icon="r.icon"
+          :aspect="r.kind === 'Recipe' ? 'square' : 'portrait'"
+        />
+      </NxCoverGrid>
+    </section>
+  </IndexTemplate>
 </template>
 
 <style scoped>
-.atelier {
-  display: flex;
-  flex-direction: column;
-  gap: 1.15rem;
-}
-
-.mosaic-hero {
-  position: relative;
-  min-height: 16rem;
-  border-radius: 1.15rem;
-  overflow: hidden;
-  isolation: isolate;
-  animation: mosaic-in 0.55s ease both;
-}
-
-@keyframes mosaic-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.grow {
+  flex: 1;
 }
 
 .mosaic {
-  position: absolute;
-  inset: 0;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 0.2rem;
-  opacity: 0.55;
-}
-
-.mosaic__cell {
-  position: relative;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--tile-accent, var(--food-drink-accent)) 28%, transparent);
-}
-
-.mosaic__cell :deep(.nexus-image),
-.mosaic__fallback {
   width: 100%;
   height: 100%;
+  gap: 3px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
 }
 
-.mosaic__cell--empty {
-  background: color-mix(in srgb, var(--food-drink-accent) 12%, transparent);
+.mosaic.n-1 {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
 }
 
-.mosaic__cell--0 {
-  grid-column: span 2;
+.mosaic.n-2 {
+  grid-template-rows: 1fr;
+}
+
+.mosaic.n-3 > :first-child {
   grid-row: span 2;
 }
 
-.mosaic__cell--1,
-.mosaic__cell--2 {
-  grid-column: span 2;
-}
-
-.mosaic-copy {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 16rem;
-  padding: 1.5rem 1.35rem 1.35rem;
-  background: linear-gradient(
-    180deg,
-    transparent 20%,
-    color-mix(in srgb, #100a08 88%, transparent) 78%
-  );
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--food-drink-accent) 85%, #fff);
-}
-
-h2 {
-  margin: 0.25rem 0 0.35rem;
-  font-size: clamp(1.85rem, 4vw, 2.45rem);
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.lede {
-  margin: 0;
-  max-width: 32rem;
-  opacity: 0.78;
-  font-size: 0.98rem;
-}
-
-.portals {
+.lower {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
 }
 
-.portal {
-  position: relative;
-  display: grid;
-  grid-template-rows: 9.5rem auto;
-  overflow: hidden;
-  border: 0;
-  border-radius: 1rem;
+.suggestions {
+  list-style: none;
+  margin: 0;
   padding: 0;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  background: var(--food-drink-card-surface);
 }
 
-.portal__media {
-  position: relative;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--coffee-bean-panel) 80%, transparent);
-}
-
-.portal__media :deep(.nexus-image) {
-  width: 100%;
-  height: 100%;
-}
-
-.portal__media :deep(img) {
-  transition: transform 0.35s ease;
-}
-
-.portal:hover .portal__media :deep(img) {
-  transform: scale(1.05);
-}
-
-.portal--wine .portal__media {
-  background: color-mix(in srgb, var(--wine-accent) 22%, transparent);
-}
-
-.portal--beer .portal__media {
-  background: color-mix(in srgb, var(--beer-accent) 22%, transparent);
-}
-
-.portal--kitchen .portal__media {
-  background: color-mix(in srgb, var(--kitchen-accent) 22%, transparent);
-}
-
-.portal__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.85rem 0.95rem 1rem;
-}
-
-.portal__label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.65;
-}
-
-.portal__copy strong {
-  font-size: 1.65rem;
-  line-height: 1;
-}
-
-.portal__hint {
-  font-size: 0.8rem;
-  opacity: 0.65;
-}
-
-.pairings-strip {
-  display: flex;
+.suggestion {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  border: 0;
-  border-radius: 0.85rem;
-  padding: 0.9rem 1.05rem;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
   color: inherit;
-  cursor: pointer;
-  background: color-mix(in srgb, var(--food-drink-accent) 16%, var(--coffee-bean-panel));
 }
 
-.pairings-strip__cta {
-  opacity: 0.75;
-  font-size: 0.9rem;
+li:first-child .suggestion {
+  border-top: 0;
 }
 
-.analytics {
+.kind {
+  width: 36px;
+  height: 36px;
   display: grid;
-  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
-  gap: 0.85rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--tint);
+  color: var(--acc);
 }
 
-.panel {
-  border-radius: 1rem;
-  padding: 1rem 1.05rem;
-  background: color-mix(in srgb, var(--coffee-bean-panel) 92%, transparent);
-}
-
-.panel h3,
-.recent__col h3 {
-  margin: 0 0 0.75rem;
-  font-size: 1rem;
-}
-
-.panel__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.runway {
-  display: flex;
-  gap: 0.75rem;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding-bottom: 0.25rem;
-}
-
-.runway-card {
-  flex: 0 0 min(16rem, 78vw);
-  scroll-snap-align: start;
+.copy {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  border: 0;
-  border-radius: 0.85rem;
-  padding: 0.95rem;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  background: color-mix(in srgb, var(--coffee-bean) 55%, transparent);
+  gap: 2px;
+  min-width: 0;
 }
 
-.runway-card--wine {
-  box-shadow: inset 3px 0 0 var(--wine-accent);
+.pair {
+  font-weight: 600;
+  font-size: 15px;
 }
 
-.runway-card--beer {
-  box-shadow: inset 3px 0 0 var(--beer-accent);
+.pair em {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 17px;
+  color: var(--acc);
 }
 
-.runway-card__kind {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.6;
-}
-
-.runway-card strong {
-  font-size: 1rem;
-}
-
-.runway-card__recipe {
-  font-size: 0.9rem;
-  opacity: 0.85;
-}
-
-.runway-card small {
-  margin-top: 0.35rem;
-  font-size: 0.78rem;
-  opacity: 0.62;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.recent {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem;
-}
-
-.recent__col {
-  border-radius: 1rem;
-  padding: 1rem 1.05rem;
-  background: color-mix(in srgb, var(--coffee-bean-panel) 92%, transparent);
-}
-
-.chips {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.chip {
-  display: grid;
-  grid-template-columns: 2.75rem 1fr;
-  gap: 0.65rem;
-  align-items: center;
-  width: 100%;
-  border: 0;
-  border-radius: 0.65rem;
-  padding: 0.3rem 0.45rem 0.3rem 0.3rem;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  background: color-mix(in srgb, var(--coffee-bean) 40%, transparent);
-}
-
-.chip :deep(.nexus-image) {
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.45rem;
-}
-
-.chip span {
-  font-size: 0.88rem;
+.why {
+  font-size: 13px;
+  color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.empty {
+.go {
+  color: var(--ink-4);
+  transition: transform 0.2s var(--ease);
+}
+
+.suggestion:hover .go {
+  color: var(--ink);
+  transform: translateX(3px);
+}
+
+.recent {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 36px;
+}
+
+.recent h2 {
   margin: 0;
-  opacity: 0.65;
-  font-size: 0.9rem;
 }
 
-.empty :deep(.p-button) {
-  padding-inline: 0.15rem;
-  vertical-align: baseline;
-}
-
-@media (max-width: 1000px) {
-  .portals,
-  .analytics,
-  .recent {
-    grid-template-columns: 1fr;
-  }
-
-  .mosaic {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .mosaic__cell--0 {
-    grid-column: span 2;
-    grid-row: span 1;
+@media (max-width: 960px) {
+  .lower {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

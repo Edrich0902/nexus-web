@@ -184,6 +184,14 @@ withDefaults(
     width: 132px;
   }
 
+  .title {
+    font-size: clamp(38px, 11vw, 48px);
+  }
+
+  .size-compact .title {
+    font-size: clamp(34px, 10vw, 40px);
+  }
+
   .lede {
     font-size: 15.5px;
   }

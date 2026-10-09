@@ -1,51 +1,94 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import NexusPageWrapper from '@components/nexus-page-wrapper/NexusPageWrapper.vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import DetailTemplate from '@design/templates/DetailTemplate.vue'
+import type { ViewState } from '@design/templates/types'
+import NxStage from '@design/components/NxStage.vue'
+import NxSectionHeader from '@design/components/NxSectionHeader.vue'
+import NxCoverGrid from '@design/components/NxCoverGrid.vue'
+import NxCoverCard from '@design/components/NxCoverCard.vue'
+import NxEmptyState from '@design/components/NxEmptyState.vue'
+import NxIcon from '@design/components/NxIcon.vue'
 import { useBeerStore } from '@stores/food-drink/beer.store'
 
 const beer = useBeerStore()
 const route = useRoute()
-const router = useRouter()
 const breweryId = computed(() => Number(route.params.breweryId))
+const attempted = ref(false)
 
-onMounted(() => {
-  if (Number.isFinite(breweryId.value)) void beer.loadBrewery(breweryId.value)
+async function load(): Promise<void> {
+  attempted.value = false
+  if (Number.isFinite(breweryId.value)) {
+    await Promise.all([beer.loadBrewery(breweryId.value), beer.beers.length ? null : beer.loadBeers()])
+  }
+  attempted.value = true
+}
+
+onMounted(load)
+watch(breweryId, load)
+
+const brewery = computed(() => (beer.brewery?.id === breweryId.value ? beer.brewery : null))
+
+const state = computed<ViewState>(() => {
+  if (brewery.value) return 'ready'
+  return attempted.value ? 'error' : 'loading'
 })
-watch(breweryId, (id) => {
-  if (Number.isFinite(id)) void beer.loadBrewery(id)
-})
+
+const place = computed(() =>
+  [brewery.value?.city, brewery.value?.state_province, brewery.value?.country].filter(Boolean).join(', '),
+)
+
+const beers = computed(() => beer.beers.filter((b) => b.brewery?.id === breweryId.value))
+
+const sourceLabel = computed(() =>
+  brewery.value?.source === 'openbrewerydb' ? 'Open Brewery DB' : 'Added by you',
+)
 </script>
 
 <template>
-  <NexusPageWrapper show-toolbar title="Brewery">
-    <template #toolbar>
-      <Button label="Back" icon="pi pi-arrow-left" text @click="router.push({ name: 'beer' })" />
+  <DetailTemplate :state="state" :back-to="{ name: 'beer' }" back-label="Beer" error-title="Brewery not found">
+    <template #stage>
+      <NxStage
+        size="compact"
+        :eyebrow="[brewery?.brewery_type, sourceLabel].filter(Boolean).join(' · ')"
+        :title="brewery?.name"
+        :lede="place || undefined"
+      >
+        <template v-if="brewery?.website_url" #actions>
+          <Button
+            as="a"
+            :href="brewery.website_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            rounded
+            severity="secondary"
+            label="Website"
+          >
+            <template #icon="{ class: iconClass }">
+              <NxIcon name="external-link" :size="16" :class="iconClass" />
+            </template>
+          </Button>
+        </template>
+      </NxStage>
     </template>
 
-    <div v-if="beer.brewery" class="panel">
-      <p class="eyebrow">{{ beer.brewery.source }}</p>
-      <h2>{{ beer.brewery.name }}</h2>
-      <p>
-        {{ [beer.brewery.city, beer.brewery.country].filter(Boolean).join(', ') }}
-      </p>
-      <a
-        v-if="beer.brewery.website_url"
-        :href="beer.brewery.website_url"
-        target="_blank"
-        rel="noopener"
-      >
-        Website
-      </a>
-    </div>
-  </NexusPageWrapper>
+    <section aria-labelledby="brewery-beers">
+      <NxSectionHeader id="brewery-beers" :title="`Your beers from ${brewery?.name ?? 'here'}`" />
+      <NxCoverGrid v-if="beers.length">
+        <NxCoverCard
+          v-for="b in beers"
+          :key="b.id"
+          :to="{ name: 'beer-detail', params: { beerId: b.id } }"
+          :title="b.name"
+          :sub="b.style?.name"
+          :meta="b.abv != null ? `${b.abv}% ABV` : null"
+          :media="b.media"
+          :src="b.image_url"
+          :rating="b.rating"
+          icon="beer"
+        />
+      </NxCoverGrid>
+      <NxEmptyState v-else title="None logged yet" body="Beers you link to this brewery appear here." icon="beer" />
+    </section>
+  </DetailTemplate>
 </template>
-
-<style scoped>
-.panel {
-  padding: 1.2rem; border-radius: 1rem; background: var(--beer-card-surface);
-}
-.eyebrow { margin: 0; font-size: 0.75rem; text-transform: uppercase; opacity: 0.65; }
-h2 { margin: 0.2rem 0; }
-a { color: var(--beer-accent); }
-</style>
