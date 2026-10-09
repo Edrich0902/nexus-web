@@ -51,8 +51,12 @@ await authStore.initialise()
 
 setUnauthorizedHandler(() => {
   authStore.clearSession()
-  if (router.currentRoute.value.name !== 'login') {
-    void router.replace({ name: 'login' })
+  const current = router.currentRoute.value
+  if (current.name !== 'login') {
+    void router.replace({
+      name: 'login',
+      query: { reason: 'expired', redirect: current.fullPath },
+    })
   }
 })
 

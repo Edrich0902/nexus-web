@@ -31,7 +31,7 @@ const routes: RouteRecordRaw[] = [
     path: '/login',
     name: 'login',
     component: () => import('@routes/auth/LoginView.vue'),
-    meta: handleMeta(false, false, 'Login', true),
+    meta: { ...handleMeta(false, false, 'Sign in', true), section: 'auth' as const },
   },
   {
     path: '/home',
@@ -285,6 +285,12 @@ const routes: RouteRecordRaw[] = [
           name: 'design',
           component: () => import('@routes/design/DesignView.vue'),
           meta: { ...handleMeta(true, true, 'Design system'), section: 'home' as const },
+        },
+        {
+          path: '/design/login',
+          name: 'design-login',
+          component: () => import('@routes/auth/LoginView.vue'),
+          meta: { ...handleMeta(false, false, 'Sign in preview'), section: 'auth' as const },
         },
       ]
     : []),

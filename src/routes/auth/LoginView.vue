@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@stores/auth/auth.store'
 import { Status } from '@/types/status'
+import { moments } from '@design/tokens'
+import { useAmbient } from '@design/ambient'
+import NxIcon from '@design/components/NxIcon.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -11,11 +14,40 @@ const route = useRoute()
 const email = ref('')
 const password = ref('')
 const remember = ref(false)
-
 const submitting = ref(false)
 
+const now = ref(new Date())
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  clock = setInterval(() => (now.value = new Date()), 30_000)
+})
+onBeforeUnmount(() => clearInterval(clock))
+
+/** Greeting and ambient come from the local clock only — nothing personal before sign-in. */
+const daypart = computed(() => {
+  const h = now.value.getHours()
+  if (h >= 5 && h < 12) return { word: 'morning', moment: moments.morning }
+  if (h >= 12 && h < 17) return { word: 'afternoon', moment: moments.afternoon }
+  return { word: 'evening', moment: moments.evening }
+})
+useAmbient(() => daypart.value.moment)
+
+const clockLabel = computed(() =>
+  now.value.toLocaleString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }),
+)
+
+const sessionExpired = computed(() => route.query.reason === 'expired')
+const busy = computed(() => submitting.value || auth.status === Status.LOADING)
+const error = computed(() => (auth.status === Status.ERROR ? auth.message : ''))
+
 async function onSubmit(): Promise<void> {
-  if (!email.value.trim() || !password.value) return
+  if (!email.value.trim() || !password.value || busy.value) return
 
   submitting.value = true
   try {
@@ -26,13 +58,14 @@ async function onSubmit(): Promise<void> {
     })
 
     if (success) {
-      const redirect =
-        typeof route.query.redirect === 'string' ? route.query.redirect : null
+      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : null
       if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
         await router.replace(redirect)
       } else {
         await router.replace({ name: 'home' })
       }
+    } else {
+      password.value = ''
     }
   } finally {
     submitting.value = false
@@ -41,203 +74,245 @@ async function onSubmit(): Promise<void> {
 </script>
 
 <template>
-  <div class="login-terminal relative flex flex-col min-h-full w-full">
-    <div class="login-terminal__atmosphere" aria-hidden="true" />
-    <div class="login-terminal__grid" aria-hidden="true" />
+  <div class="login">
+    <div class="bloom" aria-hidden="true" />
 
-    <header class="relative z-10 flex items-center gap-2 px-5 pt-4 text-sm text-surface-400">
-      <span class="pi pi-window-maximize text-xs" />
-      <span>Login Terminal</span>
+    <header class="brand">
+      <span class="dot" aria-hidden="true" />
+      <span>Nexus</span>
     </header>
 
-    <div class="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
-      <div class="login-card relative w-full max-w-md">
-        <div class="login-card__wireframes" aria-hidden="true">
-          <span class="wire wire--a" />
-          <span class="wire wire--b" />
-          <span class="wire wire--c" />
+    <main class="stage">
+      <section class="copy nx-rise">
+        <p class="nx-eyebrow">{{ clockLabel }}</p>
+        <h1>Good <em>{{ daypart.word }}</em>.</h1>
+        <p class="lede">Sign in to pick up where you left off.</p>
+      </section>
+
+      <form class="form nx-rise" novalidate @submit.prevent="onSubmit">
+        <Message v-if="sessionExpired && !error" severity="secondary" :closable="false" class="note">
+          <template #icon><NxIcon name="clock" :size="16" /></template>
+          Your session ended. Sign in again to continue.
+        </Message>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <InputText
+            id="email"
+            v-model="email"
+            type="email"
+            autocomplete="username"
+            inputmode="email"
+            autocapitalize="off"
+            spellcheck="false"
+            required
+            fluid
+            :invalid="Boolean(error)"
+          />
         </div>
 
-        <div class="login-card__body">
-          <div class="mb-8">
-            <div class="flex items-center gap-2 mb-3">
-              <span class="pi pi-code text-primary text-lg" />
-              <h1 class="text-2xl font-semibold tracking-tight text-primary m-0">
-                Nexus Hub
-              </h1>
-            </div>
-            <p class="text-surface-0 text-base m-0 mb-1">Command Access</p>
-            <p
-              class="text-xs uppercase tracking-[0.14em] text-surface-400 m-0 font-mono"
-            >
-              Authorize terminal session
-            </p>
-          </div>
-
-          <form class="flex flex-col gap-5" @submit.prevent="onSubmit">
-            <div class="flex flex-col gap-2">
-              <label
-                for="email"
-                class="flex items-center gap-2 text-sm text-surface-300"
-              >
-                <span class="pi pi-at text-xs" />
-                Username / Email
-              </label>
-              <InputText
-                id="email"
-                v-model="email"
-                type="email"
-                autocomplete="username"
-                placeholder="operator@nexus.hub"
-                class="w-full"
-                fluid
-              />
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <label
-                for="password"
-                class="flex items-center gap-2 text-sm text-surface-300"
-              >
-                <span class="pi pi-key text-xs" />
-                Secret Key
-              </label>
-              <Password
-                id="password"
-                v-model="password"
-                :feedback="false"
-                toggle-mask
-                input-class="w-full"
-                placeholder="•••••••••••"
-                fluid
-                autocomplete="current-password"
-              />
-            </div>
-
-            <div class="flex items-center gap-2">
-              <Checkbox
-                v-model="remember"
-                input-id="remember"
-                binary
-              />
-              <label for="remember" class="text-sm text-surface-300 cursor-pointer">
-                Persist Session
-              </label>
-            </div>
-
-            <Message
-              v-if="auth.message && auth.status === Status.ERROR"
-              severity="error"
-              :closable="false"
-              class="w-full"
-            >
-              {{ auth.message }}
-            </Message>
-
-            <Button
-              type="submit"
-              label="Access Terminal"
-              icon="pi pi-sign-in"
-              icon-pos="right"
-              class="login-card__submit w-full"
-              :loading="submitting || auth.status === Status.LOADING"
-            />
-          </form>
+        <div class="field">
+          <label for="password">Password</label>
+          <Password
+            v-model="password"
+            input-id="password"
+            :feedback="false"
+            toggle-mask
+            fluid
+            required
+            autocomplete="current-password"
+            :invalid="Boolean(error)"
+          />
         </div>
-      </div>
-    </div>
+
+        <label class="remember" for="remember">
+          <ToggleSwitch v-model="remember" input-id="remember" />
+          <span>Keep me signed in</span>
+        </label>
+
+        <Message v-if="error" severity="error" :closable="false" role="alert">
+          {{ error }}
+        </Message>
+
+        <Button
+          type="submit"
+          label="Sign in"
+          rounded
+          severity="contrast"
+          icon-pos="right"
+          class="submit"
+          :loading="busy"
+        >
+          <template #icon="{ class: iconClass }">
+            <NxIcon name="arrow-right" :size="18" :class="iconClass" />
+          </template>
+        </Button>
+      </form>
+    </main>
+
+    <footer class="foot nx-mono">Private hub · authorised access only</footer>
   </div>
 </template>
 
 <style scoped>
-.login-terminal {
-  background: var(--coffee-bean);
-}
-
-.login-terminal__atmosphere {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(
-      ellipse 55% 45% at 50% 42%,
-      color-mix(in srgb, var(--meadow-green) 18%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      ellipse 80% 60% at 50% 50%,
-      color-mix(in srgb, #3a1020 55%, transparent),
-      var(--coffee-bean) 75%
-    );
-  pointer-events: none;
-}
-
-.login-terminal__grid {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(
-    color-mix(in srgb, var(--lavender-blush) 16%, transparent) 1px,
-    transparent 1px
-  );
-  background-size: 22px 22px;
-  opacity: 0.35;
-  pointer-events: none;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, black, transparent);
-}
-
-.login-card__body {
+.login {
   position: relative;
-  z-index: 1;
-  padding: 2rem;
-  border-radius: 1rem;
-  background: color-mix(in srgb, var(--coffee-bean) 82%, #2a0f16);
-  border: 1px solid color-mix(in srgb, var(--lavender-blush) 12%, transparent);
-  box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 color-mix(in srgb, var(--lavender-blush) 6%, transparent);
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 28px var(--page-pad);
+  overflow: hidden;
+  isolation: isolate;
 }
 
-.login-card__wireframes {
+.bloom {
   position: absolute;
-  right: -4.5rem;
-  top: 18%;
-  width: 7rem;
-  height: 7rem;
+  inset: -20%;
+  z-index: -1;
+  background:
+    radial-gradient(40% 45% at 22% 38%, color-mix(in srgb, var(--acc) 22%, transparent), transparent 70%),
+    radial-gradient(45% 50% at 85% 80%, var(--amb-2), transparent 70%);
   pointer-events: none;
-  z-index: 0;
+  animation: drift 24s var(--ease) infinite alternate;
 }
 
-@media (max-width: 640px) {
-  .login-card__wireframes {
-    display: none;
+@keyframes drift {
+  to {
+    transform: translate3d(3%, -2%, 0) scale(1.05);
   }
 }
 
-.wire {
-  position: absolute;
-  inset: 0;
-  border: 1.5px solid;
-  border-radius: 0.35rem;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
 }
 
-.wire--a {
-  border-color: color-mix(in srgb, var(--blue-slate) 80%, white);
-  transform: rotate(-18deg) translate(4px, -2px);
-  opacity: 0.85;
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--acc);
 }
 
-.wire--b {
-  border-color: color-mix(in srgb, var(--meadow-green) 75%, white);
-  transform: rotate(8deg) translate(-2px, 6px);
-  opacity: 0.7;
+.stage {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 400px);
+  gap: 72px;
+  align-items: center;
 }
 
-.wire--c {
-  border-color: color-mix(in srgb, var(--lavender-blush) 35%, transparent);
-  transform: rotate(-4deg);
-  opacity: 0.5;
+h1 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(64px, 9vw, 128px);
+  line-height: 0.95;
+  letter-spacing: -0.025em;
+  margin: 14px 0 18px;
 }
 
-.login-card__submit {
-  box-shadow: 0 0 24px color-mix(in srgb, var(--meadow-green) 35%, transparent);
+h1 em {
+  color: var(--acc);
+}
+
+.lede {
+  font-size: 17px;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px;
+  border-radius: var(--r-xxl);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(18px);
+  animation-delay: 0.08s;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.submit {
+  margin-top: 4px;
+  height: 48px;
+  font-weight: 600;
+}
+
+.note :deep(.p-message-text) {
+  font-size: 13px;
+}
+
+.foot {
+  font-size: 11.5px;
+  color: var(--ink-4);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bloom {
+    animation: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+    max-width: 480px;
+  }
+}
+
+@media (max-width: 640px) {
+  .login {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .stage {
+    align-items: start;
+    padding-top: 8vh;
+    gap: 28px;
+  }
+
+  h1 {
+    font-size: clamp(56px, 16vw, 72px);
+  }
+
+  .lede {
+    font-size: 15.5px;
+  }
+
+  .form {
+    padding: 20px;
+  }
 }
 </style>
