@@ -218,7 +218,7 @@ function timeLabel(iso: string): string {
 
     <section aria-label="Modules">
       <NxSkeletonFields v-if="modules.loading.value" :spans="[5, 4, 3, 2, 3, 2, 3, 3, 3, 3]" />
-      <NxBento v-else>
+      <NxBento v-else layout="masonry">
         <NxField
           v-for="field in modules.fields.value"
           :key="field.key"
@@ -233,6 +233,8 @@ function timeLabel(iso: string): string {
           :span="field.span"
           :rows="field.rows ?? 1"
           :to="field.to"
+          :image-url="field.imageUrl"
+          :content-key="field.slideId"
         />
       </NxBento>
     </section>
