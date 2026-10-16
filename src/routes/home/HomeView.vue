@@ -28,19 +28,26 @@ const { progressMs, durationMs } = useSpotifyProgress()
 const modules = useHomeModules()
 
 const NOW_POLL_MS = 30_000
-const ACTIVITY_POLL_MS = 120_000
+const ACTIVITY_POLL_MS = 30_000
 let nowTimer: ReturnType<typeof setInterval> | undefined
 let activityTimer: ReturnType<typeof setInterval> | undefined
 
-function onVisibility(): void {
-  if (document.visibilityState === 'visible') void hub.loadNow()
-}
-
-onMounted(() => {
+function refreshHomeSurfaces(): void {
   void hub.loadNow()
   void hub.loadActivity(20)
   void modules.load()
-  nowTimer = setInterval(() => document.visibilityState === 'visible' && void hub.loadNow(), NOW_POLL_MS)
+}
+
+function onVisibility(): void {
+  if (document.visibilityState === 'visible') refreshHomeSurfaces()
+}
+
+onMounted(() => {
+  refreshHomeSurfaces()
+  nowTimer = setInterval(
+    () => document.visibilityState === 'visible' && refreshHomeSurfaces(),
+    NOW_POLL_MS,
+  )
   activityTimer = setInterval(
     () => document.visibilityState === 'visible' && void hub.loadActivity(20),
     ACTIVITY_POLL_MS,
