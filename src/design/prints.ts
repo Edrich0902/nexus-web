@@ -9,8 +9,9 @@ import type { ProfileAxis } from './profile'
  * - `cutout`: transparent PNG standing on the panel.
  * - `cover`: a book cover, floated with a shadow.
  * - `photo`: full-bleed photograph (meals).
+ * - `label`: full-bleed bottle photo filling the art strip (drinks).
  */
-export type PrintArtMode = 'multiply' | 'cutout' | 'cover' | 'photo'
+export type PrintArtMode = 'multiply' | 'cutout' | 'cover' | 'photo' | 'label'
 
 /** Everything a fingerprint card shows, mapped from a collection item. */
 export interface PrintModel {

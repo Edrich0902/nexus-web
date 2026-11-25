@@ -50,7 +50,7 @@ const scales = computed(() => props.print.profile?.slice(0, 4) ?? [])
         :src="print.art.src"
         variant="hero"
         size="fill"
-        :fit="print.art.mode === 'photo' ? 'cover' : 'contain'"
+        :fit="print.art.mode === 'photo' || print.art.mode === 'label' ? 'cover' : 'contain'"
       />
       <NxIcon v-else :name="print.art.icon" :size="34" class="fallback" />
       <span v-if="print.favourite" class="fav" aria-label="Favourite">
@@ -178,6 +178,8 @@ const scales = computed(() => props.print.profile?.slice(0, 4) ?? [])
 .art {
   position: relative;
   overflow: hidden;
+  /* Isolate so mix-blend multiply cannot composite past this column into .body. */
+  isolation: isolate;
   background: var(--bg);
   transition: background 0.6s var(--ease);
 }
@@ -219,12 +221,31 @@ const scales = computed(() => props.print.profile?.slice(0, 4) ?? [])
   box-shadow: 0 18px 30px -12px rgb(0 0 0 / 0.55);
 }
 
+/* Full-bleed photo in the art strip — original image, cover the panel. */
+.m-label :deep(.nexus-image),
+.m-photo :deep(.nexus-image) {
+  inset: 0;
+}
+
+.m-label :deep(img),
+.m-photo :deep(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
 .nx-print:hover .art :deep(img) {
   transform: scale(1.04);
 }
 
 .nx-print:hover .m-cover :deep(img) {
   transform: translateY(-4px) rotate(-1deg);
+}
+
+.nx-print:hover .m-label :deep(img),
+.nx-print:hover .m-photo :deep(img) {
+  transform: scale(1.03);
 }
 
 .fallback {
@@ -256,11 +277,15 @@ const scales = computed(() => props.print.profile?.slice(0, 4) ?? [])
 /* ── Body ──────────────────────────────────────────────── */
 
 .body {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 16px 18px;
   min-width: 0;
+  /* Opaque so the art panel / multiply blend never reads as the whole card. */
+  background: var(--surface);
 }
 
 .head {
