@@ -22,6 +22,8 @@ import type {
   SpotifyQueueResponse,
   SpotifyRecentlyPlayedItem,
   SpotifySearchResponse,
+  SpotifyStatsRange,
+  SpotifyStatsResponse,
   SpotifySuggestionItem,
   SpotifySuggestionsResponse,
   SpotifySyncResponse,
@@ -342,6 +344,15 @@ export async function listTop(
 
 export async function getTaste(): Promise<SpotifyTasteSnapshot> {
   const { data } = await http.get<SpotifyTasteSnapshot>(`${BASE}/taste`)
+  return data
+}
+
+export async function getStats(
+  range: SpotifyStatsRange = '30d',
+): Promise<SpotifyStatsResponse> {
+  const { data } = await http.get<SpotifyStatsResponse>(`${BASE}/stats`, {
+    params: { range },
+  })
   return data
 }
 

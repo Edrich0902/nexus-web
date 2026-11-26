@@ -8,48 +8,56 @@ import NxPillGroup from '@design/components/NxPillGroup.vue'
 import NxRankList, { type RankItem } from '@design/components/NxRankList.vue'
 import NxHourBars from '@design/components/NxHourBars.vue'
 import NxMeters, { type MeterItem } from '@design/components/NxMeters.vue'
+import NxFacts from '@design/components/NxFacts.vue'
 import NxSerifSummary from '@design/components/NxSerifSummary.vue'
 import NxEmptyState from '@design/components/NxEmptyState.vue'
 import NexusSpotifyTrackRow from '@components/nexus-spotify-track-row/NexusSpotifyTrackRow.vue'
 import CollectionFields from '@routes/collections/CollectionFields.vue'
 import { plural, type CollectionField } from '@routes/collections/collectionFields'
 import { useSpotifyStore } from '@stores/spotify/spotify.store'
-import type { SpotifyTimeRange } from '@/types/spotify/spotify'
+import type { SpotifyStatsRange } from '@/types/spotify/spotify'
 import ListeningNav from './ListeningNav.vue'
 import { artistNames, audioMeters, capitalise } from './listening'
 
 const spotify = useSpotifyStore()
 
-const range = ref<SpotifyTimeRange>('short_term')
-const rangeOptions = [
-  { value: 'short_term' as const, label: '4 weeks' },
-  { value: 'medium_term' as const, label: '6 months' },
-  { value: 'long_term' as const, label: 'All time' },
+const range = ref<SpotifyStatsRange>('30d')
+const rangeOptions: Array<{ value: SpotifyStatsRange; label: string }> = [
+  { value: '7d', label: '7 days' },
+  { value: '30d', label: '30 days' },
+  { value: '6m', label: '6 months' },
+  { value: 'year', label: 'This year' },
+  { value: 'all', label: 'All time' },
 ]
 
-const DAYPARTS = ['morning', 'afternoon', 'evening', 'night'] as const
-const DAYPART_HOURS: Record<(typeof DAYPARTS)[number], string> = {
-  morning: '05:00 to 12:00',
-  afternoon: '12:00 to 17:00',
-  evening: '17:00 to 22:00',
-  night: '22:00 to 05:00',
-}
+onMounted(async () => {
+  await spotify.loadHub()
+  if (spotify.connected) {
+    await spotify.loadStats(range.value)
+  }
+})
 
-onMounted(() => void spotify.loadHub())
+watch(range, (next) => {
+  if (spotify.connected) {
+    void spotify.loadStats(next)
+  }
+})
 
-const taste = computed(() => spotify.taste)
-const summary = computed(() => taste.value?.summary ?? null)
+const stats = computed(() => spotify.stats)
+const summary = computed(() => stats.value?.summary ?? null)
 
 const state = computed<ViewState>(() => {
-  if (spotify.statusLoading || (spotify.connected && spotify.tasteLoading && !taste.value)) return 'loading'
-  if (!spotify.connected || !taste.value) return 'empty'
+  if (spotify.statusLoading || (spotify.connected && spotify.statsLoading && !stats.value)) return 'loading'
+  if (!spotify.connected || !stats.value) return 'empty'
   return 'ready'
 })
 
 const lede = computed(() => {
   const s = summary.value
   if (!s) return 'What you play, when you play it and what keeps coming back.'
-  const parts = [`${plural(s.plays_last_7d, 'play')} this week across ${plural(s.unique_tracks_last_7d, 'track')}.`]
+  const parts = [
+    `${s.minutes_played.toLocaleString()} min across ${plural(s.plays, 'play')} (${plural(s.unique_tracks, 'track')}).`,
+  ]
   if (s.top_genre) parts.push(`Mostly ${s.top_genre}${s.peak_bucket ? `, mostly in the ${s.peak_bucket}` : ''}.`)
   return parts.join(' ')
 })
@@ -57,61 +65,124 @@ const lede = computed(() => {
 const fields = computed<CollectionField[]>(() => {
   const s = summary.value
   return [
-    { key: 'plays', label: 'Plays · 7 days', value: s ? s.plays_last_7d.toLocaleString() : '—', variant: 'solid', span: 4 },
-    { key: 'unique', label: 'Different tracks', value: s ? s.unique_tracks_last_7d.toLocaleString() : '—', variant: 'tint', span: 3 },
+    {
+      key: 'minutes',
+      label: 'Minutes played',
+      value: s ? s.minutes_played.toLocaleString() : '—',
+      sub: s ? `${s.hours_played} hr · ${s.daily_avg_minutes} min/day` : undefined,
+      variant: 'solid',
+      span: 4,
+    },
+    {
+      key: 'plays',
+      label: 'Plays',
+      value: s ? s.plays.toLocaleString() : '—',
+      sub: s ? `${s.unique_tracks.toLocaleString()} tracks · ${s.unique_artists.toLocaleString()} artists` : undefined,
+      variant: 'tint',
+      span: 3,
+    },
+    {
+      key: 'streak',
+      label: 'Active days',
+      value: s ? s.active_days.toLocaleString() : '—',
+      sub: s ? `${s.current_streak_days}d streak · ${s.longest_streak_days}d best` : undefined,
+      variant: 'tint',
+      span: 3,
+    },
     s?.top_genre
-      ? { key: 'genre', label: 'Top genre', title: capitalise(s.top_genre), variant: 'tint', span: 3 }
-      : { key: 'genre', label: 'Top genre', title: '—', variant: 'outline', span: 3 },
-    s?.peak_bucket
-      ? { key: 'peak', label: 'Peak', title: capitalise(s.peak_bucket), variant: 'outline', span: 2 }
-      : { key: 'peak', label: 'Peak', title: '—', variant: 'outline', span: 2 },
+      ? { key: 'genre', label: 'Top genre', title: capitalise(s.top_genre), variant: 'outline', span: 2 }
+      : { key: 'genre', label: 'Top genre', title: '—', variant: 'outline', span: 2 },
   ]
 })
 
 const topArtists = computed<RankItem[]>(() =>
-  (taste.value?.top_artists?.[range.value] ?? []).slice(0, 10).map((row) => ({
+  (stats.value?.top_artists ?? []).slice(0, 10).map((row) => ({
     id: row.artist.id,
     title: row.artist.name,
-    sub: row.artist.genres?.[0] ? capitalise(row.artist.genres[0]) : undefined,
+    sub: [
+      row.artist.genres?.[0] ? capitalise(row.artist.genres[0]) : null,
+      row.plays != null ? `${row.plays}× · ${row.minutes ?? 0} min` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ') || undefined,
     image: row.artist.images?.[0]?.url ?? null,
     to: { name: 'spotify-artist', params: { artistId: row.artist.id } },
   })),
 )
 
 const topTracks = computed<RankItem[]>(() =>
-  (taste.value?.top_tracks?.[range.value] ?? []).slice(0, 10).map((row) => ({
+  (stats.value?.top_tracks ?? []).slice(0, 10).map((row) => ({
     id: row.track.id,
     title: row.track.name,
-    sub: artistNames(row.track.artists),
+    sub: [
+      artistNames(row.track.artists),
+      row.plays != null ? `${row.plays}× · ${row.minutes ?? 0} min` : null,
+    ]
+      .filter(Boolean)
+      .join(' · '),
     image: row.track.album_image_url ?? null,
     to: row.track.album_id ? { name: 'spotify-album', params: { albumId: row.track.album_id } } : undefined,
   })),
 )
 
-const onRepeat = computed(() => taste.value?.on_repeat?.slice(0, 8) ?? [])
+const onRepeat = computed(() => stats.value?.on_repeat?.slice(0, 8) ?? [])
 
 watch(
   () => onRepeat.value.map((r) => r.track.uri),
   (uris) => void spotify.refreshLikedUris(uris),
 )
 
-const dayparts = computed(() => {
-  const buckets = taste.value?.time_of_day?.buckets ?? []
-  const counts = DAYPARTS.map((d) => buckets.find((b) => b.bucket === d)?.count ?? 0)
-  const total = counts.reduce((a, b) => a + b, 0)
-  const peakIndex = counts.indexOf(Math.max(...counts))
-  return { counts, total, peak: total ? DAYPARTS[peakIndex]! : null, share: total ? counts[peakIndex]! / total : 0 }
+const hours = computed(() => stats.value?.clock?.hours ?? [])
+const peakHour = computed(() => stats.value?.clock?.peak_hour ?? null)
+const hasHours = computed(() => hours.value.some((h) => h.plays > 0))
+const hourTicks = computed(() =>
+  hours.value.map((h) => (h.hour % 6 === 0 ? `${String(h.hour).padStart(2, '0')}` : '')),
+)
+
+const weekdays = computed(() => stats.value?.clock?.weekdays ?? [])
+
+const decades = computed<MeterItem[]>(() => {
+  const list = stats.value?.decades ?? []
+  const max = Math.max(1, ...list.map((d) => d.plays))
+  return list.map((d) => ({
+    key: String(d.decade),
+    label: d.label,
+    value: d.plays / max,
+    display: `${d.plays}× · ${d.minutes}m`,
+  }))
 })
 
-const weekdays = computed(() => taste.value?.time_of_day?.weekday ?? [])
+const contexts = computed<MeterItem[]>(() => {
+  const list = stats.value?.contexts ?? []
+  const max = Math.max(1, ...list.map((c) => c.plays))
+  return list.map((c) => ({
+    key: c.type,
+    label: c.label,
+    value: c.plays / max,
+    display: `${Math.round(c.share * 100)}%`,
+  }))
+})
 
 const genres = computed<MeterItem[]>(() => {
-  const list = (taste.value?.genres ?? []).slice(0, 8)
+  const list = (stats.value?.genres ?? []).slice(0, 8)
   const max = Math.max(1, ...list.map((g) => g.count))
   return list.map((g) => ({ key: g.genre, label: capitalise(g.genre), value: g.count / max, display: String(g.count) }))
 })
 
-const dna = computed(() => audioMeters(taste.value?.audio_metrics?.['7d']?.averages))
+const dna = computed(() => audioMeters(stats.value?.audio?.averages))
+
+const habitFacts = computed(() => {
+  const s = summary.value
+  const tempo = stats.value?.audio?.averages?.tempo
+  if (!s) return []
+  return [
+    ...(typeof tempo === 'number' ? [{ label: 'Avg tempo', value: `${Math.round(tempo)} BPM` }] : []),
+    ...(s.discovery_rate != null ? [{ label: 'Discovery', value: `${Math.round(s.discovery_rate * 100)}% new` }] : []),
+    { label: 'Explicit', value: `${Math.round(s.explicit_pct * 100)}%` },
+    ...(s.completion_rate != null ? [{ label: 'Full listens', value: `${Math.round(s.completion_rate * 100)}%` }] : []),
+    ...(s.avg_release_year ? [{ label: 'Avg release year', value: String(s.avg_release_year) }] : []),
+  ]
+})
 </script>
 
 <template>
@@ -151,33 +222,47 @@ const dna = computed(() => audioMeters(taste.value?.audio_metrics?.['7d']?.avera
       <p v-else class="empty">No top artists for this range yet.</p>
     </NxPanel>
 
-    <NxPanel title="When you listen">
-      <template v-if="dayparts.total">
+    <NxPanel title="Listening clock">
+      <template v-if="hasHours">
         <NxHourBars
-          :values="dayparts.counts"
-          :ticks="DAYPARTS.map(capitalise)"
+          :values="hours.map((h) => h.plays)"
+          :ticks="hourTicks"
           :height="140"
-          label="Plays by time of day"
+          label="Plays by hour of day"
         />
-        <NxSerifSummary v-if="dayparts.peak" size="md" class="say">
-          Your <b>{{ dayparts.peak }}s</b> are the loudest:
-          <em>{{ Math.round(dayparts.share * 100) }}%</em> of everything you play lands between
-          {{ DAYPART_HOURS[dayparts.peak] }}.
+        <NxSerifSummary v-if="peakHour !== null" size="md" class="say">
+          Peak listening hour: <em>{{ String(peakHour).padStart(2, '0') }}:00</em>.
         </NxSerifSummary>
       </template>
-      <p v-else class="empty">Not enough plays to see a pattern yet.</p>
+      <p v-else class="empty">Not enough plays to see an hourly pattern yet.</p>
     </NxPanel>
 
     <NxPanel title="By weekday">
-      <template v-if="weekdays.some((d) => d.count > 0)">
+      <template v-if="weekdays.some((d) => d.plays > 0)">
         <NxHourBars
-          :values="weekdays.map((d) => d.count)"
+          :values="weekdays.map((d) => d.plays)"
           :ticks="weekdays.map((d) => d.day.slice(0, 3))"
           :height="140"
           label="Plays by weekday"
         />
       </template>
       <p v-else class="empty">Not enough plays to see a pattern yet.</p>
+    </NxPanel>
+
+    <NxPanel title="Decades">
+      <template v-if="decades.length">
+        <NxMeters :items="decades" :cols="1" />
+        <NxSerifSummary v-if="summary?.oldest_track" size="md" class="say">
+          Oldest track: <b>{{ summary.oldest_track.name }}</b> ({{ summary.oldest_track.release_year }}).
+        </NxSerifSummary>
+      </template>
+      <p v-else class="empty">Run a sync or backfill to populate album release years.</p>
+    </NxPanel>
+
+    <NxPanel title="How you listen">
+      <NxMeters v-if="contexts.length" :items="contexts" :cols="1" />
+      <p v-else class="empty">Context breakdown appears as plays sync.</p>
+      <NxFacts v-if="habitFacts.length" :items="habitFacts" class="say" />
     </NxPanel>
 
     <NxPanel title="Top tracks">
@@ -191,11 +276,11 @@ const dna = computed(() => audioMeters(taste.value?.audio_metrics?.['7d']?.avera
           v-for="item in onRepeat"
           :key="item.track.id"
           :track="item.track"
-          :meta="`${item.play_count}×`"
+          :meta="`${item.play_count}× · ${item.minutes}m`"
           @play="spotify.playTrackUri(item.track.uri)"
         />
       </div>
-      <p v-else class="empty">Play the same track twice in a week to see it here.</p>
+      <p v-else class="empty">Play the same track twice in this period to see it here.</p>
     </NxPanel>
 
     <NxPanel title="Genres">
@@ -203,7 +288,7 @@ const dna = computed(() => audioMeters(taste.value?.audio_metrics?.['7d']?.avera
       <p v-else class="empty">Genres appear once your top artists sync.</p>
     </NxPanel>
 
-    <NxPanel title="Sound of your week">
+    <NxPanel title="Sound profile">
       <NxMeters v-if="dna.length" :items="dna" />
       <p v-else class="empty">An acoustic profile builds as you listen to full tracks.</p>
     </NxPanel>

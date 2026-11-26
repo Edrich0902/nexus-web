@@ -385,3 +385,87 @@ export interface SpotifyUpdatePlaylistPayload {
 
 export type SpotifyTimeRange = 'short_term' | 'medium_term' | 'long_term'
 export type SpotifyTopType = 'artists' | 'tracks' | 'artist' | 'track'
+export type SpotifyStatsRange = '7d' | '30d' | '6m' | 'year' | 'all'
+
+export interface SpotifyStatsDecade {
+  decade: number
+  label: string
+  plays: number
+  minutes: number
+  share: number
+}
+
+export interface SpotifyStatsHour {
+  hour: number
+  plays: number
+  minutes: number
+}
+
+export interface SpotifyStatsWeekday {
+  day: string
+  plays: number
+  minutes: number
+}
+
+export interface SpotifyStatsContext {
+  type: string
+  label: string
+  plays: number
+  share: number
+}
+
+export interface SpotifyStatsResponse {
+  range: SpotifyStatsRange
+  spotify_range: SpotifyTimeRange
+  since: string | null
+  summary: {
+    plays: number
+    minutes_played: number
+    hours_played: number
+    daily_avg_minutes: number
+    unique_tracks: number
+    unique_artists: number
+    active_days: number
+    current_streak_days: number
+    longest_streak_days: number
+    discovery_rate: number | null
+    explicit_pct: number
+    avg_release_year: number | null
+    oldest_track: { name: string; artist: string; release_year: number } | null
+    tracked_listen_minutes: number
+    completion_rate: number | null
+    top_genre: string | null
+    peak_bucket: string | null
+    peak_hour: number | null
+  }
+  decades: SpotifyStatsDecade[]
+  clock: {
+    hours: SpotifyStatsHour[]
+    peak_hour: number | null
+    weekdays: SpotifyStatsWeekday[]
+    dayparts: Array<{ bucket: string; count: number; share: number }>
+    peak_bucket: string | null
+    peak_bucket_share: number
+  }
+  contexts: SpotifyStatsContext[]
+  top_artists: Array<{
+    rank: number
+    plays: number | null
+    minutes: number | null
+    artist: SpotifyArtist
+  }>
+  top_tracks: Array<{
+    rank: number
+    plays: number | null
+    minutes: number | null
+    track: SpotifyTrack & { release_year?: number | null }
+  }>
+  on_repeat: Array<{
+    play_count: number
+    minutes: number
+    track: SpotifyTrack & { release_year?: number | null }
+  }>
+  genres: Array<{ genre: string; count: number }>
+  audio: SpotifyListeningWindow
+  computed_at: string
+}

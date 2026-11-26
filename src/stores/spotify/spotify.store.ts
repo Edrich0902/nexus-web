@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
+import type { SpotifyStatsRange, SpotifyStatsResponse } from '@/types/spotify/spotify'
 import { useQueryCache } from '@pinia/colada'
 import { useToast } from 'primevue/usetoast'
 import * as spotifyService from '@services/spotify.service'
@@ -77,6 +78,9 @@ export const useSpotifyStore = defineStore('spotify', () => {
   const playlistsQuery = useSpotifyPlaylistsQuery()
   const tasteQuery = useSpotifyTasteQuery()
   const suggestionsQuery = useSpotifySuggestionsQuery()
+  const statsByRange = ref<Partial<Record<SpotifyStatsRange, SpotifyStatsResponse>>>({})
+  const statsRange = ref<SpotifyStatsRange>('30d')
+  const statsLoading = ref(false)
 
   const disconnectMutation = useSpotifyDisconnectMutation()
   const syncMutation = useSpotifySyncMutation()
@@ -134,6 +138,7 @@ export const useSpotifyStore = defineStore('spotify', () => {
   )
   const playlists = computed(() => playlistsQuery.data.value?.data ?? [])
   const taste = computed(() => tasteQuery.data.value ?? null)
+  const stats = computed(() => statsByRange.value[statsRange.value] ?? null)
   const suggestions = computed(() => suggestionsQuery.data.value?.items ?? [])
 
   const statusLoading = computed(
@@ -221,7 +226,23 @@ export const useSpotifyStore = defineStore('spotify', () => {
     })
   }
 
+  async function loadStats(
+    range: SpotifyStatsRange = statsRange.value,
+    force = false,
+  ): Promise<void> {
+    statsRange.value = range
+    if (!force && statsByRange.value[range]) return
+    statsLoading.value = true
+    try {
+      const data = await spotifyService.getStats(range)
+      statsByRange.value = { ...statsByRange.value, [range]: data }
+    } finally {
+      statsLoading.value = false
+    }
+  }
+
   async function invalidateListening(): Promise<void> {
+    statsByRange.value = {}
     await Promise.all([
       queryCache.invalidateQueries({ key: spotifyKeys.status }),
       queryCache.invalidateQueries({ key: spotifyKeys.recentlyPlayed }),
@@ -883,6 +904,9 @@ export const useSpotifyStore = defineStore('spotify', () => {
     recentlyPlayed,
     playlists,
     taste,
+    stats,
+    statsRange,
+    statsLoading,
     suggestions,
     trackFeaturesStatus,
     trackFeatures,
@@ -903,6 +927,7 @@ export const useSpotifyStore = defineStore('spotify', () => {
     addToPlaylistUri,
     syncPending: computed(() => syncMutation.asyncStatus.value === 'loading'),
     loadHub,
+    loadStats,
     connect,
     disconnect,
     syncNow,
