@@ -460,12 +460,44 @@ export interface SpotifyStatsResponse {
     minutes: number | null
     track: SpotifyTrack & { release_year?: number | null }
   }>
+  top_albums: Array<{
+    rank: number
+    name: string
+    artist: string
+    image_url: string | null
+    plays: number
+    minutes: number
+  }>
   on_repeat: Array<{
     play_count: number
     minutes: number
     track: SpotifyTrack & { release_year?: number | null }
   }>
   genres: Array<{ genre: string; count: number }>
+  heatmap: Array<{ date: string; plays: number; minutes: number }>
+  timeline: Array<{
+    period: string
+    label: string
+    top_artist: string
+    top_artist_id: string
+    top_artist_image: string | null
+    artist_plays: number
+    total_plays: number
+    minutes: number
+    share: number
+  }>
+  loyalty: {
+    top5_share: number | null
+    top1_artist: string | null
+    top1_share: number | null
+    total_artists: number
+  }
+  milestones: {
+    all_time_plays: number
+    peak_day: { date: string; plays: number; minutes: number } | null
+    obsessed_day: { date: string; track_name: string; artist: string; plays: number } | null
+    first_play: { date: string; track_name: string; artist: string } | null
+  }
   audio: SpotifyListeningWindow
   computed_at: string
 }
