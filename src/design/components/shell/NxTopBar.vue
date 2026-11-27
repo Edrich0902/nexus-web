@@ -1,19 +1,38 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import NexusAvatar from '@components/nexus-avatar/NexusAvatar.vue'
 import { useAuthStore } from '@stores/auth/auth.store'
 import NxIcon from '../NxIcon.vue'
 import NxIconButton from '../NxIconButton.vue'
 import { useCommandStore } from '../../command/command.store'
 
+const route = useRoute()
 const auth = useAuthStore()
 const command = useCommandStore()
+
+const scrolled = ref(false)
+const transparent = computed(() => route.name === 'spotify' && !scrolled.value)
+
+function onScroll(): void {
+  scrolled.value = (window.scrollY || document.documentElement.scrollTop || 0) > 12
+}
+
+onMounted(() => {
+  onScroll()
+  window.addEventListener('scroll', onScroll, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onScroll)
+})
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
 const shortcut = isMac ? '⌘K' : 'Ctrl K'
 </script>
 
 <template>
-  <header class="nx-top">
+  <header class="nx-top" :class="{ 'is-transparent': transparent }">
     <RouterLink to="/home" class="nx-logo" aria-label="Nexus home">
       <i aria-hidden="true" />
       <span>Nexus</span>
@@ -53,6 +72,15 @@ const shortcut = isMac ? '⌘K' : 'Ctrl K'
   background: color-mix(in srgb, var(--amb) 82%, transparent);
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  transition:
+    background 0.28s ease,
+    backdrop-filter 0.28s ease;
+}
+
+.nx-top.is-transparent {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .nx-logo {

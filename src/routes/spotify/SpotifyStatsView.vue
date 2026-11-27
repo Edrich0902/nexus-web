@@ -19,6 +19,29 @@ import { artistNames, audioMeters, capitalise } from './listening'
 
 const spotify = useSpotifyStore()
 
+const vReveal = {
+  mounted(el: HTMLElement) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    el.classList.add('reveal-init')
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            el.classList.add('reveal-in')
+            observer.unobserve(el)
+          }
+        }
+      },
+      { threshold: 0.08, rootMargin: '0px 0px -30px 0px' },
+    )
+    observer.observe(el)
+    ;(el as HTMLElement & { __revealObs?: IntersectionObserver }).__revealObs = observer
+  },
+  unmounted(el: HTMLElement) {
+    ;(el as HTMLElement & { __revealObs?: IntersectionObserver }).__revealObs?.disconnect()
+  },
+}
+
 const range = ref<SpotifyStatsRange>('30d')
 const rangeOptions: Array<{ value: SpotifyStatsRange; label: string }> = [
   { value: '7d', label: '7 days' },
@@ -380,15 +403,17 @@ const habitFacts = computed(() => {
     </template>
 
     <template #fields>
-      <CollectionFields section="listening" :fields="fields" />
+      <div v-reveal class="fields-reveal">
+        <CollectionFields section="listening" :fields="fields" />
+      </div>
     </template>
 
-    <NxPanel title="Top artists" variant="flush" class="wide">
+    <NxPanel v-reveal title="Top artists" variant="flush" class="wide">
       <NxRankList v-if="topArtists.length" :items="topArtists" variant="circles" />
       <p v-else class="empty">No top artists for this range yet.</p>
     </NxPanel>
 
-    <NxPanel title="Listening clock">
+    <NxPanel v-reveal title="Listening clock" style="--pd: 0ms">
       <template v-if="hasHours">
         <NxHourBars
           :values="hourValues"
@@ -404,7 +429,7 @@ const habitFacts = computed(() => {
       <p v-else class="empty">Not enough plays to see an hourly pattern yet.</p>
     </NxPanel>
 
-    <NxPanel title="By weekday">
+    <NxPanel v-reveal title="By weekday" style="--pd: 80ms">
       <template v-if="weekdays.some((d) => d.plays > 0)">
         <NxHourBars
           :values="weekdayValues"
@@ -422,7 +447,7 @@ const habitFacts = computed(() => {
       <p v-else class="empty">Not enough plays to see a pattern yet.</p>
     </NxPanel>
 
-    <NxPanel title="Decades">
+    <NxPanel v-reveal title="Decades" style="--pd: 0ms">
       <template #action>
         <span v-if="summary?.avg_release_year" class="pill-note">
           Avg year <b>{{ summary.avg_release_year }}</b>
@@ -431,15 +456,15 @@ const habitFacts = computed(() => {
       <template v-if="decadesList.length">
         <div class="seg-bar" aria-label="Listening by decade">
           <div
-            v-for="d in decadesList"
+            v-for="(d, i) in decadesList"
             :key="d.decade"
             class="seg"
-            :style="{ width: `${Math.max(2, d.pct)}%`, background: d.color }"
+            :style="{ width: `${Math.max(2, d.pct)}%`, background: d.color, '--i': i }"
             :title="`${d.label}: ${d.pct}%`"
           />
         </div>
         <div class="seg-rows">
-          <div v-for="d in decadesList" :key="d.decade" class="seg-row">
+          <div v-for="(d, i) in decadesList" :key="d.decade" class="seg-row" :style="{ '--i': i }">
             <span class="seg-left"><i class="seg-dot" :style="{ background: d.color }" />{{ d.label }}</span>
             <span class="seg-right">
               <span>{{ d.plays }}× · {{ d.minutes }}m</span>
@@ -454,17 +479,17 @@ const habitFacts = computed(() => {
       <p v-else class="empty">Run a sync or backfill to populate album release years.</p>
     </NxPanel>
 
-    <NxPanel title="How you listen">
+    <NxPanel v-reveal title="How you listen" style="--pd: 80ms">
       <template #action>
         <span v-if="contextsList.length" class="pill-note">By source</span>
       </template>
       <template v-if="contextsList.length">
         <div class="seg-bar" aria-label="Listening context">
           <div
-            v-for="c in contextsList"
+            v-for="(c, i) in contextsList"
             :key="c.type"
             class="seg"
-            :style="{ width: `${Math.max(2, c.pct)}%`, background: c.color }"
+            :style="{ width: `${Math.max(2, c.pct)}%`, background: c.color, '--i': i }"
             :title="`${c.label}: ${c.pct}%`"
           />
         </div>
@@ -478,24 +503,24 @@ const habitFacts = computed(() => {
       </template>
       <p v-else class="empty">Context breakdown appears as plays sync.</p>
       <div v-if="habitFacts.length" class="habit-grid">
-        <div v-for="f in habitFacts" :key="f.label" class="habit-cell">
+        <div v-for="(f, i) in habitFacts" :key="f.label" class="habit-cell" :style="{ '--i': i }">
           <span class="habit-label">{{ f.label }}</span>
           <span class="habit-val">{{ f.value }}</span>
         </div>
       </div>
     </NxPanel>
 
-    <NxPanel title="Top tracks">
+    <NxPanel v-reveal title="Top tracks" style="--pd: 0ms">
       <NxRankList v-if="topTracks.length" :items="topTracks" shape="square" />
       <p v-else class="empty">No top tracks for this range yet.</p>
     </NxPanel>
 
-    <NxPanel title="Top albums">
+    <NxPanel v-reveal title="Top albums" style="--pd: 80ms">
       <NxRankList v-if="topAlbums.length" :items="topAlbums" shape="square" />
       <p v-else class="empty">No top albums for this range yet.</p>
     </NxPanel>
 
-    <NxPanel title="Year in listening" class="wide">
+    <NxPanel v-reveal title="Year in listening" class="wide">
       <template #action>
         <span class="pill-note">
           {{
@@ -506,7 +531,7 @@ const habitFacts = computed(() => {
         </span>
       </template>
       <div class="heatmap" role="grid" aria-label="Listening activity over the last year">
-        <div v-for="(week, wi) in heatmapWeeks" :key="wi" class="hm-col">
+        <div v-for="(week, wi) in heatmapWeeks" :key="wi" class="hm-col" :style="{ '--wi': wi }">
           <button
             v-for="cell in week"
             :key="cell.date"
@@ -537,7 +562,7 @@ const habitFacts = computed(() => {
       </div>
     </NxPanel>
 
-    <NxPanel title="Obsessions">
+    <NxPanel v-reveal title="Obsessions" style="--pd: 0ms">
       <template #action>
         <span v-if="timeline.length" class="pill-note">#1 artist per period</span>
       </template>
@@ -562,7 +587,7 @@ const habitFacts = computed(() => {
           </div>
         </div>
         <div v-if="earlierObsessions.length" class="seg-rows">
-          <div v-for="t in earlierObsessions" :key="t.period" class="seg-row">
+          <div v-for="(t, i) in earlierObsessions" :key="t.period" class="seg-row" :style="{ '--i': i }">
             <span class="seg-left">
               <img v-if="t.top_artist_image" :src="t.top_artist_image" alt="" class="obs-avatar" />
               <i v-else class="seg-dot" style="background: var(--acc)" />
@@ -580,7 +605,7 @@ const habitFacts = computed(() => {
       <p v-else class="empty">Not enough history for an obsession timeline yet.</p>
     </NxPanel>
 
-    <NxPanel title="Loyalty &amp; milestones">
+    <NxPanel v-reveal title="Loyalty &amp; milestones" style="--pd: 80ms">
       <template #action>
         <span v-if="loyalty?.top5_share != null" class="pill-note">
           Top 5 = <b>{{ Math.round(loyalty.top5_share * 100) }}%</b>
@@ -601,7 +626,7 @@ const habitFacts = computed(() => {
         </NxSerifSummary>
       </template>
       <div v-if="milestoneRows.length" class="seg-rows">
-        <div v-for="m in milestoneRows" :key="m.key" class="seg-row">
+        <div v-for="(m, i) in milestoneRows" :key="m.key" class="seg-row" :style="{ '--i': i }">
           <span class="seg-left">
             <span class="ms-icon">{{ m.icon }}</span>
             <span>{{ m.label }}</span>
@@ -612,11 +637,14 @@ const habitFacts = computed(() => {
       </div>
     </NxPanel>
 
-    <NxPanel title="On repeat">
+    <NxPanel v-reveal title="On repeat" style="--pd: 0ms">
       <div v-if="onRepeat.length">
         <NexusSpotifyTrackRow
-          v-for="item in onRepeat"
+          v-for="(item, i) in onRepeat"
           :key="item.track.id"
+          class="track-row"
+          :class="{ 'is-active': spotify.player?.is_playing && spotify.player?.item?.uri === item.track.uri }"
+          :style="{ '--i': i }"
           :track="item.track"
           :meta="`${item.play_count}× · ${item.minutes}m`"
           @play="spotify.playTrackUri(item.track.uri)"
@@ -625,7 +653,7 @@ const habitFacts = computed(() => {
       <p v-else class="empty">Play the same track twice in this period to see it here.</p>
     </NxPanel>
 
-    <NxPanel title="Genres">
+    <NxPanel v-reveal title="Genres" style="--pd: 80ms">
       <template #action>
         <span v-if="genresList.length" class="pill-note">
           Top <b>{{ genresList[0]!.label }}</b>
@@ -634,15 +662,15 @@ const habitFacts = computed(() => {
       <template v-if="genresList.length">
         <div class="seg-bar" aria-label="Listening by genre">
           <div
-            v-for="g in genresList"
+            v-for="(g, i) in genresList"
             :key="g.genre"
             class="seg"
-            :style="{ width: `${Math.max(2, g.pct)}%`, background: g.color }"
+            :style="{ width: `${Math.max(2, g.pct)}%`, background: g.color, '--i': i }"
             :title="`${g.label}: ${g.pct}%`"
           />
         </div>
         <div class="seg-rows">
-          <div v-for="g in genresList" :key="g.genre" class="seg-row">
+          <div v-for="(g, i) in genresList" :key="g.genre" class="seg-row" :style="{ '--i': i }">
             <span class="seg-left"><i class="seg-dot" :style="{ background: g.color }" />{{ g.label }}</span>
             <span class="seg-right">
               <span>{{ g.count }}×</span>
@@ -657,7 +685,7 @@ const habitFacts = computed(() => {
       <p v-else class="empty">Genres appear once your top artists sync.</p>
     </NxPanel>
 
-    <NxPanel title="Sound profile">
+    <NxPanel v-reveal title="Sound profile" style="--pd: 0ms">
       <template #action>
         <span v-if="dna.length" class="pill-note">Audio DNA</span>
       </template>
@@ -690,6 +718,7 @@ const habitFacts = computed(() => {
               stroke-opacity="0.45"
             />
             <polygon
+              class="radar-poly"
               :points="radar.polygon"
               fill="var(--acc)"
               fill-opacity="0.22"
@@ -710,7 +739,7 @@ const habitFacts = computed(() => {
             </text>
           </svg>
           <div class="trait-grid">
-            <div v-for="t in dna" :key="t.key" class="trait-cell">
+            <div v-for="(t, i) in dna" :key="t.key" class="trait-cell" :style="{ '--i': i }">
               <span class="trait-name">{{ t.label }}</span>
               <span class="trait-val">{{ Math.round(t.value * 100) }}%</span>
             </div>
@@ -1105,5 +1134,263 @@ const habitFacts = computed(() => {
 
 .ms-val {
   color: var(--ink-2);
+}
+
+/* Scroll-triggered entrance & chart motion */
+.reveal-init {
+  opacity: 0;
+  transform: translateY(22px) scale(0.985);
+  transition:
+    opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--pd, 0ms),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--pd, 0ms);
+  will-change: opacity, transform;
+}
+
+.reveal-init.reveal-in {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+/* Headline stat cards stagger */
+.fields-reveal.reveal-init :deep(.nx-field) {
+  opacity: 0;
+  transform: translateY(16px) scale(0.97);
+  transition:
+    opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fields-reveal.reveal-init.reveal-in :deep(.nx-field) {
+  opacity: 1;
+  transform: none;
+}
+
+.fields-reveal.reveal-init.reveal-in :deep(.nx-field:nth-child(2)) { transition-delay: 60ms; }
+.fields-reveal.reveal-init.reveal-in :deep(.nx-field:nth-child(3)) { transition-delay: 120ms; }
+.fields-reveal.reveal-init.reveal-in :deep(.nx-field:nth-child(4)) { transition-delay: 180ms; }
+
+/* Hour & weekday bars grow upward on reveal */
+.reveal-init:not(.reveal-in) :deep(.bar-hit i) {
+  transform: scaleY(0);
+}
+
+.reveal-init :deep(.bar-hit i) {
+  transform-origin: bottom;
+  transition:
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1) 120ms,
+    height 0.5s var(--ease),
+    opacity 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+.reveal-init.reveal-in :deep(.bar-hit i) {
+  transform: scaleY(1);
+}
+
+/* Segmented bars wipe left-to-right on reveal */
+.reveal-init:not(.reveal-in) .seg {
+  transform: scaleX(0);
+}
+
+.reveal-init .seg {
+  transform-origin: left;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) calc(140ms + var(--i, 0) * 65ms);
+}
+
+.reveal-init.reveal-in .seg {
+  transform: scaleX(1);
+}
+
+/* Segment & milestone rows cascade + hover nudge */
+.reveal-init:not(.reveal-in) .seg-row {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.seg-row {
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1) calc(100ms + var(--i, 0) * 40ms),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1) calc(100ms + var(--i, 0) * 40ms),
+    background 0.18s ease;
+}
+
+.reveal-init.reveal-in .seg-row {
+  opacity: 1;
+  transform: none;
+}
+
+.seg-row:hover {
+  transform: translateX(4px);
+}
+
+/* Habit & trait grid cells pop in + hover lift */
+.reveal-init:not(.reveal-in) .habit-cell,
+.reveal-init:not(.reveal-in) .trait-cell {
+  opacity: 0;
+  transform: translateY(10px) scale(0.96);
+}
+
+.habit-cell,
+.trait-cell {
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1) calc(120ms + var(--i, 0) * 50ms),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1) calc(120ms + var(--i, 0) * 50ms),
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.reveal-init.reveal-in .habit-cell,
+.reveal-init.reveal-in .trait-cell {
+  opacity: 1;
+  transform: none;
+}
+
+.habit-cell:hover,
+.trait-cell:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--acc) 35%, var(--line));
+}
+
+/* Rank list items stagger in */
+.reveal-init:not(.reveal-in) :deep(.nx-rank li) {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.reveal-init :deep(.nx-rank li) {
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal-init.reveal-in :deep(.nx-rank li) {
+  opacity: 1;
+  transform: none;
+}
+
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(1)) { transition-delay: 40ms; }
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(2)) { transition-delay: 80ms; }
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(3)) { transition-delay: 120ms; }
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(4)) { transition-delay: 160ms; }
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(5)) { transition-delay: 200ms; }
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(6)) { transition-delay: 240ms; }
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(7)) { transition-delay: 280ms; }
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(8)) { transition-delay: 320ms; }
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(9)) { transition-delay: 360ms; }
+.reveal-init.reveal-in :deep(.nx-rank li:nth-child(10)) { transition-delay: 400ms; }
+
+/* Heatmap wave & cell hover pop */
+.reveal-init:not(.reveal-in) .hm-col {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.reveal-init .hm-col {
+  transition:
+    opacity 0.35s ease calc(var(--wi, 0) * 8ms),
+    transform 0.35s ease calc(var(--wi, 0) * 8ms);
+}
+
+.reveal-init.reveal-in .hm-col {
+  opacity: 1;
+  transform: none;
+}
+
+.hm-cell {
+  transition: transform 0.14s ease, outline-color 0.14s ease;
+}
+
+.hm-cell:hover {
+  transform: scale(1.35);
+  position: relative;
+  z-index: 2;
+}
+
+/* Obsession hero subtle glow & avatar lift */
+.obs-hero {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--acc) 10%, var(--tint)), var(--tint));
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.obs-hero:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
+}
+
+.obs-hero-img {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.obs-hero:hover .obs-hero-img {
+  transform: scale(1.06);
+}
+
+/* Audio DNA radar expansion */
+.radar-poly {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1) 140ms,
+    opacity 0.55s ease 140ms;
+}
+
+.reveal-init:not(.reveal-in) .radar-poly {
+  transform: scale(0.25);
+  opacity: 0;
+}
+
+.reveal-init.reveal-in .radar-poly {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* On repeat track rows stagger + active highlight */
+.reveal-init:not(.reveal-in) .track-row {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.track-row {
+  border-radius: 10px;
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 45ms),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 45ms),
+    background 0.2s ease;
+}
+
+.reveal-init.reveal-in .track-row {
+  opacity: 1;
+  transform: none;
+}
+
+.track-row:hover {
+  transform: translateX(4px);
+}
+
+.track-row.is-active {
+  background: color-mix(in srgb, var(--acc) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--acc);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-init,
+  .fields-reveal.reveal-init :deep(.nx-field),
+  .reveal-init :deep(.bar-hit i),
+  .reveal-init .seg,
+  .seg-row,
+  .habit-cell,
+  .trait-cell,
+  .reveal-init :deep(.nx-rank li),
+  .reveal-init .hm-col,
+  .hm-cell,
+  .obs-hero,
+  .obs-hero-img,
+  .radar-poly,
+  .track-row {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
 }
 </style>
